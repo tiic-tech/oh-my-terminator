@@ -1,0 +1,827 @@
+# OMT 项目 Gap 分析标准设计文档
+
+## 1. 概述
+
+### 1.1 设计背景
+
+OMT (Oh-My-Terminator) 项目的验收流程遵循以下架构：
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    OMT 验收流程架构                              │
+└─────────────────────────────────────────────────────────────────┘
+
+Input Query
+   │
+   ▼
+[Orchestrator]
+   ├─ 生成顶层 TSpec (Proposal, Design, Milestones, Reviews)
+   │
+   ▼
+For each Milestone (Fin-Start):
+   ├─ pre-mspec hook: 查询模块1 (grasp_brain_index)
+   ├─ 生成 MSpec (Proposal, Design, Reviews 标准, Sprints)
+   │
+   ▼
+   For each Sprint:
+      ├─ atom_tasks DAG 执行
+      ├─ Sprint Review Gate
+      └─ 更新 MSpec Reviews
+   │
+   ▼
+   Milestone Review Gate → 记录至 MSpec Reviews
+
+All Milestones Complete
+   │
+   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Gap 分析 + 验收决策                           │
+├─────────────────────────────────────────────────────────────────┤
+│  输入: TSpec (验收标准)                                          │
+│  输入: 所有 MSpec reviews                                        │
+│  输入: .omt/brain.json (当前 repo 状态)                          │
+│  输入: grasp_brain_index (全 repo 关系模型)                      │
+│                                                                 │
+│  输出: Gap Report                                                │
+│  决策: 验收通过 / 创建新 MSpec                                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 1.2 核心数据源定义
+
+| 数据源 | 位置 | 内容 | Gap 分析用途 |
+|--------|------|------|-------------|
+| TSpec | `openspec/specs/tspec/` | 项目顶层规范：目标定义、交付物清单、关键指标 | 验收基准线 |
+| MSpec Reviews | `openspec/changes/archive/*/reviews/` | 每个 Milestone 的完成情况 | 实际完成状态 |
+| brain.json | `.omt/brain.json` | repo 当前状态：health_grade、完成模块 | 质量/健康指标 |
+| grasp_brain_index | MCP Server grasp | 全 repo 关系模型 | 功能完整性验证 |
+
+---
+
+## 2. Gap 计算公式设计
+
+### 2.1 功能 Gap (Feature Gap)
+
+**定义**: 交付物缺失率，衡量已实现功能与 TSpec 定义目标的差距。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    功能 Gap 计算模型                             │
+└─────────────────────────────────────────────────────────────────┘
+
+              TSpec 交付物清单
+                     │
+                     ▼
+     ┌───────────────────────────────────┐
+     │  模块 A  │  模块 B  │  模块 C  │ ...│
+     ├───────────────────────────────────┤
+     │  功能1  │  功能5  │  功能9  │     │
+     │  功能2  │  功能6  │  功能10 │     │
+     │  功能3  │  功能7  │  功能11 │     │
+     │  功能4  │  功能8  │  功能12 │     │
+     └───────────────────────────────────┘
+                     │
+                     ▼
+              grasp_brain_index 查询
+                     │
+                     ▼
+     ┌───────────────────────────────────┐
+     │  已实现  │  已实现  │  部分    │     │
+     │  ✓      │  ✓      │  △      │     │
+     │  ✓      │  ✗      │  ✓      │     │
+     │  ✓      │  ✓      │  ✗      │     │
+     └───────────────────────────────────┘
+```
+
+**计算公式**:
+
+```python
+Feature_Gap = 1 - (Implemented_Features / Total_Required_Features)
+
+# 其中:
+# Implemented_Features = Σ(feature_status == "complete")
+# Total_Required_Features = Σ(features in TSpec.deliverables)
+
+# 功能状态权重:
+# complete (✓) = 1.0
+# partial (△) = 0.5
+# missing (✗) = 0.0
+```
+
+**详细计算步骤**:
+
+```yaml
+feature_gap_calculation:
+  step_1_extract_tspec:
+    source: "openspec/specs/tspec/spec.md"
+    extraction:
+      - section: "## Deliverables"
+        pattern: "### Module:"
+        items: "functional requirements list"
+    output: 
+      - deliverables_map: {module: [features]}
+
+  step_2_query_grasp:
+    tool: "grasp_brain_index"
+    queries:
+      - "grasp_architecture": "获取模块结构"
+      - "grasp_file_deps": "验证模块存在性"
+      - "grasp_metrics": "获取函数级指标"
+    output:
+      - implementation_status: {feature: status}
+
+  step_3_compare:
+    algorithm: "weighted_comparison"
+    weights:
+      complete: 1.0
+      partial: 0.5
+      missing: 0.0
+    formula: "Σ(weighted_status) / Σ(total_features)"
+
+  step_4_calculate_gap:
+    formula: "1 - completion_rate"
+    output: "Feature_Gap_Percentage"
+```
+
+**示例计算**:
+
+```
+TSpec 交付物清单:
+  模块 A: 4 功能 (全部定义)
+  模块 B: 4 功能 (全部定义)
+  模块 C: 4 功能 (全部定义)
+  总计: 12 功能
+
+grasp_brain_index 查询结果:
+  模块 A: 4 complete (✓✓✓✓) → 4.0
+  模块 B: 3 complete, 1 missing (✓✗✓✓) → 3.0
+  模块 C: 1 partial, 2 complete, 1 missing (△✓✗✓) → 0.5 + 1.0 + 0.0 + 1.0 = 2.5
+
+Implemented_Features = 4.0 + 3.0 + 2.5 = 9.5
+Total_Required_Features = 12
+
+Feature_Gap = 1 - (9.5 / 12) = 1 - 0.792 = 0.208 = 20.8%
+```
+
+---
+
+### 2.2 质量 Gap (Quality Gap)
+
+**定义**: health_grade 偏差，衡量当前代码质量与目标质量等级的差距。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    质量 Gap 计算模型                             │
+└─────────────────────────────────────────────────────────────────┘
+
+           TSpec 目标 Grade                    brain.json 当前 Grade
+                  │                                    │
+                  ▼                                    ▼
+          ┌───────────────┐                    ┌───────────────┐
+          │   Grade: A    │                    │   Grade: B    │
+          │  (95-100分)   │                    │  (80-89分)    │
+          └───────────────┘                    └───────────────┘
+                  │                                    │
+                  ▼                                    ▼
+          Target_Score = 95                    Current_Score = 85
+                  │                                    │
+                  └────────────────┬───────────────────┘
+                                   │
+                                   ▼
+                        Quality_Gap = |95 - 85| / 100 = 10%
+```
+
+**计算公式**:
+
+```python
+Quality_Gap = |Target_Health_Grade - Current_Health_Grade| / 100
+
+# Grade 到分数的映射:
+Grade_A  = 95-100 → 取中值 97.5
+Grade_B  = 80-89  → 取中值 84.5
+Grade_C  = 70-79  → 取中值 74.5
+Grade_D  = 60-69  → 取中值 64.5
+Grade_F  = 0-59   → 取中值 29.5
+```
+
+**Grade 评分体系** (基于 brain.json health_grade):
+
+```yaml
+health_grade_criteria:
+  Grade_A:  # 优秀 (95-100)
+    criteria:
+      - test_coverage: ">= 90%"
+      - no_security_issues: true
+      - cyclomatic_complexity_avg: "< 10"
+      - code_duplication: "< 5%"
+      - documentation_coverage: ">= 80%"
+    score_range: [95, 100]
+
+  Grade_B:  # 良好 (80-89)
+    criteria:
+      - test_coverage: ">= 80%"
+      - security_issues: "<= 2 minor"
+      - cyclomatic_complexity_avg: "< 15"
+      - code_duplication: "< 10%"
+      - documentation_coverage: ">= 60%"
+    score_range: [80, 89]
+
+  Grade_C:  # 一般 (70-79)
+    criteria:
+      - test_coverage: ">= 60%"
+      - security_issues: "<= 5 minor"
+      - cyclomatic_complexity_avg: "< 20"
+      - code_duplication: "< 15%"
+      - documentation_coverage: ">= 40%"
+    score_range: [70, 79]
+
+  Grade_D:  # 较差 (60-69)
+    criteria:
+      - test_coverage: ">= 40%"
+      - security_issues: "any severity"
+      - cyclomatic_complexity_avg: "< 30"
+      - code_duplication: "< 25%"
+    score_range: [60, 69]
+
+  Grade_F:  # 失败 (< 60)
+    criteria:
+      - test_coverage: "< 40%"
+      - security_issues: "critical or high"
+      - high_complexity_modules: "> 30%"
+    score_range: [0, 59]
+```
+
+**示例计算**:
+
+```
+TSpec 目标 Grade: A (目标分数: 95)
+brain.json 当前 Grade: B (当前分数: 85)
+
+Quality_Gap = |95 - 85| / 100 = 10%
+
+解读: 质量差距 10%，处于 "中等偏差" 范围，需要提升测试覆盖率和修复安全问题。
+```
+
+---
+
+### 2.3 测试 Gap (Test Gap)
+
+**定义**: 测试覆盖率偏差，衡量当前测试覆盖率与目标 80% 的差距。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    测试 Gap 计算模型                             │
+└─────────────────────────────────────────────────────────────────┘
+
+                目标覆盖率
+                    │
+                    ▼
+            ┌───────────────┐
+            │   Target:     │
+            │    80%        │
+            └───────────────┘
+                    │
+                    │
+    ┌───────────────┴───────────────┐
+    │                               │
+    ▼                               ▼
+┌───────────────┐           ┌───────────────┐
+│  单元测试     │           │  集成测试     │
+│  Coverage: X%│           │  Coverage: Y% │
+└───────────────┘           └───────────────┘
+    │                               │
+    └───────────────┬───────────────┘
+                    │
+                    ▼
+            Current_Coverage = (X + Y) / 2
+                    │
+                    ▼
+            Test_Gap = |80% - Current_Coverage|
+```
+
+**计算公式**:
+
+```python
+Test_Gap = |Target_Coverage - Current_Coverage| / Target_Coverage
+
+# 默认目标覆盖率: 80%
+# 当前覆盖率来源: brain.json.test_coverage 或 grasp_metrics
+
+# 分层覆盖率计算:
+Current_Coverage = (
+    Unit_Coverage * 0.4 +
+    Integration_Coverage * 0.3 +
+    E2E_Coverage * 0.3
+)
+```
+
+**覆盖率数据源**:
+
+```yaml
+test_coverage_sources:
+  primary:
+    location: ".omt/brain.json"
+    fields:
+      - "test_coverage.unit"
+      - "test_coverage.integration"
+      - "test_coverage.e2e"
+
+  secondary:
+    tool: "grasp_metrics"
+    query: "grasp_test_coverage"
+    output: "coverage_report.json"
+
+  fallback:
+    command: "pytest --cov --cov-report=json"
+    output: "coverage.json"
+```
+
+**示例计算**:
+
+```
+目标覆盖率: 80%
+当前覆盖率 (brain.json):
+  - 单元测试: 75%
+  - 集成测试: 60%
+  - E2E测试: 50%
+
+Current_Coverage = 75% * 0.4 + 60% * 0.3 + 50% * 0.3
+                 = 30% + 18% + 15% = 63%
+
+Test_Gap = |80% - 63%| / 80% = 17% / 80% = 21.25%
+
+解读: 测试差距 21.25%，处于 "中等偏差" 范围，需要补充集成测试和 E2E 测试。
+```
+
+---
+
+### 2.4 安全 Gap (Security Gap)
+
+**定义**: 安全问题数量，衡量当前安全状态与目标 (0 issues) 的差距。
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    安全 Gap 计算模型                             │
+└─────────────────────────────────────────────────────────────────┘
+
+                目标状态
+                    │
+                    ▼
+            ┌───────────────┐
+            │  Target:      │
+            │   0 issues    │
+            └───────────────┘
+                    │
+                    │
+    ┌───────────────┴───────────────┐
+    │                               │
+    ▼                               ▼
+┌───────────────┐           ┌───────────────┐
+│  Critical: N  │           │  High: M      │
+│  High: K      │           │  Medium: L    │
+│  Medium: J    │           │  Low: P       │
+└───────────────┘           └───────────────┘
+    │                               │
+    └───────────────┬───────────────┘
+                    │
+                    ▼
+            Security_Gap = Σ(severity_weight * count)
+```
+
+**计算公式**:
+
+```python
+Security_Gap = Σ(severity_weight * issue_count) / max_penalty
+
+# severity_weight (严重程度权重):
+Critical = 40
+High     = 20
+Medium   = 10
+Low      = 5
+Info     = 1
+
+# max_penalty (最大惩罚值): 100
+# 这样 Security_Gap 范围为 0% - 100%
+```
+
+**安全问题来源**:
+
+```yaml
+security_issues_sources:
+  primary:
+    location: ".omt/brain.json"
+    fields:
+      - "security_issues.critical"
+      - "security_issues.high"
+      - "security_issues.medium"
+      - "security_issues.low"
+
+  secondary:
+    tools:
+      - "grasp_security_scan"
+      - "snyk scan"
+      - "npm audit / pip audit"
+
+  severity_classification:
+    critical: "SQL注入、认证绕过、RCE"
+    high: "XSS、CSRF、敏感数据泄露"
+    medium: "信息泄露、配置错误"
+    low: "最佳实践建议"
+```
+
+**示例计算**:
+
+```
+目标: 0 issues (Security_Gap = 0%)
+
+当前安全状态:
+  - Critical: 1 (权重: 40) → 40
+  - High: 2 (权重: 20) → 40
+  - Medium: 3 (权重: 10) → 30
+  - Low: 5 (权重: 5) → 25
+
+Σ(severity_weight * issue_count) = 40 + 40 + 30 + 25 = 135
+
+Security_Gap = min(135 / 100, 1.0) = 100%  # 超过上限，封顶为 100%
+
+解读: 安全差距 100%，处于 "大偏差" 范围，必须创建新 MSpec 修复安全问题。
+```
+
+---
+
+## 3. 综合 Gap 计算 (多维度加权)
+
+### 3.1 权重设计原则
+
+基于 OMT 项目特性，各维度权重分配：
+
+```yaml
+gap_dimension_weights:
+  feature_gap:
+    weight: 0.35
+    rationale: "功能完整性是验收的核心指标"
+    priority: 1
+
+  quality_gap:
+    weight: 0.20
+    rationale: "代码质量决定长期可维护性"
+    priority: 2
+
+  test_gap:
+    weight: 0.25
+    rationale: "测试覆盖率保障功能可靠性"
+    priority: 3
+
+  security_gap:
+    weight: 0.20
+    rationale: "安全是生产级项目的必要条件"
+    priority: 4
+```
+
+### 3.2 综合 Gap 公式
+
+```python
+Composite_Gap = Σ(dimension_gap * weight)
+
+Composite_Gap = 
+    Feature_Gap * 0.35 +
+    Quality_Gap * 0.20 +
+    Test_Gap * 0.25 +
+    Security_Gap * 0.20
+
+# 范围: 0% - 100%
+```
+
+### 3.3 Gap 计算流程图
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    综合 Gap 计算流程                             │
+└─────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │  功能 Gap   │     │  质量 Gap   │     │  测试 Gap   │
+    │   × 0.35    │     │   × 0.20    │     │   × 0.25    │
+    └──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+           │                   │                   │
+           ▼                   ▼                   ▼
+    ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+    │   20.8%     │     │    10%      │     │   21.25%    │
+    │  × 0.35     │     │  × 0.20     │     │  × 0.25     │
+    │  = 7.28%    │     │  = 2.0%     │     │  = 5.31%    │
+    └─────────────┘     └─────────────┘     └─────────────┘
+           │                   │                   │
+           │                   │                   │
+           └───────────────────┼───────────────────┘
+                               │
+                               │
+    ┌─────────────┐            │
+    │  安全 Gap   │            │
+    │   × 0.20    │            │
+    └──────┬──────┘            │
+           │                   │
+           ▼                   ▼
+    ┌─────────────┐     ┌─────────────────────────┐
+    │   100%      │     │   Σ Weighted Gaps       │
+    │  × 0.20     │     │   = 7.28 + 2.0 +        │
+    │  = 20%      │     │     5.31 + 20 = 34.59%  │
+    └─────────────┘     └─────────────────────────┘
+                               │
+                               ▼
+                      ┌─────────────┐
+                      │ Composite   │
+                      │   Gap:      │
+                      │   34.59%    │
+                      └─────────────┘
+```
+
+---
+
+## 4. 验收决策逻辑
+
+### 4.1 Gap 阈值定义
+
+```yaml
+gap_thresholds:
+  small:  # 小偏差
+    range: [0, 10)
+    decision: "验收通过"
+    action: "记录偏差，项目完结"
+    mspec_required: false
+
+  medium:  # 中等偏差
+    range: [10, 30]
+    decision: "需补充"
+    action: "可选创建新 MSpec"
+    mspec_required: "optional"
+    recommendation: "评估偏差影响，决定是否补充"
+
+  large:  # 大偏差
+    range: (30, 100]
+    decision: "必须创建新 MSpec"
+    action: "强制创建补充 MSpec"
+    mspec_required: true
+    recommendation: "分析偏差原因，针对性修复"
+```
+
+### 4.2 决策算法
+
+```python
+def acceptance_decision(composite_gap: float) -> dict:
+    """
+    验收决策函数
+    """
+    if composite_gap < 10:
+        return {
+            "status": "ACCEPTED",
+            "threshold": "small",
+            "action": "generate_acceptance_report",
+            "mspec_required": False,
+            "message": f"验收通过。综合 Gap: {composite_gap:.2f}% (阈值 < 10%)"
+        }
+    
+    elif 10 <= composite_gap <= 30:
+        return {
+            "status": "CONDITIONAL",
+            "threshold": "medium",
+            "action": "evaluate_and_confirm",
+            "mspec_required": "optional",
+            "message": f"需补充。综合 Gap: {composite_gap:.2f}% (阈值 10-30%)",
+            "recommendation": "评估偏差影响范围，决定是否创建补充 MSpec"
+        }
+    
+    else:  # composite_gap > 30
+        return {
+            "status": "REJECTED",
+            "threshold": "large",
+            "action": "create_supplemental_mspec",
+            "mspec_required": True,
+            "message": f"必须创建新 MSpec。综合 Gap: {composite_gap:.2f}% (阈值 > 30%)",
+            "recommendation": "分析偏差根本原因，创建针对性修复 MSpec"
+        }
+```
+
+### 4.3 分维度决策规则
+
+当综合 Gap 处于阈值边界时，需要检查各分维度 Gap：
+
+```yaml
+dimension_specific_rules:
+  security_critical:
+    condition: "security_gap > 50%"
+    override: true
+    action: "强制创建安全修复 MSpec，无论综合 Gap 值"
+    
+  feature_critical:
+    condition: "feature_gap > 40%"
+    override: true
+    action: "强制创建功能补全 MSpec"
+    
+  test_critical:
+    condition: "test_gap > 50%"
+    override: false
+    action: "建议创建测试补充 MSpec，但允许用户决策"
+    
+  quality_critical:
+    condition: "quality_gap > 30%"
+    override: false
+    action: "建议创建质量提升 MSpec"
+```
+
+---
+
+## 5. 新 MSpec 创建建议
+
+### 5.1 MSpec 创建触发条件
+
+```yaml
+mspec_creation_triggers:
+  mandatory:
+    - condition: "composite_gap > 30%"
+      mspec_type: "gap-supplement"
+      
+    - condition: "security_gap > 50%"
+      mspec_type: "security-fix"
+      
+    - condition: "feature_gap > 40%"
+      mspec_type: "feature-complete"
+
+  optional:
+    - condition: "composite_gap >= 10 and <= 30"
+      mspec_type: "gap-supplement"
+      user_decision: true
+      
+    - condition: "test_gap > 50%"
+      mspec_type: "test-enhance"
+      user_decision: true
+```
+
+### 5.2 针对性 MSpec 模板
+
+基于 Gap 分析结果，生成针对性 MSpec：
+
+```yaml
+mspec_template_by_gap_type:
+  feature_complete:
+    name_pattern: "M<next>-feature-complete"
+    proposal_focus:
+      - "缺失功能列表"
+      - "优先级排序"
+      - "实现工作量估算"
+    design_focus:
+      - "功能实现方案"
+      - "与现有模块集成"
+      - "pre-mspec hook: 查询 grasp_brain_index"
+    tasks_focus:
+      - "按优先级实现缺失功能"
+      - "补充相关测试"
+      
+  security_fix:
+    name_pattern: "M<next>-security-fix"
+    proposal_focus:
+      - "安全问题分类"
+      - "严重程度排序"
+      - "修复策略"
+    design_focus:
+      - "安全修复方案"
+      - "修复顺序 (Critical → High → Medium → Low)"
+      - "回归测试策略"
+    tasks_focus:
+      - "按严重程度修复安全问题"
+      - "安全测试验证"
+      
+  test_enhance:
+    name_pattern: "M<next>-test-enhance"
+    proposal_focus:
+      - "当前覆盖率分析"
+      - "目标覆盖率 (80%)"
+      - "测试补充范围"
+    design_focus:
+      - "测试策略设计"
+      - "测试类型分配 (Unit/Integration/E2E)"
+      - "关键路径覆盖"
+    tasks_focus:
+      - "补充单元测试"
+      - "补充集成测试"
+      - "补充 E2E 测试"
+      
+  quality_improve:
+    name_pattern: "M<next>-quality-improve"
+    proposal_focus:
+      - "当前 Grade 分析"
+      - "目标 Grade 定义"
+      - "改进范围"
+    design_focus:
+      - "代码质量改进方案"
+      - "重构策略"
+      - "复杂度降低方案"
+    tasks_focus:
+      - "降低圈复杂度"
+      - "消除代码重复"
+      - "补充文档"
+```
+
+---
+
+## 6. 示例计算场景
+
+### 6.1 场景一: 小偏差验收通过
+
+```yaml
+scenario_1:
+  project: "oh-my-terminator v0.1.0"
+  tspec:
+    deliverables:
+      module_core: ["repo_scan", "grasp_integration", "brain_json"]
+      module_orchestrator: ["tspec_gen", "mspec_gen", "sprint_scheduler"]
+      module_executor: ["task_runner", "agent_pool"]
+    target_grade: "A"
+    target_test_coverage: "80%"
+    target_security_issues: 0
+  
+  brain_json:
+    health_grade: "B"
+    test_coverage:
+      unit: 78%
+      integration: 70%
+      e2e: 65%
+    security_issues:
+      critical: 0
+      high: 0
+      medium: 1
+      low: 3
+
+  gap_calculation:
+    feature_gap: 6.25%      # 功能基本完成
+    quality_gap: 10%        # Grade B vs A
+    test_gap: 10.37%        # 覆盖率略低
+    security_gap: 25%       # 有少量安全问题
+    composite_gap: 9.78%    # 小于 10%
+
+  decision:
+    threshold: "small"
+    status: "ACCEPTED"
+    message: "验收通过。综合 Gap: 9.78%"
+```
+
+### 6.2 场景二: 大偏差需创建 MSpec
+
+```yaml
+scenario_2:
+  brain_json:
+    health_grade: "C"
+    test_coverage:
+      unit: 65%
+      integration: 50%
+      e2e: 40%
+    security_issues:
+      critical: 1
+      high: 2
+      medium: 5
+      low: 8
+
+  gap_calculation:
+    feature_gap: 18.75%
+    quality_gap: 20%
+    test_gap: 33.75%
+    security_gap: 100%      # Critical issue 存在
+    composite_gap: 39.0%
+
+  decision:
+    threshold: "large"
+    status: "REJECTED"
+    override_rule: "security_critical"
+    mspec_type: "security-fix"
+    mspec_name: "M4-security-fix"
+```
+
+---
+
+## 7. Gap Report 输出格式
+
+```markdown
+## Gap 分析报告
+
+**项目**: oh-my-terminator
+**分析日期**: 2026-04-30
+
+### 综合评估
+
+| 指标 | Gap 值 | 权重 | 加权值 | 状态 |
+|------|--------|------|--------|------|
+| 功能 Gap | 20.8% | 0.35 | 7.28% | WARNING |
+| 质量 Gap | 10.0% | 0.20 | 2.0% | WARNING |
+| 测试 Gap | 21.25% | 0.25 | 5.31% | WARNING |
+| 安全 Gap | 100% | 0.20 | 20.0% | CRITICAL |
+| **综合 Gap** | **34.59%** | - | - | **LARGE** |
+
+### 验收决策
+
+**决策**: 必须创建新 MSpec
+**阈值**: 大偏差 (Gap > 30%)
+
+### MSpec 创建建议
+
+**推荐类型**: security-fix
+**推荐名称**: M4-security-fix
+```
