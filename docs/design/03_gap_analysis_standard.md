@@ -51,8 +51,8 @@ All Milestones Complete
 
 | 数据源 | 位置 | 内容 | Gap 分析用途 |
 |--------|------|------|-------------|
-| TSpec | `openspec/specs/tspec/` | 项目顶层规范：目标定义、交付物清单、关键指标 | 验收基准线 |
-| MSpec Reviews | `openspec/changes/archive/*/reviews/` | 每个 Milestone 的完成情况 | 实际完成状态 |
+| TSpec | `.omt/tspecs/tspec_<timestamp>/` | 项目顶层规范：目标定义、交付物清单、关键指标 | 验收基准线 |
+| MSpec Reviews | `.omt/tspecs/tspec_<timestamp>/mspecs/mspec_<timestamp>/sprints/sprint_<number>/reviews/` | 每个 Milestone 的完成情况 | 实际完成状态 |
 | brain.json | `.omt/brain.json` | repo 当前状态：health_grade、完成模块 | 质量/健康指标 |
 | grasp_brain_index | MCP Server grasp | 全 repo 关系模型 | 功能完整性验证 |
 
@@ -95,17 +95,30 @@ All Milestones Complete
 
 **计算公式**:
 
-```python
-Feature_Gap = 1 - (Implemented_Features / Total_Required_Features)
+```typescript
+// Feature Gap 计算公式
+const calculateFeatureGap = (implementedFeatures: number, totalRequiredFeatures: number): number => {
+  return 1 - (implementedFeatures / totalRequiredFeatures);
+};
 
-# 其中:
-# Implemented_Features = Σ(feature_status == "complete")
-# Total_Required_Features = Σ(features in TSpec.deliverables)
+// 功能状态权重枚举
+type FeatureStatus = 'complete' | 'partial' | 'missing';
 
-# 功能状态权重:
-# complete (✓) = 1.0
-# partial (△) = 0.5
-# missing (✗) = 0.0
+const FEATURE_WEIGHTS: Record<FeatureStatus, number> = {
+  complete: 1.0,  // ✓
+  partial: 0.5,   // △
+  missing: 0.0,   // ✗
+};
+
+// 计算已实现功能数量
+const countImplementedFeatures = (features: FeatureStatus[]): number => {
+  return features.reduce((sum, status) => sum + FEATURE_WEIGHTS[status], 0);
+};
+
+// 总功能数量
+const getTotalFeatures = (deliverables: Record<string, string[]>): number => {
+  return Object.values(deliverables).flat().length;
+};
 ```
 
 **详细计算步骤**:
@@ -113,7 +126,7 @@ Feature_Gap = 1 - (Implemented_Features / Total_Required_Features)
 ```yaml
 feature_gap_calculation:
   step_1_extract_tspec:
-    source: "openspec/specs/tspec/spec.md"
+    source: ".omt/tspecs/tspec_<timestamp>/tspec.md"
     extraction:
       - section: "## Deliverables"
         pattern: "### Module:"
@@ -193,15 +206,24 @@ Feature_Gap = 1 - (9.5 / 12) = 1 - 0.792 = 0.208 = 20.8%
 
 **计算公式**:
 
-```python
-Quality_Gap = |Target_Health_Grade - Current_Health_Grade| / 100
+```typescript
+// Grade 分数映射
+type HealthGrade = 'A' | 'B' | 'C' | 'D' | 'F';
 
-# Grade 到分数的映射:
-Grade_A  = 95-100 → 取中值 97.5
-Grade_B  = 80-89  → 取中值 84.5
-Grade_C  = 70-79  → 取中值 74.5
-Grade_D  = 60-69  → 取中值 64.5
-Grade_F  = 0-59   → 取中值 29.5
+const GRADE_SCORES: Record<HealthGrade, number> = {
+  A: 97.5,  // 95-100 取中值
+  B: 84.5,  // 80-89 取中值
+  C: 74.5,  // 70-79 取中值
+  D: 64.5,  // 60-69 取中值
+  F: 29.5,  // 0-59 取中值
+};
+
+// 质量 Gap 计算函数
+const calculateQualityGap = (targetGrade: HealthGrade, currentGrade: HealthGrade): number => {
+  const targetScore = GRADE_SCORES[targetGrade];
+  const currentScore = GRADE_SCORES[currentGrade];
+  return Math.abs(targetScore - currentScore) / 100;
+};
 ```
 
 **Grade 评分体系** (基于 brain.json health_grade):
@@ -301,18 +323,37 @@ Quality_Gap = |95 - 85| / 100 = 10%
 
 **计算公式**:
 
-```python
-Test_Gap = |Target_Coverage - Current_Coverage| / Target_Coverage
+```typescript
+// 默认目标覆盖率: 80%
+const TARGET_COVERAGE = 0.8;
 
-# 默认目标覆盖率: 80%
-# 当前覆盖率来源: brain.json.test_coverage 或 grasp_metrics
+// 覆盖率权重
+const COVERAGE_WEIGHTS = {
+  unit: 0.4,
+  integration: 0.3,
+  e2e: 0.3,
+};
 
-# 分层覆盖率计算:
-Current_Coverage = (
-    Unit_Coverage * 0.4 +
-    Integration_Coverage * 0.3 +
-    E2E_Coverage * 0.3
-)
+// 计算当前覆盖率 (加权平均)
+const calculateCurrentCoverage = (coverages: TestCoverage): number => {
+  return (
+    coverages.unit * COVERAGE_WEIGHTS.unit +
+    coverages.integration * COVERAGE_WEIGHTS.integration +
+    coverages.e2e * COVERAGE_WEIGHTS.e2e
+  );
+};
+
+// 测试 Gap 计算函数
+const calculateTestGap = (currentCoverage: number): number => {
+  return Math.abs(TARGET_COVERAGE - currentCoverage) / TARGET_COVERAGE;
+};
+
+// 类型定义
+interface TestCoverage {
+  unit: number;      // 单元测试覆盖率 (0-1)
+  integration: number; // 集成测试覆盖率 (0-1)
+  e2e: number;       // E2E测试覆盖率 (0-1)
+}
 ```
 
 **覆盖率数据源**:
@@ -329,11 +370,12 @@ test_coverage_sources:
   secondary:
     tool: "grasp_metrics"
     query: "grasp_test_coverage"
-    output: "coverage_report.json"
+    output: "coverage-report.json"
 
   fallback:
-    command: "pytest --cov --cov-report=json"
-    output: "coverage.json"
+    command: "pnpm test --coverage --reporter=json"
+    output: "coverage/coverage-final.json"
+    # TypeScript 项目使用 vitest 或 jest 进行覆盖率测试
 ```
 
 **示例计算**:
@@ -390,18 +432,41 @@ Test_Gap = |80% - 63%| / 80% = 17% / 80% = 21.25%
 
 **计算公式**:
 
-```python
-Security_Gap = Σ(severity_weight * issue_count) / max_penalty
+```typescript
+// 安全问题严重程度权重
+type SecuritySeverity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
-# severity_weight (严重程度权重):
-Critical = 40
-High     = 20
-Medium   = 10
-Low      = 5
-Info     = 1
+const SEVERITY_WEIGHTS: Record<SecuritySeverity, number> = {
+  critical: 40,
+  high: 20,
+  medium: 10,
+  low: 5,
+  info: 1,
+};
 
-# max_penalty (最大惩罚值): 100
-# 这样 Security_Gap 范围为 0% - 100%
+// 最大惩罚值: 100 (Gap 范围 0% - 100%)
+const MAX_PENALTY = 100;
+
+// 安全问题计数类型
+interface SecurityIssueCount {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info?: number;
+}
+
+// 安全 Gap 计算函数
+const calculateSecurityGap = (issues: SecurityIssueCount): number => {
+  const totalPenalty = 
+    issues.critical * SEVERITY_WEIGHTS.critical +
+    issues.high * SEVERITY_WEIGHTS.high +
+    issues.medium * SEVERITY_WEIGHTS.medium +
+    issues.low * SEVERITY_WEIGHTS.low +
+    (issues.info ?? 0) * SEVERITY_WEIGHTS.info;
+  
+  return Math.min(totalPenalty / MAX_PENALTY, 1.0);
+};
 ```
 
 **安全问题来源**:
@@ -420,7 +485,7 @@ security_issues_sources:
     tools:
       - "grasp_security_scan"
       - "snyk scan"
-      - "npm audit / pip audit"
+      - "pnpm audit / npm audit"
 
   severity_classification:
     critical: "SQL注入、认证绕过、RCE"
@@ -480,16 +545,49 @@ gap_dimension_weights:
 
 ### 3.2 综合 Gap 公式
 
-```python
-Composite_Gap = Σ(dimension_gap * weight)
+```typescript
+// Gap 维度权重
+interface GapWeights {
+  feature: number;   // 0.35
+  quality: number;   // 0.20
+  test: number;      // 0.25
+  security: number;  // 0.20
+}
 
-Composite_Gap = 
-    Feature_Gap * 0.35 +
-    Quality_Gap * 0.20 +
-    Test_Gap * 0.25 +
-    Security_Gap * 0.20
+const DEFAULT_GAP_WEIGHTS: GapWeights = {
+  feature: 0.35,
+  quality: 0.20,
+  test: 0.25,
+  security: 0.20,
+};
 
-# 范围: 0% - 100%
+// Gap 计算结果类型
+interface GapResult {
+  featureGap: number;
+  qualityGap: number;
+  testGap: number;
+  securityGap: number;
+  compositeGap: number;
+}
+
+// 综合 Gap 计算函数
+const calculateCompositeGap = (
+  gaps: Omit<GapResult, 'compositeGap'>,
+  weights: GapWeights = DEFAULT_GAP_WEIGHTS
+): GapResult => {
+  const compositeGap = 
+    gaps.featureGap * weights.feature +
+    gaps.qualityGap * weights.quality +
+    gaps.testGap * weights.test +
+    gaps.securityGap * weights.security;
+  
+  return {
+    ...gaps,
+    compositeGap,
+  };
+};
+
+// 范围: 0% - 100% (0.0 - 1.0)
 ```
 
 ### 3.3 Gap 计算流程图
@@ -566,39 +664,57 @@ gap_thresholds:
 
 ### 4.2 决策算法
 
-```python
-def acceptance_decision(composite_gap: float) -> dict:
-    """
-    验收决策函数
-    """
-    if composite_gap < 10:
-        return {
-            "status": "ACCEPTED",
-            "threshold": "small",
-            "action": "generate_acceptance_report",
-            "mspec_required": False,
-            "message": f"验收通过。综合 Gap: {composite_gap:.2f}% (阈值 < 10%)"
-        }
-    
-    elif 10 <= composite_gap <= 30:
-        return {
-            "status": "CONDITIONAL",
-            "threshold": "medium",
-            "action": "evaluate_and_confirm",
-            "mspec_required": "optional",
-            "message": f"需补充。综合 Gap: {composite_gap:.2f}% (阈值 10-30%)",
-            "recommendation": "评估偏差影响范围，决定是否创建补充 MSpec"
-        }
-    
-    else:  # composite_gap > 30
-        return {
-            "status": "REJECTED",
-            "threshold": "large",
-            "action": "create_supplemental_mspec",
-            "mspec_required": True,
-            "message": f"必须创建新 MSpec。综合 Gap: {composite_gap:.2f}% (阈值 > 30%)",
-            "recommendation": "分析偏差根本原因，创建针对性修复 MSpec"
-        }
+```typescript
+// 验收决策结果类型
+interface AcceptanceDecision {
+  status: 'ACCEPTED' | 'CONDITIONAL' | 'REJECTED';
+  threshold: 'small' | 'medium' | 'large';
+  action: 'generate_acceptance_report' | 'evaluate_and_confirm' | 'create_supplemental_mspec';
+  mspecRequired: boolean | 'optional';
+  message: string;
+  recommendation?: string;
+}
+
+// Gap 阈值常量
+const GAP_THRESHOLDS = {
+  small: { min: 0, max: 10 },
+  medium: { min: 10, max: 30 },
+  large: { min: 30, max: 100 },
+};
+
+// 验收决策函数
+const acceptanceDecision = (compositeGap: number): AcceptanceDecision => {
+  if (compositeGap < GAP_THRESHOLDS.small.max) {
+    return {
+      status: 'ACCEPTED',
+      threshold: 'small',
+      action: 'generate_acceptance_report',
+      mspecRequired: false,
+      message: `验收通过。综合 Gap: ${compositeGap.toFixed(2)}% (阈值 < 10%)`,
+    };
+  }
+  
+  if (compositeGap <= GAP_THRESHOLDS.medium.max) {
+    return {
+      status: 'CONDITIONAL',
+      threshold: 'medium',
+      action: 'evaluate_and_confirm',
+      mspecRequired: 'optional',
+      message: `需补充。综合 Gap: ${compositeGap.toFixed(2)}% (阈值 10-30%)`,
+      recommendation: '评估偏差影响范围，决定是否创建补充 MSpec',
+    };
+  }
+  
+  // compositeGap > 30
+  return {
+    status: 'REJECTED',
+    threshold: 'large',
+    action: 'create_supplemental_mspec',
+    mspecRequired: true,
+    message: `必须创建新 MSpec。综合 Gap: ${compositeGap.toFixed(2)}% (阈值 > 30%)`,
+    recommendation: '分析偏差根本原因，创建针对性修复 MSpec',
+  };
+};
 ```
 
 ### 4.3 分维度决策规则
