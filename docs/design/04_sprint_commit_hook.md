@@ -979,6 +979,8 @@ export { PMBUpdater };
 
 ## 8. 文件目录结构
 
+### 8.1 安装后结构 (目标项目 `.omt/`)
+
 ```
 .omt/
 ├── hooks/
@@ -995,3 +997,126 @@ export { PMBUpdater };
 │   └── next-sprint-context.json
 └── logs/
 ```
+
+---
+
+## 开发时 Repo 文件结构
+
+### 开发结构 vs 安装后结构的区别
+
+本文档 §8.1 描述的是 **安装后结构** (目标项目 `.omt/` 目录)，由 `omt init` 创建。而 **开发时结构** 是 OMT 内核本身的仓库结构，用于开发和构建这些 Hook 组件。
+
+| 维度 | 开发时结构 (本 Repo) | 安装后结构 (目标项目 `.omt/`) |
+|------|---------------------|------------------------------|
+| **用途** | 开发 Hook 源码 | 运行已编译的 Hook |
+| **创建方式** | 手动创建，Git 管理 | `omt init` 自动生成 |
+| **生命周期** | 持久化，持续迭代 | 随项目动态变化 |
+| **核心内容** | TypeScript 源码、测试 | 编译后的 JS 脚本、运行时数据 |
+
+### Sprint Commit Hook 模块在开发结构中的位置
+
+Sprint Commit Hook 源码位于 `src/hooks/post-commit/`:
+
+```
+src/hooks/
+├── post-commit/               # Post-commit Hook (对应本文档)
+│   ├── hook-handler.ts        # 主入口处理器 (对应 §2)
+│   ├── commit-parser.ts       # Commit 消息解析器 (对应 §3)
+│   ├── grasp-client.ts        # Grasp MCP 客户端 (对应 §4)
+│   ├── brain-updater.ts       # brain.json 更新器 (对应 §5)
+│   ├── pmb-updater.ts         # PMB 更新器 (对应 §6)
+│   ├── error-handler.ts       # 错误处理模块 (对应 §7)
+│   ├── logger.ts              # 日志模块
+│   └── types.ts               # 类型定义
+│
+├── pre-mspec/                 # Pre-MSpec Hook
+│   ├── hook-handler.ts        # Hook 主入口
+│   ├── repo-query.ts          # Repo 关系查询
+│   └── context-prep.ts        # Context 准备
+│
+└── shared/                    # 共享模块
+    ├── base-hook.ts           # Hook 基类
+    ├── grasp-base.ts          # Grasp 基础客户端
+    └ json-utils.ts            # JSON 操作工具
+```
+
+### Hook 的测试结构
+
+```
+tests/unit/hooks/
+├── post-commit.test.ts        # Post-commit Hook 主测试
+├── commit-parser.test.ts      # Commit 解析器单元测试
+├── brain-updater.test.ts      # Brain 更新器单元测试
+├── pmb-updater.test.ts        # PMB 更新器单元测试
+├── grasp-client.test.ts       # Grasp 客户端单元测试
+│
+tests/integration/
+├── git-hooks.test.ts          # Git Hooks 集成测试
+├── sprint-commit-flow.test.ts # 完整 Sprint commit 流程测试
+│
+tests/fixtures/
+├── sample-commits/            # 示例 commit messages
+│   ├── sprint-commit-valid.txt
+│   ├── sprint-commit-invalid.txt
+│   ├── conventional-commit.txt
+│
+├── sample-brain/              # 示例 brain.json
+│   ├── brain-initial.json
+│   ├── brain-after-sprint.json
+│
+├── sample-pmb/                # 示例 PMB
+│   ├── pmb-initial.json
+│   ├── pmb-after-sprint.json
+│
+├── mock-grasp/                # Mock Grasp 输出
+│   ├── grasp-detect-changes.json
+│   ├── grasp-health-score.json
+│   ├── grasp-hotspots.json
+```
+
+### Hook 与其他模块的文件关系
+
+| 本模块文件 | 依赖模块 | 依赖文件 |
+|-----------|---------|---------|
+| `hook-handler.ts` | `src/core/repo-model/` | `grasp-client.ts` |
+| `brain-updater.ts` | `src/types/` | `brain.ts` |
+| `pmb-updater.ts` | `src/types/` | `pmb.ts` |
+| `grasp-client.ts` | `src/services/` | `mcp-service.ts`, `grasp-service.ts` |
+
+### 构建与安装流程
+
+```
+scripts/install/
+├── install-hooks.ts           # Git Hooks 安装脚本
+│   # 1. 将 src/hooks/post-commit/*.ts 编译为 JS
+│   # 2. 复制到目标项目 .omt/hooks/
+│   # 3. 配置 Git post-commit hook 指向 .omt/hooks/hook-handler.js
+│
+├── create-omt-dir.ts          # .omt/ 目录创建
+│   # 1. 创建 .omt/hooks/
+│   # 2. 创建 .omt/memory/
+│   # 3. 创建初始 brain.json, pmb.json
+│
+└ init-config.ts               # 初始配置生成
+│   # 1. 生成 .omt/config/hooks.json
+│   # 2. 配置 Grasp MCP 连接
+```
+
+### 文件命名规范
+
+| 类型 | 规范 | 示例 |
+|------|------|------|
+| Hook 源码 | `hook-handler.ts`, `*-updater.ts` | `brain-updater.ts`, `pmb-updater.ts` |
+| Hook 测试 | `hook-name.test.ts` | `post-commit.test.ts` |
+| Hook fixtures | `sprint-commit-*.txt` | `sprint-commit-valid.txt` |
+| 运行时数据 | `brain.json`, `pmb.json` | `.omt/brain.json` |
+| 配置文件 | `hooks.json` | `.omt/config/hooks.json` |
+
+### 开发结构与安装后结构的映射
+
+| 开发时源码 | 安装后产物 | 构建命令 |
+|-----------|-----------|---------|
+| `src/hooks/post-commit/*.ts` | `.omt/hooks/*.js` | `pnpm build:hooks` |
+| `src/types/*.ts` | 内嵌到 JS | `pnpm build:types` |
+| `tests/fixtures/sample-brain/*.json` | `.omt/brain.json` 初始模板 | `omt init` |
+| `tests/fixtures/sample-pmb/*.json` | `.omt/memory/pmb.json` 初始模板 | `omt init` |

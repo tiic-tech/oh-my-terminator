@@ -4,42 +4,42 @@
 
 ### 1.1 MSpec 微调的定义
 
-MSpec 微调是指：当 M1 完成后，Orchestrator 分析 M2 的原始 MSpec (v1.0)，结合 M1 完成的实际状态，判断是否需要调整 M2 的 Scope、Target 或 WBS。
+MSpec 微调是指：当 M_current 完成后，Orchestrator 分析 M_next 的原始 MSpec (v1.0)，结合 M_current 完成的实际状态，判断是否需要调整 M_next 的 Scope、Target 或 WBS。
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                    MSpec 微调在 OMT 流程中的位置                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-M1 所有 Sprint 完成 (WBS v1.0 全部执行)
+M_current 所有 Sprint 完成 (WBS v1.0 全部执行)
         │
         ├── 1. 全 repo 关系建模
         │       ├── grasp_brain_index (完整索引)
         │       ├── 更新 .omt/brain.json mirror
         │       └── 获取完整 health_grade
         │
-        ├── 2. M1 Review Gate
-        │       ├── 检验 M1 是否达到 MSpec 目标
-        │       ├── 分析 M1 完成内容的质量
+        ├── 2. M_current Review Gate
+        │       ├── 检验 M_current 是否达到 MSpec 目标
+        │       ├── 分析 M_current 完成内容的质量
         │       └── 记录到 MSpec reviews
         │
         ├── 3. MSpec 微调判断 (本设计核心)
         │       │
-        │       ├── 读取 M2 原始 MSpec (v1.0)
-        │       ├── 结合 M1 完成的实际状态
+        │       ├── 读取 M_next 原始 MSpec (v1.0)
+        │       ├── 结合 M_current 完成的实际状态
         │       ├── 执行触发条件检测
         │       └── 判断是否需要微调
         │               │
-        │               ├── 无触发 → 保持 M2 MSpec v1.0
+        │               ├── 无触发 → 保持 M_next MSpec v1.0
         │               ├── 弱触发 → 建议微调 (用户决策)
-        │               └── 强触发 → 强制微调 → 生成 M2 MSpec v1.1
+        │               └── 强触发 → 强制微调 → 生成 M_next MSpec v1.1
         │
-        └── 4. 进入 M2 Sprint 执行
+        └── 4. 进入 M_next Sprint 执行
                 │
-                │ 重复 M1 的过程
+                │ 重复 M_current 的过程
                 │
                 ▼
-        M2 完成 → 分析 M3 → ... → 所有 MSpec 完成
+        M_next 完成 → 分析 M_next+1 → ... → 所有 MSpec 完成
 ```
 
 ### 1.2 微调的核心原则
@@ -55,7 +55,7 @@ interface MSpecAdjustmentPrinciples {
   };
   principle_2: {
     name: "依赖驱动原则";
-    description: "微调主要基于 M1 对 M2 的依赖影响，而非主观判断";
+    description: "微调主要基于 M_current 对 M_next 的依赖影响，而非主观判断";
   };
   principle_3: {
     name: "证据导向原则";
@@ -74,7 +74,7 @@ const mspecAdjustmentPrinciples: MSpecAdjustmentPrinciples = {
   },
   principle_2: {
     name: "依赖驱动原则",
-    description: "微调主要基于 M1 对 M2 的依赖影响，而非主观判断",
+    description: "微调主要基于 M_current 对 M_next 的依赖影响，而非主观判断",
   },
   principle_3: {
     name: "证据导向原则",
@@ -95,8 +95,8 @@ const mspecAdjustmentPrinciples: MSpecAdjustmentPrinciples = {
 
 | 数据源 | 获取方式 | 用途 |
 |--------|---------|------|
-| M2 原始 MSpec | `.omt/tspecs/tspec_<ts>/mspecs/mspec_<ts>/mspec_v1.0.json` | 作为微调基准 |
-| M1 MSpec Reviews | `.omt/tspecs/tspec_<ts>/mspecs/mspec_<ts>/sprints/sprint_<num>/review.json` | 了解 M1 完成情况 |
+| M_next 原始 MSpec | `.omt/tspecs/tspec_<ts>/mspecs/mspec_<ts>/mspec_v1.0.json` | 作为微调基准 |
+| M_current MSpec Reviews | `.omt/tspecs/tspec_<ts>/mspecs/mspec_<ts>/sprints/sprint_<num>/review.json` | 了解 M_current 完成情况 |
 | brain.json | `.omt/brain.json` | 当前 repo 状态 |
 | PMB | `.omt/memory/pmb.json` | Sprint 执行历史 |
 | grasp_brain_index | MCP Server grasp | 全 repo 关系模型 |
@@ -108,16 +108,16 @@ const mspecAdjustmentPrinciples: MSpecAdjustmentPrinciples = {
  * MSpec 微调所需的数据提取结构
  */
 interface MSpecAdjustmentInput {
-  // 来源: M2 原始 MSpec
-  m2_original: {
+  // 来源: M_next 原始 MSpec
+  m_next_original: {
     proposal: {
-      scope: string;      // M2 原始 Scope 定义
-      target: string;     // M2 原始 Target 定义
-      dependencies: string; // M2 对 M1 的依赖假设
+      scope: string;      // M_next 原始 Scope 定义
+      target: string;     // M_next 原始 Target 定义
+      dependencies: string; // M_next 对 M_current 的依赖假设
     };
     design: {
-      modules: string[];   // M2 要实现的模块列表
-      interfaces: string[]; // M2 预期的接口定义
+      modules: string[];   // M_next 要实现的模块列表
+      interfaces: string[]; // M_next 预期的接口定义
     };
     wbs_v1: {
       atom_tasks: string[]; // 原始 WBS 任务列表
@@ -125,12 +125,12 @@ interface MSpecAdjustmentInput {
     };
   };
 
-  // 来源: M1 Review
-  m1_review: {
+  // 来源: M_current Review
+  m_current_review: {
     completion_status: "COMPLETE" | "PARTIAL" | "FAILED";
     health_grade: "A" | "B" | "C" | "D" | "F";
-    deferred_tasks: string[];  // M1 延期任务列表
-    lessons: string[];         // M1 Sprint Lessons
+    deferred_tasks: string[];  // M_current 延期任务列表
+    lessons: string[];         // M_current Sprint Lessons
   };
 
   // 来源: brain.json
@@ -142,9 +142,9 @@ interface MSpecAdjustmentInput {
 
   // 来源: PMB
   sprint_history: {
-    m1_sprints_completed: number;
-    m1_total_tasks: number;
-    m1_completion_rate: number; // 0.0 - 1.0
+    m_current_sprints_completed: number;
+    m_current_total_tasks: number;
+    m_current_completion_rate: number; // 0.0 - 1.0
   };
 
   // 来源: grasp_brain_index
@@ -152,7 +152,7 @@ interface MSpecAdjustmentInput {
     architecture: string;       // 当前架构状态
     module_interfaces: string;  // 当前接口定义
     dependency_graph: string;   // 当前依赖关系
-    affected_by_m1: string[];   // M1 变更影响范围
+    affected_by_m_current: string[];   // M_current 变更影响范围
   };
 }
 ```
@@ -192,75 +192,75 @@ interface StrongTriggers {
 const strongTriggers: StrongTriggers = {
   trigger_1: {
     name: "接口不兼容",
-    condition: "M1 实现与 M2 预期接口不兼容",
+    condition: "M_current 实现与 M_next 预期接口不兼容",
     detection: [
-      "grasp_detect_changes: 发现 M2 依赖模块的接口变更",
-      "grasp_api_surface: M1 新增的 API 签名与 M2 预期不一致",
-      "M1 WBS: M1 新增的模块破坏了 M2 WBS 的依赖假设",
+      "grasp_detect_changes: 发现 M_next 依赖模块的接口变更",
+      "grasp_api_surface: M_current 新增的 API 签名与 M_next 预期不一致",
+      "M_current WBS: M_current 新增的模块破坏了 M_next WBS 的依赖假设",
     ],
     action: [
-      "更新 M2 Design: 修改接口定义",
-      "更新 M2 WBS: 添加接口适配任务",
-      "生成 M2 MSpec v1.1",
+      "更新 M_next Design: 修改接口定义",
+      "更新 M_next WBS: 添加接口适配任务",
+      "生成 M_next MSpec v1.1",
     ],
     example: {
-      scenario: "M1 实现了 OAuth2，但接口是 JWT 格式",
-      impact: "M2 原本假设使用 JWT，现在需要适配 OAuth2",
-      adjustment: "在 M2 WBS 添加 OAuth2 适配任务",
+      scenario: "M_current 实现了 OAuth2，但接口是 JWT 格式",
+      impact: "M_next 原本假设使用 JWT，现在需要适配 OAuth2",
+      adjustment: "在 M_next WBS 添加 OAuth2 适配任务",
     },
   },
   trigger_2: {
     name: "安全问题遗留",
-    condition: "M1 遗留安全问题影响 M2",
+    condition: "M_current 遗留安全问题影响 M_next",
     detection: [
-      "grasp_security: 发现 M2 目标模块有 CRITICAL/HIGH 问题",
-      "brain.json.security_issues: M1 未修复且涉及 M2 的安全问题",
+      "grasp_security: 发现 M_next 目标模块有 CRITICAL/HIGH 问题",
+      "brain.json.security_issues: M_current 未修复且涉及 M_next 的安全问题",
     ],
     action: [
-      "更新 M2 Proposal: 添加安全修复 Scope",
-      "更新 M2 WBS: 插入安全修复任务（优先级最高）",
-      "生成 M2 MSpec v1.1",
+      "更新 M_next Proposal: 添加安全修复 Scope",
+      "更新 M_next WBS: 插入安全修复任务（优先级最高）",
+      "生成 M_next MSpec v1.1",
     ],
     example: {
-      scenario: "M1 遗留 SQL注入漏洞在 auth 模块",
-      impact: "M2 要扩展 auth 功能，必须先修复漏洞",
-      adjustment: "M2 Sprint-1 添加安全修复 atom_task",
+      scenario: "M_current 遗留 SQL注入漏洞在 auth 模块",
+      impact: "M_next 要扩展 auth 功能，必须先修复漏洞",
+      adjustment: "M_next Sprint-1 添加安全修复 atom_task",
     },
   },
   trigger_3: {
     name: "健康度严重偏离",
-    condition: "M1 完成后 repo 健康度不达标",
+    condition: "M_current 完成后 repo 健康度不达标",
     detection: [
       "brain.json.health_grade: Grade < 'C'",
       "grasp_metrics: 复杂度/覆盖率严重低于目标",
     ],
     action: [
-      "更新 M2 Proposal: 添加质量提升 Scope",
-      "更新 M2 WBS: 添加重构/测试补充任务",
-      "生成 M2 MSpec v1.1",
+      "更新 M_next Proposal: 添加质量提升 Scope",
+      "更新 M_next WBS: 添加重构/测试补充任务",
+      "生成 M_next MSpec v1.1",
     ],
     example: {
-      scenario: "M1 完成后 health_grade = D",
-      impact: "M2 基于 D 级代码开发，风险极高",
-      adjustment: "M2 前两个 Sprint 用于重构和测试补充",
+      scenario: "M_current 完成后 health_grade = D",
+      impact: "M_next 基于 D 级代码开发，风险极高",
+      adjustment: "M_next 前两个 Sprint 用于重构和测试补充",
     },
   },
   trigger_4: {
     name: "关键依赖缺失",
-    condition: "M1 未完成 M2 关键依赖",
+    condition: "M_current 未完成 M_next 关键依赖",
     detection: [
-      "M1 deferred_tasks: 包含 M2 blocked_by 的任务",
-      "grasp_dependents: M2 依赖的模块未实现或部分实现",
+      "M_current deferred_tasks: 包含 M_next blocked_by 的任务",
+      "grasp_dependents: M_next 依赖的模块未实现或部分实现",
     ],
     action: [
-      "更新 M2 WBS: 将 M1 deferred 任务纳入 M2",
-      "或: 重新定义 M2 Scope 排除依赖",
-      "生成 M2 MSpec v1.1",
+      "更新 M_next WBS: 将 M_current deferred 任务纳入 M_next",
+      "或: 重新定义 M_next Scope 排除依赖",
+      "生成 M_next MSpec v1.1",
     ],
     example: {
-      scenario: "M1 deferred 了 database-migration 任务",
-      impact: "M2 WBS 中的 backend-api 依赖 database-migration",
-      adjustment: "将 database-migration 作为 M2 Sprint-1 首要任务",
+      scenario: "M_current deferred 了 database-migration 任务",
+      impact: "M_next WBS 中的 backend-api 依赖 database-migration",
+      adjustment: "将 database-migration 作为 M_next Sprint-1 首要任务",
     },
   },
 };
@@ -297,74 +297,74 @@ interface WeakTriggers {
 const weakTriggers: WeakTriggers = {
   trigger_1: {
     name: "效率偏差",
-    condition: "M1 完成效率与预期差异大",
+    condition: "M_current 完成效率与预期差异大",
     detection: [
-      "PMB.sprint_tracking: M1 实际耗时 vs M1 预估耗时",
+      "PMB.sprint_tracking: M_current 实际耗时 vs M_current 预估耗时",
       "偏差率 > 50% (严重低估或高估)",
     ],
     action: [
-      "建议: 调整 M2 WBS 任务复杂度估算",
-      "建议: 增加 M2 时间缓冲",
+      "建议: 调整 M_next WBS 任务复杂度估算",
+      "建议: 增加 M_next 时间缓冲",
       "用户决策: 是否采纳建议",
     ],
     example: {
-      scenario: "M1 预估 40 hours，实际 80 hours",
-      impact: "暗示 M2 复杂度可能也被低估",
-      recommendation: "M2 WBS 任务估算 × 1.5",
+      scenario: "M_current 预估 40 hours，实际 80 hours",
+      impact: "暗示 M_next 复杂度可能也被低估",
+      recommendation: "M_next WBS 任务估算 × 1.5",
     },
   },
   trigger_2: {
     name: "延期任务影响",
-    condition: "M1 deferred_tasks 可能影响 M2",
+    condition: "M_current deferred_tasks 可能影响 M_next",
     detection: [
-      "PMB.deferred_tasks: deferred 任务与 M2 模块相关",
+      "PMB.deferred_tasks: deferred 任务与 M_next 模块相关",
       "grasp_affected_modules: deferred 任务的 blast radius",
     ],
     action: [
-      "建议: 将相关 deferred 任务纳入 M2 Scope",
-      "建议: 在 M2 增加兼容性处理任务",
+      "建议: 将相关 deferred 任务纳入 M_next Scope",
+      "建议: 在 M_next 增加兼容性处理任务",
       "用户决策: 是否采纳建议",
     ],
     example: {
-      scenario: "M1 deferred 了 logging-config 任务",
-      impact: "M2 的 error-handling 模块依赖 logging",
-      recommendation: "M2 Sprint-1 添加 logging-config 完成",
+      scenario: "M_current deferred 了 logging-config 任务",
+      impact: "M_next 的 error-handling 模块依赖 logging",
+      recommendation: "M_next Sprint-1 添加 logging-config 完成",
     },
   },
   trigger_3: {
     name: "PMB Lessons 风险提示",
-    condition: "M1 Lessons 提到 M2 相关风险",
+    condition: "M_current Lessons 提到 M_next 相关风险",
     detection: [
-      "PMB.sprint_lessons: 包含 M2 相关的技术难点",
-      "lessons.impact = 'high' 且涉及 M2 Scope",
+      "PMB.sprint_lessons: 包含 M_next 相关的技术难点",
+      "lessons.impact = 'high' 且涉及 M_next Scope",
     ],
     action: [
-      "建议: 在 M2 Proposal 添加风险缓解措施",
-      "建议: 在 M2 WBS 添加 Spike 任务",
+      "建议: 在 M_next Proposal 添加风险缓解措施",
+      "建议: 在 M_next WBS 添加 Spike 任务",
       "用户决策: 是否采纳建议",
     ],
     example: {
-      scenario: "M1 Lessons: 'middleware integration underestimated'",
-      impact: "M2 有更多 middleware 任务",
-      recommendation: "M2 Sprint-1 添加 middleware spike",
+      scenario: "M_current Lessons: 'middleware integration underestimated'",
+      impact: "M_next 有更多 middleware 任务",
+      recommendation: "M_next Sprint-1 添加 middleware spike",
     },
   },
   trigger_4: {
     name: "热点文件重叠",
-    condition: "M1 热点文件与 M2 目标模块重叠",
+    condition: "M_current 热点文件与 M_next 目标模块重叠",
     detection: [
-      "brain.json.hotspots: 热点文件属于 M2 目标模块",
+      "brain.json.hotspots: 热点文件属于 M_next 目标模块",
       "hotspot.score > 7 (高风险)",
     ],
     action: [
-      "建议: 在 M2 增加重构任务降低复杂度",
+      "建议: 在 M_next 增加重构任务降低复杂度",
       "建议: 优先处理热点模块",
       "用户决策: 是否采纳建议",
     ],
     example: {
-      scenario: "M1 hotspot: src/auth/index.ts (score=9)",
-      impact: "M2 要扩展 auth 模块",
-      recommendation: "M2 Sprint-1 先重构 auth/index.ts",
+      scenario: "M_current hotspot: src/auth/index.ts (score=9)",
+      impact: "M_next 要扩展 auth 模块",
+      recommendation: "M_next Sprint-1 先重构 auth/index.ts",
     },
   },
 };
@@ -372,12 +372,12 @@ const weakTriggers: WeakTriggers = {
 
 ### 3.3 无触发条件 (保持原 MSpec)
 
-当**未检测到任何触发条件**时，保持 M2 原始 MSpec：
+当**未检测到任何触发条件**时，保持 M_next 原始 MSpec：
 
 ```typescript
 /**
  * 无触发条件定义 (保持原 MSpec)
- * 当未检测到任何触发条件时，保持 M2 原始 MSpec
+ * 当未检测到任何触发条件时，保持 M_next 原始 MSpec
  */
 interface NoTriggerCondition {
   name: string;
@@ -385,42 +385,42 @@ interface NoTriggerCondition {
 }
 
 interface NoTriggerConditions {
-  condition_1: NoTriggerCondition; // M1 按预期完成
-  condition_2: NoTriggerCondition; // M1 与 M2 边界清晰
+  condition_1: NoTriggerCondition; // M_current 按预期完成
+  condition_2: NoTriggerCondition; // M_current 与 M_next 边界清晰
   condition_3: NoTriggerCondition; // 无安全/质量问题
 }
 
 const noTriggerConditions: NoTriggerConditions = {
   condition_1: {
-    name: "M1 按预期完成",
+    name: "M_current 按预期完成",
     criteria: [
-      "M1 completion_rate >= 90%",
-      "M1 health_grade >= 'B'",
-      "M1 deferred_tasks = [] 或不影响 M2",
+      "M_current completion_rate >= 90%",
+      "M_current health_grade >= 'B'",
+      "M_current deferred_tasks = [] 或不影响 M_next",
     ],
   },
   condition_2: {
-    name: "M1 与 M2 边界清晰",
+    name: "M_current 与 M_next 边界清晰",
     criteria: [
       "grasp_architecture: 模块边界未变化",
-      "M2 依赖模块未被 M1 修改",
-      "M1 接口与 M2 预期一致",
+      "M_next 依赖模块未被 M_current 修改",
+      "M_current 接口与 M_next 预期一致",
     ],
   },
   condition_3: {
     name: "无安全/质量问题",
     criteria: [
       "brain.json.security_issues: CRITICAL/HIGH = 0",
-      "M1 模块 health_grade >= 'B'",
+      "M_current 模块 health_grade >= 'B'",
     ],
   },
 };
 
 // 无触发时的动作
 const noTriggerAction: string[] = [
-  "保持 M2 MSpec v1.0",
-  "直接进入 M2 Sprint 执行",
-  "记录 '无微调' 到 M2 Review",
+  "保持 M_next MSpec v1.0",
+  "直接进入 M_next Sprint 执行",
+  "记录 '无微调' 到 M_next Review",
 ];
 ```
 
@@ -435,31 +435,31 @@ const noTriggerAction: string[] = [
 │                    MSpec 微调决策流程                                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-M1 Review Gate 完成
+M_current Review Gate 完成
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Step 1: 数据收集                                                │
 ├─────────────────────────────────────────────────────────────────┤
-│  • 读取 M2 原始 MSpec                                            │
-│  • 读取 M1 Review                                                │
-│  • 读取 brain.json                                               │
-│  • 读取 PMB                                                      │
-│  • 执行 grasp_brain_index 查询                                   │
+│  • 读取 M_next 原始 MSpec                                        │
+│  • 读取 M_current Review                                        │
+│  • 读取 brain.json                                              │
+│  • 读取 PMB                                                     │
+│  • 执行 grasp_brain_index 查询                                  │
 └─────────────────────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Step 2: 强触发检测                                              │
 ├─────────────────────────────────────────────────────────────────┤
-│  执行检测:                                                        │
-│  • detect_interface_compatibility(m1_result, m2_expected)       │
-│  • detect_security_impact(m1_security, m2_modules)              │
-│  • detect_health_deviation(m1_health, target_grade)             │
-│  • detect_missing_dependencies(m1_deferred, m2_blocked_by)      │
-│                                                                  │
-│  if 任一条件满足:                                                 │
-│      → goto Step 4 (强制微调)                                    │
+│  执行检测:                                                       │
+│  • detect_interface_compatibility(m_current_result, m_next_expected)       │
+│  • detect_security_impact(m_current_security, m_next_modules)              │
+│  • detect_health_deviation(m_current_health, target_grade)                 │
+│  • detect_missing_dependencies(m_current_deferred, m_next_blocked_by)      │
+│                                                                 │
+│  if 任一条件满足:                                                │
+│      → goto Step 4 (强制微调)                                   │
 └─────────────────────────────────────────────────────────────────┘
         │
         │ 无强触发
@@ -467,54 +467,54 @@ M1 Review Gate 完成
 ┌─────────────────────────────────────────────────────────────────┐
 │  Step 3: 弱触发检测                                              │
 ├─────────────────────────────────────────────────────────────────┤
-│  执行检测:                                                        │
-│  • detect_efficiency_deviation(m1_actual, m1_estimated)          │
-│  • detect_deferral_impact(m1_deferred, m2_scope)                │
-│  • detect_lessons_risk(m1_lessons, m2_scope)                    │
-│  • detect_hotspot_overlap(m1_hotspots, m2_modules)               │
-│                                                                  │
-│  if 任一条件满足:                                                 │
-│      → goto Step 5 (建议微调，用户决策)                           │
-│  else:                                                           │
-│      → goto Step 6 (保持原 MSpec)                                │
+│  执行检测:                                                       │
+│  • detect_efficiency_deviation(m_current_actual, m_current_estimated)      │
+│  • detect_deferral_impact(m_current_deferred, m_next_scope)                │
+│  • detect_lessons_risk(m_current_lessons, m_next_scope)                    │
+│  • detect_hotspot_overlap(m_current_hotspots, m_next_modules)              │
+│                                                                 │
+│  if 任一条件满足:                                                │
+│      → goto Step 5 (建议微调，用户决策)                          │
+│  else:                                                          │
+│      → goto Step 6 (保持原 MSpec)                               │
 └─────────────────────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Step 4: 强制微调                                                │
 ├─────────────────────────────────────────────────────────────────┤
-│  根据触发类型执行:                                                │
-│  • trigger_1 (接口不兼容): 更新 Design + WBS                     │
-│  • trigger_2 (安全问题): 插入安全修复任务                         │
-│  • trigger_3 (健康度偏离): 插入重构/测试任务                      │
-│  • trigger_4 (依赖缺失): 纳入 deferred 或重定义 Scope            │
-│                                                                  │
-│  输出: M2 MSpec v1.1                                             │
-│  记录: 微调原因到 M2 Review                                       │
+│  根据触发类型执行:                                               │
+│  • trigger_1 (接口不兼容): 更新 Design + WBS                    │
+│  • trigger_2 (安全问题): 插入安全修复任务                        │
+│  • trigger_3 (健康度偏离): 插入重构/测试任务                     │
+│  • trigger_4 (依赖缺失): 纳入 deferred 或重定义 Scope           │
+│                                                                 │
+│  输出: M_next MSpec v1.1                                        │
+│  记录: 微调原因到 M_next Review                                  │
 └─────────────────────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Step 5: 建议微调                                                │
 ├─────────────────────────────────────────────────────────────────┤
-│  生成微调建议报告:                                                │
-│  • 触发条件描述                                                   │
-│  • 影响范围评估                                                   │
-│  • 建议调整内容                                                   │
-│  • 预期收益                                                       │
-│                                                                  │
-│  AskUserQuestion: 是否采纳建议?                                   │
-│  • YES → 执行微调 → M2 MSpec v1.1                               │
-│  • NO → 保持原 MSpec → M2 MSpec v1.0                            │
+│  生成微调建议报告:                                               │
+│  • 触发条件描述                                                  │
+│  • 影响范围评估                                                  │
+│  • 建议调整内容                                                  │
+│  • 预期收益                                                      │
+│                                                                 │
+│  AskUserQuestion: 是否采纳建议?                                  │
+│  • YES → 执行微调 → M_next MSpec v1.1                          │
+│  • NO → 保持原 MSpec → M_next MSpec v1.0                       │
 └─────────────────────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Step 6: 保持原 MSpec                                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  • 无需修改 M2 MSpec                                             │
-│  • 记录: "无微调，基于 M1 正常完成"                               │
-│  • 直接进入 M2 Sprint 执行                                        │
+│  • 无需修改 M_next MSpec                                        │
+│  • 记录: "无微调，基于 M_current 正常完成"                      │
+│  • 直接进入 M_next Sprint 执行                                   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -533,25 +533,25 @@ const gradeScores: Record<HealthGrade, number> = {
 };
 
 /**
- * 检测 M1 实现与 M2 预期接口是否兼容
+ * 检测 M_current 实现与 M_next 预期接口是否兼容
  * @returns true = 不兼容 (触发微调), false = 兼容 (无触发)
  */
 function detectInterfaceCompatibility(
-  m1Result: { modules: string[] },
-  m2Expected: { interfaces: Array<{ name: string; signature: string }> }
+  m_current_result: { modules: string[] },
+  m_next_expected: { interfaces: Array<{ name: string; signature: string }> }
 ): boolean {
-  // 从 M1 获取实际接口 (通过 grasp API)
-  const m1Interfaces = graspApiSurface(m1Result.modules);
+  // 从 M_current 获取实际接口 (通过 grasp API)
+  const m_current_interfaces = graspApiSurface(m_current_result.modules);
 
-  // 从 M2 获取预期接口
-  const m2Interfaces = m2Expected.interfaces;
+  // 从 M_next 获取预期接口
+  const m_next_interfaces = m_next_expected.interfaces;
 
   // 比较接口签名
-  for (const expected of m2Interfaces) {
-    const actual = findMatchingInterface(m1Interfaces, expected.name);
+  for (const expected of m_next_interfaces) {
+    const actual = findMatchingInterface(m_current_interfaces, expected.name);
 
     if (actual === undefined) {
-      // M2 预期接口不存在
+      // M_next 预期接口不存在
       return true;
     }
 
@@ -565,24 +565,24 @@ function detectInterfaceCompatibility(
 }
 
 /**
- * 检测 M1 安全问题是否影响 M2
+ * 检测 M_current 安全问题是否影响 M_next
  * @returns true = 有影响 (触发微调), false = 无影响
  */
 function detectSecurityImpact(
-  m1Security: { unresolved: Array<{ severity: string; file: string }> },
-  m2Modules: string[]
+  m_current_security: { unresolved: Array<{ severity: string; file: string }> },
+  m_next_modules: string[]
 ): boolean {
-  // 获取 M1 未修复的安全问题
-  const unresolvedIssues = m1Security.unresolved ?? [];
+  // 获取 M_current 未修复的安全问题
+  const unresolvedIssues = m_current_security.unresolved ?? [];
 
-  // 检查问题是否涉及 M2 目标模块
+  // 检查问题是否涉及 M_next 目标模块
   for (const issue of unresolvedIssues) {
     if (issue.severity === "CRITICAL" || issue.severity === "HIGH") {
       // 检查 blast radius
       const affectedModules = graspDependents(issue.file);
 
-      for (const m2Module of m2Modules) {
-        if (affectedModules.includes(m2Module)) {
+      for (const m_next_module of m_next_modules) {
+        if (affectedModules.includes(m_next_module)) {
           return true;
         }
       }
@@ -593,26 +593,26 @@ function detectSecurityImpact(
 }
 
 /**
- * 检测 M1 健康度是否严重偏离
+ * 检测 M_current 健康度是否严重偏离
  * @returns true = 偏离严重 (触发微调), false = 达标
  */
 function detectHealthDeviation(
-  m1Health: { grade?: HealthGrade; test_coverage?: number; complexity_avg?: number },
+  m_current_health: { grade?: HealthGrade; test_coverage?: number; complexity_avg?: number },
   targetGrade: HealthGrade
 ): boolean {
-  const m1Grade = m1Health.grade ?? "F";
+  const m_current_grade = m_current_health.grade ?? "F";
 
-  if (gradeScores[m1Grade] < gradeScores[targetGrade] - 1) {
+  if (gradeScores[m_current_grade] < gradeScores[targetGrade] - 1) {
     // 相差超过一个等级
     return true;
   }
 
   // 检查具体指标
-  if ((m1Health.test_coverage ?? 0) < 60) {
+  if ((m_current_health.test_coverage ?? 0) < 60) {
     return true;
   }
 
-  if ((m1Health.complexity_avg ?? 0) > 20) {
+  if ((m_current_health.complexity_avg ?? 0) > 20) {
     return true;
   }
 
@@ -620,17 +620,17 @@ function detectHealthDeviation(
 }
 
 /**
- * 检测 M1 deferred 任务是否阻塞 M2
+ * 检测 M_current deferred 任务是否阻塞 M_next
  * @returns true = 有阻塞 (触发微调), false = 无阻塞
  */
 function detectMissingDependencies(
-  m1Deferred: Array<{ task_id: string }>,
-  m2BlockedBy: Record<string, string[]>
+  m_current_deferred: Array<{ task_id: string }>,
+  m_next_blocked_by: Record<string, string[]>
 ): boolean {
-  const deferredIds = m1Deferred.map((t) => t.task_id);
+  const deferredIds = m_current_deferred.map((t) => t.task_id);
 
-  // 检查 M2 WBS 中是否有任务依赖 deferred 任务
-  for (const [taskId, blockers] of Object.entries(m2BlockedBy)) {
+  // 检查 M_next WBS 中是否有任务依赖 deferred 任务
+  for (const [taskId, blockers] of Object.entries(m_next_blocked_by)) {
     for (const blocker of blockers) {
       if (deferredIds.includes(blocker)) {
         return true;
@@ -678,8 +678,8 @@ const scopeAdjustmentTypes: ScopeAdjustmentTypes = {
     name: "扩展 Scope",
     trigger: "接口不兼容",
     operation: [
-      "新增模块到 M2 Scope",
-      "例: M1 实现了 OAuth2，M2 需添加 OAuth2-Adapter 模块",
+      "新增模块到 M_next Scope",
+      "例: M_current 实现了 OAuth2，M_next 需添加 OAuth2-Adapter 模块",
     ],
   },
   type_2: {
@@ -687,15 +687,15 @@ const scopeAdjustmentTypes: ScopeAdjustmentTypes = {
     trigger: "依赖缺失",
     operation: [
       "移除依赖未满足的模块",
-      "例: M1 deferred database，M2 移除 backend-api",
+      "例: M_current deferred database，M_next 移除 backend-api",
     ],
   },
   type_3: {
     name: "替换 Scope",
-    trigger: "M1 实现了预期之外的模块",
+    trigger: "M_current 实现了预期之外的模块",
     operation: [
-      "替换 M2 原定模块为新模块",
-      "例: M1 实现了 Redis-session，M2 将 JWT-session 替换为 Redis-adapter",
+      "替换 M_next 原定模块为新模块",
+      "例: M_current 实现了 Redis-session，M_next 将 JWT-session 替换为 Redis-adapter",
     ],
   },
 };
@@ -740,7 +740,7 @@ const targetAdjustmentTypes: TargetAdjustmentTypes = {
     name: "推迟交付时间",
     trigger: "效率偏差",
     operation: [
-      "延长 M2 预估时间",
+      "延长 M_next 预估时间",
       "例: 原 2 weeks，调整为 3 weeks",
     ],
   },
@@ -810,7 +810,7 @@ const wbsAdjustmentTypes: WbsAdjustmentTypes = {
 
 ```typescript
 /**
- * M2 MSpec v1.1 结构 (微调后)
+ * M_next MSpec v1.1 结构 (微调后)
  */
 interface MSpecV1_1 {
   version: "1.1";
@@ -878,7 +878,7 @@ const mspecV1_1Example: MSpecV1_1 = {
     scope: {
       original: "Extend auth system with JWT support",
       adjusted: "Add OAuth2 adapter + extend auth with session management",
-      change_summary: "新增 OAuth2-Adapter 模块以适配 M1 实现的 OAuth2",
+      change_summary: "新增 OAuth2-Adapter 模块以适配 M_current 实现的 OAuth2",
     },
     target: {
       original: "JWT auth system",
@@ -887,7 +887,7 @@ const mspecV1_1Example: MSpecV1_1 = {
     adjustment_log: [
       {
         trigger: "interface_incompatibility",
-        evidence: "M1 OAuth2 vs M2 JWT expected",
+        evidence: "M_current OAuth2 vs M_next JWT expected",
         action: "Add OAuth2-Adapter module",
       },
     ],
@@ -931,7 +931,7 @@ const mspecV1_1Example: MSpecV1_1 = {
 ```markdown
 ## MSpec 微调报告
 
-**目标 Milestone**: M2
+**目标 Milestone**: M_next
 **原始版本**: v1.0
 **微调版本**: v1.1
 **微调日期**: 2026-04-30
@@ -942,9 +942,9 @@ const mspecV1_1Example: MSpecV1_1 = {
 
 **触发类型**: 强触发 - 接口不兼容
 **触发证据**:
-- M1 实现了 OAuth2 认证 (接口: token-based)
-- M2 原定使用 JWT 认证 (接口: header-based)
-- 签名不匹配: OAuth2 expects `Bearer` token, M2 expects `Authorization` header
+- M_current 实现了 OAuth2 认证 (接口: token-based)
+- M_next 原定使用 JWT 认证 (接口: header-based)
+- 签名不匹配: OAuth2 expects `Bearer` token, M_next expects `Authorization` header
 
 ---
 
@@ -991,7 +991,7 @@ const mspecV1_1Example: MSpecV1_1 = {
  */
 interface ExampleScenario {
   context: {
-    m1_status: {
+    m_current_status: {
       completed_modules: string[];
       interfaces_implemented: Array<{
         name: string;
@@ -999,7 +999,7 @@ interface ExampleScenario {
       }>;
       health_grade: HealthGrade;
     };
-    m2_original: {
+    m_next_original: {
       scope: string;
       expected_interfaces: Array<{
         name: string;
@@ -1057,7 +1057,7 @@ interface ExampleScenario {
 
 const exampleScenario: ExampleScenario = {
   context: {
-    m1_status: {
+    m_current_status: {
       completed_modules: ["auth-oauth2"],
       interfaces_implemented: [
         {
@@ -1071,7 +1071,7 @@ const exampleScenario: ExampleScenario = {
       ],
       health_grade: "B",
     },
-    m2_original: {
+    m_next_original: {
       scope: "Extend auth system with JWT support",
       expected_interfaces: [
         {
@@ -1092,15 +1092,15 @@ const exampleScenario: ExampleScenario = {
       login_interface: {
         status: "INCOMPATIBLE",
         details: [
-          "m1_actual: OAuth2.login(provider)",
-          "m2_expected: JWT.login(username, password)",
+          "m_current_actual: OAuth2.login(provider)",
+          "m_next_expected: JWT.login(username, password)",
         ],
       },
       validate_interface: {
         status: "INCOMPATIBLE",
         details: [
-          "m1_actual: OAuth2.validate(bearer_token)",
-          "m2_expected: JWT.validate(auth_header)",
+          "m_current_actual: OAuth2.validate(bearer_token)",
+          "m_next_expected: JWT.validate(auth_header)",
         ],
       },
     },
@@ -1110,7 +1110,7 @@ const exampleScenario: ExampleScenario = {
     scope_change: {
       original: "Extend auth with JWT",
       adjusted: "Add OAuth2 adapter + extend auth with session management",
-      reason: "M1 implemented OAuth2, M2 must adapt rather than replace",
+      reason: "M_current implemented OAuth2, M_next must adapt rather than replace",
     },
     wbs_change: {
       new_tasks: [
@@ -1157,7 +1157,7 @@ const exampleScenario: ExampleScenario = {
  */
 interface ExampleScenarioNoTrigger {
   context: {
-    m1_status: {
+    m_current_status: {
       completed_modules: string[];
       interfaces_implemented: Array<{
         name: string;
@@ -1166,7 +1166,7 @@ interface ExampleScenarioNoTrigger {
       health_grade: HealthGrade;
       deferred_tasks: string[];
     };
-    m2_original: {
+    m_next_original: {
       scope: string;
       expected_interfaces: Array<{
         name: string;
@@ -1214,7 +1214,7 @@ interface ExampleScenarioNoTrigger {
 
 const exampleScenarioNoTrigger: ExampleScenarioNoTrigger = {
   context: {
-    m1_status: {
+    m_current_status: {
       completed_modules: ["core-engine", "grasp-integration"],
       interfaces_implemented: [
         {
@@ -1225,7 +1225,7 @@ const exampleScenarioNoTrigger: ExampleScenarioNoTrigger = {
       health_grade: "B",
       deferred_tasks: [],
     },
-    m2_original: {
+    m_next_original: {
       scope: "Implement orchestrator module",
       expected_interfaces: [
         {
@@ -1263,11 +1263,11 @@ const exampleScenarioNoTrigger: ExampleScenarioNoTrigger = {
     mspec_version: "v1.0",
     review_recorded: {
       trigger: "none",
-      reason: "M1 completed normally, no impact on M2",
+      reason: "M_current completed normally, no impact on M_next",
     },
   },
   execution: {
-    proceed_to: "M2 Sprint-1",
+    proceed_to: "M_next Sprint-1",
     wbs: "Original 30 tasks",
     estimated_time: "Original 2 weeks",
   },
@@ -1302,7 +1302,7 @@ const integrationWithSprintSelection: IntegrationWithSprintSelection = {
     input_to_sprint_selection: [
       "WBS.remaining_tasks (可能因微调而变化)",
       "WBS.DAG (可能因任务插入而变化)",
-      "PMB (包含 M1 Lessons)",
+      "PMB (包含 M_current Lessons)",
       "grasp_detect_changes (当前 repo 状态)",
     ],
   },
@@ -1385,3 +1385,150 @@ const implementationLocation: ImplementationLocation = {
 | `.omt/hooks/mspec-adjuster.ts` | 微调执行逻辑 |
 | `.omt/config/adjustment-rules.ts` | 触发条件配置 |
 | `.omt/tspecs/tspec_<ts>/mspecs/mspec_<ts>/` | MSpec 版本存储 |
+
+---
+
+## 开发时 Repo 文件结构
+
+### 开发结构 vs 安装后结构的区别
+
+本文档 §9 描述的文件位置混合了开发时和安装后的场景。以下明确区分:
+
+| 维度 | 开发时结构 (本 Repo) | 安装后结构 (目标项目 `.omt/`) |
+|------|---------------------|------------------------------|
+| **用途** | 开发 MSpec 微调算法 | 在目标项目中执行微调 |
+| **创建方式** | 手动创建，Git 管理 | `omt init` 自动生成 |
+| **生命周期** | 持久化，持续迭代 | 随 Milestone 动态变化 |
+| **核心内容** | TypeScript 源码、Skill 定义 | 编译后的微调脚本、MSpec 版本 |
+
+### MSpec Adjustment 模块在开发结构中的位置
+
+MSpec Adjustment 算法源码位于 `src/algorithms/mspec-adjustment/`:
+
+```
+src/algorithms/mspec-adjustment/
+├── index.ts                   # 主入口，导出 adjustMSpec API
+├── trigger-detector.ts        # 触发条件检测 (对应 §3)
+│   # - detectInterfaceCompatibility()
+│   # - detectSecurityImpact()
+│   # - detectHealthDeviation()
+│   # - detectMissingDependencies()
+│
+├── scope-adjuster.ts          # Scope 微调逻辑 (对应 §5.1)
+├── target-adjuster.ts         # Target 微调逻辑 (对应 §5.2)
+├── wbs-adjuster.ts            # WBS 微调逻辑 (对应 §5.3)
+├── report-generator.ts        # 微调报告生成 (对应 §6.2)
+├── types.ts                   # 类型定义 (对应 §2, §6.1)
+│   # - MSpecAdjustmentInput
+│   # - StrongTrigger, WeakTrigger
+│   # - MSpecV1_1
+```
+
+### MSpec Adjustment 的 Skill 定义位置
+
+```
+.claude/skills/mspec-adjustment/
+├── SKILL.md                   # Skill 主定义
+│   # - 定义微调触发流程
+│   # - 定义 Orchestrator 调用方式
+│   # - 定义用户确认交互
+│
+└── lib/
+    ├── trigger-check.ts       # 触发条件检查库
+    ├── adjustment-exec.ts     # 微调执行库
+    └── report-format.ts       # 报告格式化库
+```
+
+### MSpec Adjustment 的测试结构
+
+```
+tests/unit/algorithms/
+├── mspec-adjustment.test.ts   # MSpec Adjustment 主测试
+├── trigger-detector.test.ts   # 触发检测单元测试
+│   # - 测试强触发条件检测
+│   # - 测试弱触发条件检测
+│   # - 测试无触发条件
+│
+├── scope-adjuster.test.ts     # Scope 微调单元测试
+├── wbs-adjuster.test.ts       # WBS 微调单元测试
+│
+tests/integration/
+├── mspec-adjustment-flow.test.ts # 微调流程集成测试
+│   # - 测试 M_current 完成后触发 M_next 微调
+│   # - 测试用户确认流程
+│
+tests/fixtures/
+├── sample-mspecs/             # 示例 MSpec
+│   ├── mspec-v1.0.json        # 原始 MSpec
+│   ├── mspec-v1.1.json        # 微调后 MSpec
+│   ├── mspec-trigger-interface.json # 接口不兼容触发
+│   ├── mspec-trigger-security.json  # 安全问题触发
+│
+├── sample-reviews/            # 示例 MSpec Reviews
+│   ├── m1-review-complete.json
+│   ├── m1-review-partial.json
+│   ├── m1-review-failed.json
+```
+
+### MSpec Adjustment 与其他模块的文件关系
+
+| 本模块文件 | 依赖模块 | 依赖文件 |
+|-----------|---------|---------|
+| `trigger-detector.ts` | `src/algorithms/gap-analysis/` | `types.ts` (Grade 映射) |
+| `trigger-detector.ts` | `src/services/` | `grasp-service.ts` (grasp API) |
+| `scope-adjuster.ts` | `src/types/` | `mspec.ts`, `tspec.ts` |
+| `wbs-adjuster.ts` | `src/algorithms/sprint-selection/` | `types.ts` (AtomTask) |
+| `report-generator.ts` | `src/utils/` | `logger.ts` |
+
+### 安装后结构中 MSpec Adjustment 的运行时位置
+
+MSpec Adjustment 在目标项目中的运行时数据存储在:
+
+```
+.omt/
+├── hooks/
+│   └── mspec-adjuster.js      # 编译后的微调脚本 (用于自动化)
+│
+├── config/
+│   └── adjustment-rules.json  # 微调触发规则配置
+│
+├── tspecs/
+│   └── tspec_<timestamp>/
+│       └── mspecs/
+│           ├── mspec_<timestamp>/
+│           │   ├── mspec_v1.0.json   # 原始 MSpec
+│           │   ├── mspec_v1.1.json   # 微调后 MSpec (如有)
+│           │   └── adjustment-report.md # 微调报告
+│           │
+│           └── reviews/
+│               └── m1-review.json    # M1 Review (微调输入)
+```
+
+### 文件命名规范
+
+| 类型 | 规范 | 示例 |
+|------|------|------|
+| 微调算法源码 | `*-adjuster.ts`, `*-detector.ts` | `scope-adjuster.ts`, `trigger-detector.ts` |
+| 微调测试文件 | `mspec-*.test.ts` | `mspec-adjustment.test.ts` |
+| MSpec fixtures | `mspec-v*.json` | `mspec-v1.0.json`, `mspec-v1.1.json` |
+| 微调报告 | `adjustment-report.md` | `.omt/.../adjustment-report.md` |
+| MSpec 版本 | `mspec_v{version}.json` | `mspec_v1.0.json`, `mspec_v1.1.json` |
+
+### 开发结构与安装后结构的映射
+
+| 开发时源码 | 安装后产物 | 构建命令 |
+|-----------|-----------|---------|
+| `src/algorithms/mspec-adjustment/*.ts` | `.omt/hooks/mspec-adjuster.js` | `pnpm build:adjuster` |
+| `.claude/skills/mspec-adjustment/SKILL.md` | Skill 定义 (不复制) | Claude Code 直接读取 |
+| `tests/fixtures/sample-mspecs/*.json` | MSpec 模板 | `omt init` 或 `omt sprint` |
+| `src/types/mspec.ts` | 内嵌到 JS | `pnpm build:types` |
+
+### 完整开发时目录结构概览
+
+完整的 OMT 开发时 Repo 结构请参见 `02_sprint_selection_algorithm.md` 的 "开发时 Repo 文件结构" 章节，其中包含:
+- `src/` 源代码目录完整结构
+- `scripts/` CLI 与脚本目录完整结构
+- `tests/` 测试目录完整结构
+- `docs/` 文档目录完整结构
+- `.claude/` Claude Code 配置完整结构
+- 配置文件清单

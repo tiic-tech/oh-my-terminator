@@ -918,8 +918,8 @@ scenario_2:
 ```markdown
 ## Gap 分析报告
 
-**项目**: oh-my-terminator
-**分析日期**: 2026-04-30
+**项目**: <project_name>
+**分析日期**: <analysis_date>
 
 ### 综合评估
 
@@ -941,3 +941,102 @@ scenario_2:
 **推荐类型**: security-fix
 **推荐名称**: M4-security-fix
 ```
+
+---
+
+## 开发时 Repo 文件结构
+
+### 开发结构 vs 安装后结构的区别
+
+OMT 项目有两种截然不同的文件结构场景:
+
+| 维度 | 开发时结构 (本 Repo) | 安装后结构 (目标项目 `.omt/`) |
+|------|---------------------|------------------------------|
+| **用途** | 开发 OMT harness-engine 内核 | 在目标项目中运行 OMT |
+| **创建方式** | 手动创建，Git 管理 | `omt init` 或 `/omt:init` 自动生成 |
+| **生命周期** | 持久化，持续迭代 | 随项目动态变化 |
+| **核心内容** | 源码、测试、构建脚本 | 运行时数据、配置、缓存 |
+
+### Gap Analysis 模块在开发结构中的位置
+
+Gap Analysis 算法源码位于 `src/algorithms/gap-analysis/`:
+
+```
+src/algorithms/gap-analysis/
+├── index.ts                # 主入口，导出 calculateGap API
+├── feature-gap.ts          # 功能 Gap 计算 (对应本文档 §2.1)
+├── quality-gap.ts          # 质量 Gap 计算 (对应本文档 §2.2)
+├── test-gap.ts             # 测试 Gap 计算 (对应本文档 §2.3)
+├── security-gap.ts         # 安全 Gap 计算 (对应本文档 §2.4)
+├── composite-gap.ts        # 综合 Gap 计算 (对应本文档 §3)
+├── decision-maker.ts       # 验收决策逻辑 (对应本文档 §4)
+├── mspec-suggester.ts      # MSpec 创建建议 (对应本文档 §5)
+└── types.ts                # Gap 相关类型定义
+```
+
+### Gap Analysis 的测试结构
+
+```
+tests/unit/algorithms/
+├── gap-analysis.test.ts    # Gap Analysis 主测试
+├── feature-gap.test.ts     # 功能 Gap 单元测试
+├── quality-gap.test.ts     # 质量 Gap 单元测试
+├── test-gap.test.ts        # 测试 Gap 单元测试
+├── security-gap.test.ts    # 安全 Gap 单元测试
+├── composite-gap.test.ts   # 综合 Gap 单元测试
+├── decision-maker.test.ts  # 验收决策单元测试
+```
+
+### Gap Analysis 的测试 fixtures
+
+```
+tests/fixtures/
+├── sample-tspecs/          # 示例 TSpec (用于验收基准线)
+│   ├── tspec-basic.json
+│   ├── tspec-complex.json
+│
+├── sample-brain/           # 示例 brain.json (用于 repo 状态)
+│   ├── brain-grade-a.json
+│   ├── brain-grade-b.json
+│   ├── brain-grade-c.json
+│   ├── brain-grade-f.json
+│
+├── mock-grasp/             # Mock Grasp 输出
+│   ├── grasp-architecture.json
+│   ├── grasp-dependents.json
+│   ├── grasp-metrics.json
+```
+
+### Gap Analysis 与其他模块的文件关系
+
+| 本模块文件 | 依赖模块 | 依赖文件 |
+|-----------|---------|---------|
+| `feature-gap.ts` | `src/types/` | `tspec.ts`, `grasp.ts` |
+| `quality-gap.ts` | `src/types/` | `brain.ts` |
+| `security-gap.ts` | `src/types/` | `brain.ts` |
+| `decision-maker.ts` | `src/algorithms/mspec-adjustment/` | `types.ts` |
+
+### 安装后结构中 Gap Analysis 的运行时数据
+
+Gap Analysis 在目标项目中不产生独立文件，其计算结果存储在:
+
+```
+.omt/
+├── brain.json              # 包含 health_grade、security_issues
+├── memory/
+│   ├── pmb.json            # 包含 sprint_tracking 数据
+│   └── next-sprint-context.json # Gap 计算上下文
+├── tspecs/
+│   └── tspec_<timestamp>/
+│       └── reviews/
+│           └── gap-report.md  # Gap 分析报告输出
+```
+
+### 文件命名规范
+
+| 类型 | 规范 | 示例 |
+|------|------|------|
+| Gap 计算模块 | `*-gap.ts` | `feature-gap.ts`, `quality-gap.ts` |
+| Gap 测试文件 | `*-gap.test.ts` | `feature-gap.test.ts` |
+| Gap fixtures | `gap-*.json` 或 `brain-*.json` | `brain-grade-a.json` |
+| Gap 报告 | `gap-report.md` | `.omt/tspecs/.../reviews/gap-report.md` |
