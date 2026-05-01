@@ -23,7 +23,7 @@
 
 | 设计点 | 采纳决策 | 决策理由 |
 |--------|---------|---------|
-| **omt:pitch可在任何阶段发生** | ⚠️ 改造采纳 | 概念有价值（精细化调整），但pitch命名不当，应改为`omt:adjust`或`omt:refine` |
+| **omt:pitch可在任何阶段发生** | ⚠️ 改造采纳 | 概念有价值（精细化调整），但pitch命名不当，应改为`omt:tune`或`omt:refine` |
 | **用法：@tspec_<id>/proposal.md 指定文档调整** | ✅ 采纳 | 精细化指定文档调整是合理的设计，避免全量重新生成 |
 | **新增 omt:tspec-new 单artifact创建** | ✅ 采纳 | 分步创建模式更符合渐进式开发理念，降低一次性生成风险 |
 | **新增 omt:mspec-new 单artifact创建** | ✅ 采纳 | 同上 |
@@ -126,8 +126,8 @@ transitionTo(TSPEC → MSPEC) {
 
 **替代方案**:
 ```typescript
-// 精细化调整COMMAND命名为omt:adjust
-omt:adjust @tspec_<id>/proposal.md "第三点设计不合理..."
+// 精细化调整COMMAND命名为omt:tune
+omt:tune @tspec_<id>/proposal.md "第三点设计不合理..."
 
 // 或命名为omt:refine（更柔和的语义）
 omt:refine @mspec_<id>/design.md "调整依赖关系..."
@@ -479,15 +479,15 @@ enum PauseReason {
 
 ## 4. 新增COMMAND设计
 
-### 4.1 omt:adjust设计（替代omt:pitch精细化调整）
+### 4.1 omt:tune设计（替代omt:pitch精细化调整）
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                    omt:adjust COMMAND设计                                     │
+│                    omt:tune COMMAND设计                                       │
 │                    （替代用户提出的omt:pitch精细化调整）                         │
 └─────────────────────────────────────────────────────────────────────────────┘
 
-COMMAND名称: omt:adjust
+COMMAND名称: omt:tune
 触发条件: 用户在任何阶段发起精细化调整请求
 输入参数:
   - target: @<artifact_path>  目标artifact路径
@@ -497,7 +497,7 @@ COMMAND名称: omt:adjust
 执行流程:
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
-│  用户输入: omt:adjust @tspec_001/proposal.md "第三点设计不合理..."           │
+│  用户输入: omt:tune @tspec_001/proposal.md "第三点设计不合理..."             │
 │                                                                             │
 │  Step 1: 解析目标artifact                                                   │
 │      │  - 读取artifact路径                                                  │
@@ -514,7 +514,7 @@ COMMAND名称: omt:adjust
 │  Step 3: 执行调整                                                           │
 │      │  - mode=single: 只调整目标artifact                                   │
 │      │  - mode=cascade: 级联调整相关artifacts                               │
-│      │  - 生成调整记录到 .omt/adjustments/                                  │
+│      │  - 生成调整记录到 .omt/tune/                                         │
 │      │                                                                      │
 │      ▼                                                                      │
 │  Step 4: 触发对齐检查                                                       │
@@ -531,13 +531,13 @@ COMMAND名称: omt:adjust
 
 输出:
   - 调整后的artifact文件
-  - .omt/adjustments/adjust_<id>.json 调整记录
+  - .omt/tune/tune_<id>.json 调整记录
   - 对齐检查结果
 
 示例用法:
-  omt:adjust @tspec_001/proposal.md "第三点设计不合理，建议改为..."
-  omt:adjust @mspec_002/design.md --mode=cascade "调整依赖关系"
-  omt:adjust @sprint_005/sprint.yaml "增加并行度到5"
+  omt:tune @tspec_001/proposal.md "第三点设计不合理，建议改为..."
+  omt:tune @mspec_002/design.md --mode=cascade "调整依赖关系"
+  omt:tune @sprint_005/sprint.yaml "增加并行度到5"
 ```
 
 ### 4.2 omt:*-new系列设计
@@ -579,7 +579,7 @@ omt:tspec-new 执行流程:
 │      ▼                                                                      │
 │  Step 3: 等待用户检查                                                       │
 │      │  - 提示用户review                                                    │
-│      │  - 支持omt:adjust调整                                                │
+│      │  - 支持omt:tune调整                                                  │
 │      │                                                                      │
 │      ▼                                                                      │
 │  Step 4: 继续下一个artifact                                                 │
@@ -606,7 +606,7 @@ omt:mspec-new 执行流程:
 │      │                                                                      │
 │      ▼                                                                      │
 │  Step 3: 等待用户检查                                                       │
-│      │  - 支持omt:adjust调整                                                │
+│      │  - 支持omt:tune调整                                                  │
 │      │                                                                      │
 │      ▼                                                                      │
 │  Step 4: 继续下一个artifact                                                 │
@@ -635,7 +635,7 @@ ASCII流程图:
             └────────────────────────┘
                          │
                          │ 用户检查
-                         │ 可选: omt:adjust
+                         │ 可选: omt:tune
                          ▼
             ┌────────────────────────┐
             │  omt:tspec-new design   │
@@ -760,7 +760,7 @@ omt:align-part执行流程:
 │      ▼                                                                      │
 │  Step 4: 输出修改建议                                                        │
 │      │  - 针对mspec_001的调整建议                                           │
-│      │  - 支持omt:adjust执行                                                │
+│      │  - 支持omt:tune执行                                                  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 
@@ -810,6 +810,32 @@ ASCII流程图:
             │ 更新建议输出            │
             └────────────────────────┘
 ```
+
+### 4.4 omt:chain-update COMMAND设计
+
+**COMMAND名称**: omt:chain-update
+**触发条件**: 用户在非Terminator模式下手动触发链式更新
+**用途**: 执行alignment发现后的链式更新（Sprint→MSPEC→TSPEC）
+
+**执行流程**:
+1. 读取指定的alignment文件
+2. 分析alignment中的发现和更新建议
+3. 按依赖顺序执行更新链
+4. 输出更新结果
+
+**输入参数**:
+- target: @alignment_<id>  目标alignment文件路径
+- mode: 'auto' | 'stepwise'  自动执行或分步确认
+
+**用法示例**:
+```
+omt:chain-update @alignment_20260501_001
+omt:chain-update @alignment_<id> --mode=stepwise
+```
+
+**与Terminator模式的关系**:
+- 非Terminator模式: 用户手动触发omt:chain-update
+- Terminator模式: 系统自动执行链式更新（无需用户干预）
 
 ---
 
@@ -1293,7 +1319,7 @@ status: PENDING_USER_DECISION
 /**
  * 对齐发现状态标签
  * 
- * 参考OpenSpec opsx:sync设计
+ * 参考OpenSpec opsx:archive设计
  */
 
 enum AlignmentFindingType {
@@ -1511,7 +1537,7 @@ function handlePMBBlocking(terminator: TerminatorController, pmb: PMBManager): v
     });
     
     console.log(`Terminator暂停：存在${blockingIssues.length}个阻塞的对齐问题`);
-    console.log('请使用 omt:adjust 解决问题后执行 omt:resume');
+    console.log('请使用 omt:tune 解决问题后执行 omt:resume');
   }
 }
 ```
@@ -1770,7 +1796,7 @@ function recordChainUpdate(
 | COMMAND | 原设计 | 新设计 | 说明 |
 |---------|--------|--------|------|
 | **omt:pitch** | QA澄清阶段 | 重命名为omt:clarify | PITCH→CLARIFY语义更准确 |
-| **omt:pitch精细化调整** | 无 | 重命名为omt:adjust | 精细化调整在任何阶段 |
+| **omt:pitch精细化调整** | 无 | 重命名为omt:tune | 精细化调整在任何阶段 |
 | **omt:*-new系列** | 无 | 新增 | 分步创建artifacts |
 | **omt:align** | 无 | 新增 | 全量对齐检查 |
 | **omt:align-part** | 无 | 新增 | 部分对齐检查 |
@@ -1780,7 +1806,7 @@ function recordChainUpdate(
 | 机制 | 原设计 | 新设计 | 说明 |
 |------|--------|--------|------|
 | **alignment文件** | 无 | `.omt/alignment/alignment_<id>` | 对齐检查输出 |
-| **状态标签** | 无 | ADDED/MODIFIED/DELETED | 参考OpenSpec opsx:sync |
+| **状态标签** | 无 | ADDED/MODIFIED/DELETED | 参考OpenSpec opsx:archive |
 | **PMB同步** | 无 | CRITICAL severity同步 | 阻塞问题记录到PMB |
 | **链式更新** | 无 | Sprint→MSpec→TSpec | 更新传播机制 |
 
@@ -2788,7 +2814,7 @@ const DEFAULT_GIT_BRANCH_STRATEGY: GitBranchStrategy = {
 | **P0** | CLARIFY Phase重命名 | 无 | 本文档 |
 | **P0** | REVIEW Phase新增 | Sprint执行 | 本文档 |
 | **P0** | ALIGN Phase新增 | Artifacts对齐机制 | 本文档 + 08_batch2_partC |
-| **P1** | omt:adjust COMMAND | 无 | 本文档 |
+| **P1** | omt:tune COMMAND | 无 | 本文档 |
 | **P1** | omt:*-new系列 | 无 | 本文档 |
 | **P1** | omt:align/align-part | ArtifactsAligner | 本文档 + 08_batch2_partC |
 | **P2** | 链式更新机制 | ALIGN Phase | 本文档 |
@@ -2801,7 +2827,7 @@ const DEFAULT_GIT_BRANCH_STRATEGY: GitBranchStrategy = {
 | **09_terminator_phase_refinement.md** | 本文档 | 状态机精细化分析 |
 | **10_alignment_output_format.md** | alignment输出格式详细设计 | 扩展本文档Section 6 |
 | **11_chain_update_mechanism.md** | 链式更新机制详细设计 | 扩展本文档Section 6.4 |
-| **12_adjust_command_design.md** | omt:adjust详细设计 | 扩展本文档Section 4 |
+| **12_tune_command_design.md** | omt:tune详细设计 | 扩展本文档Section 4 |
 
 ---
 
