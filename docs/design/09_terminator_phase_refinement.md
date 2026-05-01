@@ -2825,9 +2825,9 @@ const DEFAULT_GIT_BRANCH_STRATEGY: GitBranchStrategy = {
 | 文档编号 | 内容 | 说明 |
 |---------|------|------|
 | **09_terminator_phase_refinement.md** | 本文档 | 状态机精细化分析 |
-| **10_alignment_output_format.md** | alignment输出格式详细设计 | 扩展本文档Section 6 |
-| **11_chain_update_mechanism.md** | 链式更新机制详细设计 | 扩展本文档Section 6.4 |
-| **12_tune_command_design.md** | omt:tune详细设计 | 扩展本文档Section 4 |
+| **12_alignment_output_format.md** | alignment输出格式详细设计 | 扩展本文档Section 6 |
+| **13_chain_update_mechanism.md** | 链式更新机制详细设计 | 扩展本文档Section 6.4 |
+| **14_tune_command_design.md** | omt:tune详细设计 | 扩展本文档Section 4 |
 
 ---
 
