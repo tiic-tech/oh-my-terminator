@@ -1786,9 +1786,1002 @@ function recordChainUpdate(
 
 ---
 
-## 8. 实现建议
+## 8. Git失败恢复策略
 
-### 8.1 优先级排序
+### 8.1 Git颗粒度设计
+
+#### 分支层级
+
+```
+main (stable)
+  │
+  │ MSpec开始
+  ├──────────> feat/mspec_<id>
+  │              │
+  │              │ Sprint开始
+  │              │   ┌─ 判断复杂度
+  │              │   ├─ 复杂 → sprint/<num> sub-branch
+  │              │   └─ 简单 → 直接在feat上开发
+  │              │
+  │              │ Sprint完成 → commit (或merge sub-branch)
+  │              │
+  │              │ MSpec完成 → PR到main
+  │              │
+  │              │ 中间Tag（可选）
+  │              └──────────> tag milestone/mspec_<id>
+  │
+  │ TSpec完成
+  └─────────────────→ tag stable/tspec_<id> (必须)
+```
+
+#### 提交粒度
+
+| 完成节点 | Git操作 | 说明 |
+|---------|--------|------|
+| AtomTask完成 | 不单独commit | 太细粒度，不作为commit单位 |
+| Sprint完成 | commit | 一个Sprint的所有AtomTask作为一个atomic change |
+| MSpec完成 | PR merge到main | 完整功能单元合并 |
+| TSpec完成 | tag标记 | 里程碑标记，必须执行 |
+
+#### Sprint复杂度判断机制
+
+```typescript
+/**
+ * Sprint复杂度判断机制
+ * 
+ * Sprint执行前判断任务复杂程度：
+ * - 复杂Sprint → 创建sub-branch sprint/<num>
+ * - 简单Sprint → 直接开发，git commit控制回滚
+ */
+
+interface SprintComplexityAssessment {
+  // 评估维度
+  factors: {
+    atomTaskCount: number;        // AtomTask数量
+    estimatedTime: number;        // 预估时间（分钟）
+    dependencyDepth: number;      // 依赖深度
+    riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+    crossModuleImpact: boolean;   // 是否跨模块影响
+  };
+  
+  // 评分结果
+  score: number;  // 1-10
+  
+  // 决策
+  decision: 'SIMPLE' | 'COMPLEX';
+  
+  // 建议操作
+  suggestedBranch: 'DIRECT' | 'SUB_BRANCH';
+}
+
+// 评分阈值配置
+const COMPLEXITY_THRESHOLD = 7;  // score >= 7 视为复杂Sprint
+
+function assessSprintComplexity(sprint: Sprint): SprintComplexityAssessment {
+  const factors = {
+    atomTaskCount: sprint.atomTasks.length,
+    estimatedTime: sprint.estimatedDuration,
+    dependencyDepth: calculateDependencyDepth(sprint),
+    riskLevel: sprint.riskAssessment,
+    crossModuleImpact: sprint.crossModule
+  };
+  
+  // 计算评分（加权）
+  const score = calculateScore(factors);
+  
+  const decision = score >= COMPLEXITY_THRESHOLD ? 'COMPLEX' : 'SIMPLE';
+  const suggestedBranch = decision === 'COMPLEX' ? 'SUB_BRANCH' : 'DIRECT';
+  
+  return { factors, score, decision, suggestedBranch };
+}
+
+function calculateScore(factors: SprintFactors): number {
+  // AtomTask数量评分 (权重: 30%)
+  const taskScore = Math.min(factors.atomTaskCount / 10, 3) * 0.3;
+  
+  // 时间评分 (权重: 20%)
+  const timeScore = Math.min(factors.estimatedTime / 120, 2) * 0.2;
+  
+  // 依赖深度评分 (权重: 20%)
+  const depScore = Math.min(factors.dependencyDepth / 3, 2) * 0.2;
+  
+  // 风险评分 (权重: 15%)
+  const riskScore = factors.riskLevel === 'HIGH' ? 1.5 : 
+                    factors.riskLevel === 'MEDIUM' ? 1 : 0.5;
+  
+  // 跨模块评分 (权重: 15%)
+  const crossScore = factors.crossModuleImpact ? 1.5 : 0;
+  
+  return taskScore + timeScore + depScore + riskScore + crossScore;
+}
+```
+
+#### Scope约束机制
+
+```yaml
+# Scope约束配置
+scope_constraints:
+  # 拆解阈值
+  decomposition:
+    large_project_estimate: 1000 atom_tasks
+    min_mspec_count: 20
+    max_atom_tasks_per_mspec: 50
+    max_sprints_per_mspec: 5
+  
+  # 验收点配置
+  acceptance_gates:
+    tspec_completion:
+      required: tag stable/tspec_<id>
+      optional: null
+    
+    mspec_completion:
+      required: PR merge到main
+      optional: tag milestone/mspec_<id>
+    
+    sprint_completion:
+      required: git commit
+      optional: null
+```
+
+### 8.2 失败恢复Git操作
+
+#### 按失败级别设计恢复策略
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    失败恢复Git策略 - 按失败级别分层                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+失败级别分层结构：
+┌─────────────┐
+│   AtomTask  │  ← 最细粒度，不触发Git操作
+└─────────────┘
+      │
+      ▼
+┌─────────────┐
+│    Sprint   │  ← commit粒度，触发Git回滚
+└─────────────┘
+      │
+      ▼
+┌─────────────┐
+│    MSpec    │  ← branch粒度，触发分支回退/删除
+└─────────────┘
+      │
+      ▼
+┌─────────────┐
+│    TSpec    │  ← 最粗粒度，触发全量回退（极端情况）
+└─────────────┘
+```
+
+#### AtomTask失败恢复
+
+```typescript
+/**
+ * AtomTask失败恢复策略
+ * 
+ * Git操作：无（AtomTask失败不影响commit）
+ */
+
+interface AtomTaskRecoveryConfig {
+  maxRetry: 3;  // 最大重试次数
+  
+  // 重试间隔递增策略
+  retryInterval: {
+    first: 5000;   // 5秒
+    second: 15000; // 15秒
+    third: 30000;  // 30秒
+  };
+  
+  // Git操作策略
+  gitOperation: 'NONE';  // AtomTask失败不触发Git操作
+}
+
+interface AtomTaskFailureScenario {
+  // 场景1：单次失败
+  singleFailure: {
+    action: 'RETRY';
+    gitOp: 'NONE';
+    logToPMB: false;
+  };
+  
+  // 场景2：达到maxRetry后仍失败
+  maxRetryFailure: {
+    action: 'LOG_TO_PMB';
+    pmbRecord: {
+      type: 'ATOM_TASK_FAILURE';
+      taskId: string;
+      retryCount: number;
+      errorDetails: string;
+    };
+    continueSprint: true;  // Sprint继续执行其他任务
+    gitOp: 'NONE';
+  };
+}
+
+// AtomTask失败恢复实现
+function handleAtomTaskFailure(
+  task: AtomTask,
+  retryCount: number,
+  config: AtomTaskRecoveryConfig
+): RecoveryAction {
+  if (retryCount < config.maxRetry) {
+    // 未达maxRetry → 重试
+    const interval = config.retryInterval[`step_${retryCount + 1}`];
+    return {
+      action: 'RETRY',
+      delay: interval,
+      gitOperation: null
+    };
+  } else {
+    // 达到maxRetry → 记录PMB，继续Sprint
+    return {
+      action: 'LOG_AND_CONTINUE',
+      pmbRecord: {
+        type: 'ATOM_TASK_FAILURE',
+        taskId: task.id,
+        retryCount: retryCount,
+        errorDetails: task.lastError
+      },
+      gitOperation: null
+    };
+  }
+}
+```
+
+#### Sprint失败恢复
+
+```typescript
+/**
+ * Sprint失败恢复策略
+ * 
+ * 区分简单Sprint和复杂Sprint的恢复方式
+ */
+
+interface SprintRecoveryConfig {
+  // 简单Sprint恢复策略
+  simpleSprint: {
+    uncommitted: 'NO_OP';              // 未commit → 无操作
+    committed: 'SOFT_RESET';           // 已commit → soft reset
+    severeFailure: 'HARD_RESET';       // 严重失败 → hard reset
+  };
+  
+  // 复杂Sprint恢复策略
+  complexSprint: {
+    unmerged: 'RESET_OR_CONTINUE';     // sub-branch未merge → reset或继续
+    merged: 'REVERT_OR_RESET_FEAT';    // sub-branch已merge → revert或reset feat
+    totalFailure: 'DELETE_BRANCH';     // 彻底失败 → 删除sub-branch
+  };
+}
+
+// Sprint失败恢复实现
+function handleSprintFailure(
+  sprint: Sprint,
+  failureSeverity: 'MINOR' | 'MAJOR' | 'CRITICAL',
+  branchType: 'SIMPLE' | 'COMPLEX',
+  commitStatus: 'UNCOMMITTED' | 'COMMITTED' | 'MERGED'
+): GitRecoveryAction {
+  
+  // 场景A：简单Sprint（无sub-branch）
+  if (branchType === 'SIMPLE') {
+    switch (commitStatus) {
+      case 'UNCOMMITTED':
+        // 情况1：未commit → 无操作（修改仍在工作区）
+        return { gitOp: 'NO_OP', reason: '未commit，无回滚必要' };
+      
+      case 'COMMITTED':
+        if (failureSeverity === 'MINOR') {
+          // 情况2：已commit，轻微失败 → soft reset保留修改
+          return { gitOp: 'SOFT_RESET', args: ['HEAD~1'], reason: '撤销commit，保留修改' };
+        } else {
+          // 情况3：严重失败 → hard reset丢弃修改
+          return { gitOp: 'HARD_RESET', args: ['HEAD~1'], reason: '撤销commit，丢弃修改' };
+        }
+    }
+  }
+  
+  // 场景B：复杂Sprint（有sub-branch sprint/<num>）
+  if (branchType === 'COMPLEX') {
+    switch (commitStatus) {
+      case 'UNCOMMITTED':
+        // 情况1：sub-branch未merge → reset或继续开发
+        if (failureSeverity === 'MINOR') {
+          return { gitOp: 'CONTINUE_DEV', reason: '轻微失败，继续sub-branch开发' };
+        } else {
+          return { gitOp: 'RESET_SUB_BRANCH', args: ['origin/feat/mspec_<id>'], reason: '回退sub-branch' };
+        }
+      
+      case 'MERGED':
+        // 情况2：sub-branch已merge → revert或reset feat分支
+        if (failureSeverity === 'MINOR') {
+          return { gitOp: 'REVERT', args: ['HEAD'], reason: 'revert merge commit' };
+        } else {
+          return { gitOp: 'RESET_FEAT', args: ['HEAD~1'], reason: 'reset feat分支到merge前' };
+        }
+      
+      case 'TOTAL_FAILURE':
+        // 情况3：彻底失败 → 删除分支
+        return { gitOp: 'DELETE_BRANCH', args: [`sprint/${sprint.num}`], reason: '删除失败sub-branch' };
+    }
+  }
+  
+  return { gitOp: 'NO_OP', reason: '默认无操作' };
+}
+```
+
+#### MSpec失败恢复
+
+```typescript
+/**
+ * MSpec失败恢复策略
+ * 
+ * branch粒度，触发分支回退或删除
+ */
+
+interface MSpecRecoveryConfig {
+  // 恢复策略类型
+  strategies: {
+    CONTINUE: 'feat分支继续开发';         // MSpec未完成，继续
+    HARD_RESET: '回退到MSpec开始点';      // 严重失败需回退
+    BRANCH_DELETE: '删除feat分支重新创建'; // 需要重新规划
+  };
+  
+  // 严重失败判定条件
+  severeFailureConditions: [
+    'Sprint连续失败超过阈值',
+    '对齐检查发现CRITICAL问题',
+    'WBS与实现严重不匹配',
+    '技术约束冲突无法解决'
+  ];
+}
+
+interface MSpecFailureScenario {
+  // 情况1：MSpec未完成 → feat分支继续开发
+  incomplete: {
+    action: 'CONTINUE';
+    gitOp: 'NONE';
+    logToPMB: true;
+    pmbRecord: {
+      type: 'MSPEC_PROGRESS_ISSUE';
+      mspecId: string;
+      currentSprint: number;
+      totalSprints: number;
+    };
+  };
+  
+  // 情况2：严重失败需回退 → reset到MSpec开始点
+  severeFailure: {
+    action: 'HARD_RESET';
+    gitOp: 'git reset --hard <base-commit>';
+    baseCommit: 'feat/mspec_<id>创建时的commit';
+    logToPMB: true;
+  };
+  
+  // 情况3：需要重新规划 → 删除feat分支重新创建
+  needReplanning: {
+    action: 'BRANCH_DELETE_RECREATE';
+    gitOps: [
+      'git checkout main',
+      'git branch -D feat/mspec_<id>',
+      '重新创建feat/mspec_<id>'
+    ];
+    preserveArtifacts: true;  // 保留artifacts文件（.omt目录）
+  };
+}
+
+// MSpec失败恢复实现
+function handleMSpecFailure(
+  mspec: MSpec,
+  failureType: 'INCOMPLETE' | 'SEVERE' | 'REPLANNING',
+  baseCommit: string
+): GitRecoveryAction {
+  switch (failureType) {
+    case 'INCOMPLETE':
+      // MSpec未完成 → 记录PMB，继续开发
+      return {
+        gitOp: 'NO_OP',
+        pmbRecord: {
+          type: 'MSPEC_PROGRESS_ISSUE',
+          mspecId: mspec.id
+        },
+        reason: 'MSpec未完成，继续feat分支开发'
+      };
+    
+    case 'SEVERE':
+      // 严重失败 → hard reset回退
+      return {
+        gitOp: 'HARD_RESET',
+        args: [baseCommit],
+        reason: `回退到MSpec开始点: ${baseCommit}`
+      };
+    
+    case 'REPLANNING':
+      // 需重新规划 → 删除分支重新创建
+      return {
+        gitOp: 'BRANCH_DELETE_RECREATE',
+        args: [`feat/${mspec.id}`],
+        preserveArtifacts: true,
+        reason: '删除feat分支，重新规划MSpec'
+      };
+  }
+}
+```
+
+#### TSpec失败恢复（极端情况）
+
+```typescript
+/**
+ * TSpec失败恢复策略（极端情况）
+ * 
+ * 最粗粒度，触发全量回退
+ */
+
+interface TSpecRecoveryConfig {
+  // 恢复策略
+  strategies: {
+    PARTIAL: '保留通过的MSpec，调整失败的';  // 部分MSpec通过
+    CLEAN_ALL: '清理所有feat分支';           // 全部失败
+    FULL_RESTART: '删除.omt目录重新开始';    // 需要完全重新开始
+  };
+}
+
+interface TSpecFailureScenario {
+  // 情况1：部分MSpec通过 → 保留通过的，调整失败的
+  partialFailure: {
+    action: 'PARTIAL_KEEP';
+    gitOps: [
+      '保留: 已merge到main的MSpec',
+      '调整: 失败MSpec的feat分支'
+    ];
+    preservePassedMSpecs: true;
+  };
+  
+  // 情况2：全部失败 → 清理所有feat分支
+  totalFailure: {
+    action: 'CLEAN_ALL_FEAT';
+    gitOps: [
+      'git checkout main',
+      'git branch -D feat/* (清理所有feat分支)'
+    ];
+    preserveArtifacts: true;  // 保留.omt目录artifacts
+  };
+  
+  // 情况3：需要完全重新开始 → 删除.omt目录
+  fullRestart: {
+    action: 'DELETE_OMT_RESTART';
+    gitOps: [
+      'git checkout main',
+      'git branch -D feat/*',
+      'rm -rf .omt',
+      '重新执行omt:init'
+    ];
+    preserveArtifacts: false;
+  };
+}
+
+// TSpec失败恢复实现（需用户确认）
+function handleTSpecFailure(
+  tspec: TSpec,
+  failureType: 'PARTIAL' | 'TOTAL' | 'FULL_RESTART',
+  passedMSpecs: string[]
+): GitRecoveryAction {
+  // TSpec失败需要用户确认，不能自动执行
+  
+  const userConfirmation = requestUserConfirmation({
+    type: 'TSPEC_FAILURE',
+    severity: 'CRITICAL',
+    options: [
+      { key: 'PARTIAL', description: '保留通过的MSpec，调整失败的' },
+      { key: 'TOTAL', description: '清理所有feat分支，保留.omt目录' },
+      { key: 'FULL_RESTART', description: '删除.omt目录，完全重新开始' }
+    ]
+  });
+  
+  switch (failureType) {
+    case 'PARTIAL':
+      return {
+        gitOp: 'PARTIAL_KEEP',
+        preserveMSpecs: passedMSpecs,
+        reason: `保留通过的MSpec: ${passedMSpecs.join(', ')}`
+      };
+    
+    case 'TOTAL':
+      return {
+        gitOp: 'CLEAN_ALL_FEAT',
+        preserveArtifacts: true,
+        reason: '清理所有feat分支，保留.omt目录'
+      };
+    
+    case 'FULL_RESTART':
+      return {
+        gitOp: 'DELETE_OMT_RESTART',
+        preserveArtifacts: false,
+        reason: '删除.omt目录，执行omt:init重新开始'
+      };
+  }
+}
+```
+
+### 8.3 Git命令汇总表
+
+| 失败级别 | 恢复场景 | Git操作 | 命令示例 |
+|---------|---------|--------|---------|
+| AtomTask | 达到maxRetry | 无操作，继续Sprint | `无` |
+| AtomTask | 单次失败 | Retry（不涉及Git） | `无` |
+| Sprint | 简单Sprint未commit | 无操作 | `无` |
+| Sprint | 简单Sprint已commit（轻微） | `git reset --soft HEAD~1` | `git reset --soft HEAD~1` |
+| Sprint | 简单Sprint已commit（严重） | `git reset --hard HEAD~1` | `git reset --hard HEAD~1` |
+| Sprint | 复杂Sprint未merge（轻微） | 继续开发 | `无` |
+| Sprint | 复杂Sprint未merge（严重） | `git reset` | `git reset origin/feat/mspec_<id>` |
+| Sprint | 复杂Sprint已merge（轻微） | `git revert` | `git revert HEAD` |
+| Sprint | 复杂Sprint已merge（严重） | `git reset feat` | `git reset --hard HEAD~1` |
+| Sprint | Sprint彻底失败 | `git branch -D sprint/<num>` | `git branch -D sprint/003` |
+| MSpec | MSpec未完成 | 无操作，继续开发 | `无` |
+| MSpec | MSpec严重失败 | `git reset --hard <base-commit>` | `git reset --hard abc123` |
+| MSpec | MSpec重新规划 | `git branch -D feat/mspec_<id>` | `git branch -D feat/mspec_002` |
+| TSpec | TSpec部分失败 | 保留passedMSpecs | `git branch -D feat/mspec_failed` |
+| TSpec | TSpec全部失败 | `git checkout main + git branch -D feat/*` | `git branch -D feat/mspec_*` |
+| TSpec | TSpec完全重置 | 删除.omt + 重新omt:init | `rm -rf .omt && omt:init` |
+
+### 8.4 TypeScript接口定义
+
+```typescript
+/**
+ * Git恢复策略完整配置
+ */
+interface GitRecoveryConfig {
+  // Sprint复杂度判断阈值
+  sprintComplexityThreshold: number;  // 评分>=7视为复杂
+  
+  // Scope约束阈值
+  maxAtomTasksPerMSpec: number;       // 50
+  maxSprintsPerMSpec: number;         // 5
+  
+  // AtomTask失败恢复
+  atomTaskRecovery: {
+    maxRetry: number;
+    retryInterval: number[];
+    gitOperation: 'NONE';
+    logToPMB: boolean;
+  };
+  
+  // Sprint失败恢复
+  sprintRecovery: {
+    // 简单Sprint策略
+    simpleSprint: {
+      uncommitted: 'NO_OP';
+      committed: 'SOFT_RESET' | 'HARD_RESET';
+    };
+    
+    // 复杂Sprint策略
+    complexSprint: {
+      unmerged: 'RESET_OR_CONTINUE';
+      merged: 'REVERT' | 'RESET_FEAT';
+      totalFailure: 'DELETE_BRANCH';
+    };
+  };
+  
+  // MSpec失败恢复
+  mspecRecovery: {
+    incomplete: 'CONTINUE';
+    severeFailure: 'HARD_RESET';
+    needReplanning: 'BRANCH_DELETE';
+  };
+  
+  // TSpec失败恢复
+  tspecRecovery: {
+    partialFailure: 'PARTIAL_KEEP';
+    totalFailure: 'CLEAN_ALL_FEAT';
+    fullRestart: 'DELETE_OMT_RESTART';
+  };
+}
+
+/**
+ * Git分支策略配置
+ */
+interface GitBranchStrategy {
+  // 分支命名规范
+  branchNaming: {
+    mspecBranch: string;    // feat/mspec_<id>
+    sprintBranch: string;   // sprint/<num>
+  };
+  
+  // Tag命名规范
+  tagNaming: {
+    mspecTag: string;       // milestone/mspec_<id> (可选)
+    tspecTag: string;       // stable/tspec_<id> (必须)
+  };
+  
+  // 合并策略
+  mergeStrategy: {
+    sprintToFeat: 'MERGE' | 'REBASE';
+    featToMain: 'PR_MERGE' | 'DIRECT_MERGE';
+  };
+}
+
+/**
+ * Git恢复操作结果
+ */
+interface GitRecoveryAction {
+  gitOp: GitOperationType;
+  args?: string[];
+  preserveArtifacts?: boolean;
+  preserveMSpecs?: string[];
+  pmbRecord?: PMBRecord;
+  reason: string;
+  requiresUserConfirmation?: boolean;
+}
+
+type GitOperationType = 
+  | 'NO_OP'
+  | 'SOFT_RESET'
+  | 'HARD_RESET'
+  | 'REVERT'
+  | 'RESET_FEAT'
+  | 'DELETE_BRANCH'
+  | 'BRANCH_DELETE_RECREATE'
+  | 'PARTIAL_KEEP'
+  | 'CLEAN_ALL_FEAT'
+  | 'DELETE_OMT_RESTART';
+
+/**
+ * Git恢复执行器
+ */
+interface GitRecoveryExecutor {
+  // 执行Git恢复操作
+  execute(action: GitRecoveryAction): Promise<GitRecoveryResult>;
+  
+  // 验证操作安全性
+  validate(action: GitRecoveryAction): ValidationResult;
+  
+  // 生成Git命令
+  generateCommand(action: GitRecoveryAction): string;
+  
+  // 记录恢复历史
+  recordHistory(action: GitRecoveryAction, result: GitRecoveryResult): void;
+}
+
+interface GitRecoveryResult {
+  success: boolean;
+  commandExecuted: string;
+  output: string;
+  timestamp: Date;
+  artifactsPreserved: boolean;
+  branchesAffected: string[];
+}
+
+// 默认配置
+const DEFAULT_GIT_RECOVERY_CONFIG: GitRecoveryConfig = {
+  sprintComplexityThreshold: 7,
+  maxAtomTasksPerMSpec: 50,
+  maxSprintsPerMSpec: 5,
+  
+  atomTaskRecovery: {
+    maxRetry: 3,
+    retryInterval: [5000, 15000, 30000],
+    gitOperation: 'NONE',
+    logToPMB: true
+  },
+  
+  sprintRecovery: {
+    simpleSprint: {
+      uncommitted: 'NO_OP',
+      committed: 'SOFT_RESET'
+    },
+    complexSprint: {
+      unmerged: 'RESET_OR_CONTINUE',
+      merged: 'REVERT',
+      totalFailure: 'DELETE_BRANCH'
+    }
+  },
+  
+  mspecRecovery: {
+    incomplete: 'CONTINUE',
+    severeFailure: 'HARD_RESET',
+    needReplanning: 'BRANCH_DELETE'
+  },
+  
+  tspecRecovery: {
+    partialFailure: 'PARTIAL_KEEP',
+    totalFailure: 'CLEAN_ALL_FEAT',
+    fullRestart: 'DELETE_OMT_RESTART'
+  }
+};
+
+// 默认分支策略
+const DEFAULT_GIT_BRANCH_STRATEGY: GitBranchStrategy = {
+  branchNaming: {
+    mspecBranch: 'feat/mspec_<id>',
+    sprintBranch: 'sprint/<num>'
+  },
+  
+  tagNaming: {
+    mspecTag: 'milestone/mspec_<id>',
+    tspecTag: 'stable/tspec_<id>'
+  },
+  
+  mergeStrategy: {
+    sprintToFeat: 'MERGE',
+    featToMain: 'PR_MERGE'
+  }
+};
+```
+
+### 8.5 ASCII流程图
+
+#### 分支层级结构图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Git分支层级结构                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              main (stable)
+                                   │
+                                   │
+                                   │  omt:init完成
+                                   │  Tag: stable/tspec_<id> (必须)
+                                   │
+                                   │  MSpec开始
+                                   ├───────────────────────────┐
+                                   │                           │
+                                   ▼                           │
+                          feat/mspec_001                       │
+                                   │                           │
+                                   │ Sprint开始                 │
+                                   │                           │
+                                   │  ┌─ 判断复杂度             │
+                                   │  │                         │
+                                   │  │  score >= 7             │
+                                   │  ├─────────────────┐       │
+                                   │  │                 │       │
+                                   │  │                 ▼       │
+                                   │  │          sprint/001     │
+                                   │  │          (sub-branch)   │
+                                   │  │                 │       │
+                                   │  │                 │ 完成   │
+                                   │  │                 │       │
+                                   │  │                 │ merge  │
+                                   │  │                 │       │
+                                   │  │                 ▼       │
+                                   │  │          ────────────────
+                                   │  │                         │
+                                   │  │  score < 7              │
+                                   │  ├─────────────────────────│
+                                   │  │                         │
+                                   │  │  直接在feat上开发        │
+                                   │  │                         │
+                                   │  │  Sprint完成 → commit     │
+                                   │  │                         │
+                                   │  └─────────────────────────│
+                                   │                           │
+                                   │ MSpec完成                  │
+                                   │                            │
+                                   │ PR到main                   │
+                                   │                            │
+                                   │ Tag: milestone/mspec_001   │
+                                   │ (可选)                      │
+                                   │                            │
+                                   ▼                            │
+                              ───────────────────────────────    │
+                                   │                            │
+                                   │                            │
+                                   │                            │
+                                   ▼                            │
+                          feat/mspec_002                       │
+                                   │                            │
+                                   │ ... 循环                    │
+                                   │                            │
+                                   ▼                            │
+                              ───────────────────────────────    │
+                                   │                            │
+                                   │ TSpec完成                   │
+                                   │                            │
+                                   │ Tag: stable/tspec_<id>     │
+                                   │ (必须)                      │
+                                   │                            │
+                                   ▼                            │
+                              main (updated)                    │
+```
+
+#### Sprint复杂度判断流程图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Sprint复杂度判断流程                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              Sprint开始
+                                   │
+                                   │
+                                   ▼
+                        ┌──────────────────┐
+                        │ 评估Sprint复杂度  │
+                        │                  │
+                        │ 评估维度:        │
+                        │ - AtomTask数量   │
+                        │ - 预估时间       │
+                        │ - 依赖深度       │
+                        │ - 风险等级       │
+                        │ - 跨模块影响     │
+                        └──────────────────┘
+                                   │
+                                   │
+                                   ▼
+                        ┌──────────────────┐
+                        │   计算评分        │
+                        │                  │
+                        │ score = 加权计算  │
+                        │ (1-10分制)       │
+                        └──────────────────┘
+                                   │
+                                   │
+                                   ▼
+                              score >= 7 ?
+                                   │
+                                   │
+                      ┌────────────┴────────────┐
+                      │                         │
+                      │ YES                     │ NO
+                      │                         │
+                      ▼                         ▼
+            ┌─────────────────┐       ┌─────────────────┐
+            │   COMPLEX       │       │   SIMPLE        │
+            │                 │       │                 │
+            │ 创建sub-branch  │       │ 直接在feat开发  │
+            │ sprint/<num>    │       │                 │
+            └─────────────────┘       └─────────────────┘
+                      │                         │
+                      │                         │
+                      │                         │ Sprint完成
+                      │                         │
+                      │                         │ git commit
+                      │                         │
+                      │                         │
+                      │                         ▼
+                      │                   ────────────────
+                      │                         │
+                      │ Sprint完成              │
+                      │                         │
+                      │ merge到feat             │
+                      │                         │
+                      │                         │
+                      ▼                         │
+            ──────────────────                 │
+                      │                         │
+                      │                         │
+                      │                         │
+                      └─────────────────────────│
+                                   │
+                                   │
+                                   ▼
+                              继续下一个Sprint
+```
+
+#### 失败恢复决策流程图
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    失败恢复决策流程                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              任务失败发生
+                                   │
+                                   │
+                                   ▼
+                        ┌──────────────────┐
+                        │  判断失败级别     │
+                        └──────────────────┘
+                                   │
+                                   │
+          ┌────────────────────────┼────────────────────────┐
+          │                        │                        │
+          │                        │                        │
+          ▼                        ▼                        ▼
+   ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+   │  AtomTask   │          │   Sprint    │          │   MSpec     │
+   │   失败      │          │    失败     │          │    失败     │
+   └─────────────┘          └─────────────┘          └─────────────┘
+          │                        │                        │
+          │                        │                        │
+          ▼                        ▼                        ▼
+   ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+   │ 达到maxRetry?│         │ 判断分支类型 │          │ 判断失败类型 │
+   └─────────────┘          └─────────────┘          └─────────────┘
+          │                        │                        │
+          │                        │                        │
+   ┌──────┴──────┐          ┌──────┴──────┐          ┌──────┴──────┐
+   │             │          │             │          │             │
+   │ NO          │ YES      │ SIMPLE      │ COMPLEX  │ INCOMPLETE  │ SEVERE
+   │             │          │             │          │             │
+   ▼             ▼          ▼             ▼          ▼             ▼
+┌───────┐   ┌───────┐    ┌───────┐   ┌───────┐  ┌───────┐   ┌───────┐
+│ Retry │   │记录PMB│    │判断    │   │判断    │  │继续   │   │Reset  │
+│       │   │继续   │    │commit │   │merge   │  │开发   │   │到开始 │
+│       │   │Sprint │    │状态   │   │状态    │  │       │   │点     │
+└───────┘   └───────┘    └───────┘   └───────┘  └───────┘   └───────┘
+   │             │            │           │          │           │
+   │             │            │           │          │           │
+   │             │      ┌─────┴─────┐ ┌───┴────┐     │           │
+   │             │      │           │ │        │     │           │
+   │             │      │已commit?  │ │已merge?│     │           │
+   │             │      └───┴───┴───┘ └──┴──┴───┘     │           │
+   │             │          │           │            │           │
+   │             │    ┌─────┴─────┐ ┌───┴────┐       │           │
+   │             │    │NO  │YES   │ │NO│YES  │       │           │
+   │             │    │    │      │ │  │     │       │           │
+   │             │    ▼    ▼      │ ▼  ▼     │       │           │
+   │             │  无操 soft/   │ 继 revert │       │           │
+   │             │  作   hard   │ 续 或     │       │           │
+   │             │  reset       │ 开 reset  │       │           │
+   │             │              │ 发 feat   │       │           │
+   │             │              │           │       │           │
+   │             │              └───────────┘       │           │
+   │             │                                  │           │
+   │             │                                  │           │
+   │             │                                  │           │
+   └─────────────┴──────────────────────────────────┴───────────┘
+                                   │
+                                   │
+                                   │ Git操作执行
+                                   │
+                                   │ PMB记录更新
+                                   │
+                                   │ 用户通知（如需）
+                                   │
+                                   ▼
+                              恢复完成/继续执行
+
+
+              ┌─────────────────────────────────────────────────┐
+              │               TSpec失败（极端情况）               │
+              └─────────────────────────────────────────────────┘
+                                   │
+                                   │
+                                   ▼
+                        ┌──────────────────┐
+                        │  判断失败类型     │
+                        └──────────────────┘
+                                   │
+          ┌────────────────────────┼────────────────────────┐
+          │                        │                        │
+          ▼                        ▼                        ▼
+   ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+   │   PARTIAL   │          │   TOTAL     │          │ FULL_RESTART│
+   │   失败      │          │    失败     │          │    重置     │
+   └─────────────┘          └─────────────┘          └─────────────┘
+          │                        │                        │
+          │                        │                        │
+          ▼                        ▼                        ▼
+   ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+   │ 用户确认    │          │ 用户确认    │          │ 用户确认    │
+   │             │          │             │          │             │
+   │ 选项:       │          │ 选项:       │          │ 选项:       │
+   │ - 保留passed│          │ - 清理feat* │          │ - 删除.omt  │
+   │ - 调整failed│          │ - 保留.omt  │          │ - omt:init  │
+   └─────────────┘          └─────────────┘          └─────────────┘
+          │                        │                        │
+          │                        │                        │
+          ▼                        ▼                        ▼
+   ┌─────────────┐          ┌─────────────┐          ┌─────────────┐
+   │ git branch  │          │ git checkout│          │ rm -rf .omt │
+   │ -D failed   │          │ main        │          │             │
+   │             │          │ git branch  │          │ omt:init    │
+   │             │          │ -D feat/*   │          │             │
+   └─────────────┘          └─────────────┘          └─────────────┘
+          │                        │                        │
+          │                        │                        │
+          └────────────────────────┴────────────────────────┘
+                                   │
+                                   │
+                                   ▼
+                              恢复完成
+```
+
+---
+
+## 9. 实现建议
+
+### 9.1 优先级排序
 
 | 优先级 | 实现项 | 依赖 | 建议文档 |
 |--------|--------|------|---------|
@@ -1801,7 +2794,7 @@ function recordChainUpdate(
 | **P2** | 链式更新机制 | ALIGN Phase | 本文档 |
 | **P2** | Artifacts完成度监测 | PhaseGuard | 本文档 |
 
-### 8.2 建议后续文档编号
+### 9.2 建议后续文档编号
 
 | 文档编号 | 内容 | 说明 |
 |---------|------|------|
