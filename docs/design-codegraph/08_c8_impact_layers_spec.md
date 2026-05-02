@@ -1,0 +1,784 @@
+# C8 技术规格：影响范围与分层推断
+
+> **文档定位**: 为 `cg-api-impact-layers` Change 提供无歧义的实现规格，消除开发歧义。
+> **关联文档**: [01_origin_blueprint.md](./01_origin_blueprint.md) §6.2-6.3, §7.3-7.4
+
+---
+
+## 1. 影响范围分析 (getImpact)
+
+### 1.1 输入与输出定义
+
+```typescript
+interface GetImpactInput {
+  targets: string[];  // 文件或模块 ID 列表，如 ["FILE:src/auth.ts", "MODULE:src/utils.ts#formatDate"]
+}
+
+interface GetImpactOutput {
+  content: string;           // 压缩文本输出
+  affectedFiles: string[];   // 结构化数据：受影响文件路径列表
+  directDependents: number;  // 直接依赖者数量
+  indirectDependents: number; // 间接依赖者数量
+}
+```
+
+### 1.2 BFS 遍历算法
+
+**核心逻辑**: 使用反向索引 `inEdges` 沿 IMPORTS 边反向遍历，找出所有依赖目标节点的文件。
+
+```typescript
+function getImpact(graph: CodeGraph, targets: string[]): GetImpactOutput {
+  const visited = new Set<string>();
+  const directDependents = new Set<string>();
+  const indirectDependents = new Set<string>();
+  
+  // 步骤1: 将输入目标规范化为 FILE 节点
+  const fileTargets = new Set<string>();
+  for (const target of targets) {
+    if (target.startsWith('FILE:')) {
+      fileTargets.add(target);
+    } else if (target.startsWith('MODULE:')) {
+      // MODULE 节点 → 找到所属 FILE 节点
+      // MODULE:src/utils.ts#formatDate → FILE:src/utils.ts
+      const filePath = target.split('#')[0].replace('MODULE:', 'FILE:');
+      fileTargets.add(filePath);
+    }
+  }
+  
+  // 步骤2: BFS 第一层 - 直接依赖者
+  for (const target of fileTargets) {
+    const inEdges = graph.inEdges.get(target) || [];
+    for (const edge of inEdges) {
+      // 只处理 IMPORTS 边（MVP 阶段无 CALLS 边）
+      if (edge.type === EdgeType.IMPORTS || edge.type === EdgeType.RE_EXPORTS) {
+        const dependent = edge.from;  // from 是依赖方
+        if (!visited.has(dependent)) {
+          visited.add(dependent);
+          directDependents.add(dependent);
+        }
+      }
+    }
+  }
+  
+  // 步骤3: BFS 继续遍历 - 间接依赖者
+  const queue = [...directDependents];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    const inEdges = graph.inEdges.get(current) || [];
+    for (const edge of inEdges) {
+      if (edge.type === EdgeType.IMPORTS || edge.type === EdgeType.RE_EXPORTS) {
+        const dependent = edge.from;
+        if (!visited.has(dependent)) {
+          visited.add(dependent);
+          indirectDependents.add(dependent);
+          queue.push(dependent);  // 继续向上游遍历
+        }
+      }
+    }
+  }
+  
+  // 步骤4: 生成输出文本
+  const allAffected = [...directDependents, ...indirectDependents];
+  const content = formatImpactOutput(fileTargets, directDependents, indirectDependents);
+  
+  return {
+    content,
+    affectedFiles: allAffected.map(id => id.replace('FILE:', '')),
+    directDependents: directDependents.size,
+    indirectDependents: indirectDependents.size
+  };
+}
+```
+
+### 1.3 递归深度控制
+
+**深度限制**: 默认最大深度 10 层，防止极端情况下的无限遍历。
+
+```typescript
+// BFS 带深度控制
+function getImpactWithDepthLimit(
+  graph: CodeGraph, 
+  targets: string[], 
+  maxDepth: number = 10
+): GetImpactOutput {
+  const visited = new Set<string>();
+  const layers: Set<string>[] = [new Set(), new Set()]; // [direct, indirect]
+  
+  // 第一层初始化（同上）
+  // ...
+  
+  // BFS 遍历带深度计数
+  const queue: { nodeId: string; depth: number }[] = 
+    directDependents.map(id => ({ nodeId: id, depth: 1 }));
+  
+  while (queue.length > 0) {
+    const { nodeId, depth } = queue.shift()!;
+    if (depth >= maxDepth) continue;  // 达到深度限制，停止
+    
+    const inEdges = graph.inEdges.get(nodeId) || [];
+    for (const edge of inEdges) {
+      if (edge.type === EdgeType.IMPORTS || edge.type === EdgeType.RE_EXPORTS) {
+        const dependent = edge.from;
+        if (!visited.has(dependent)) {
+          visited.add(dependent);
+          layers[1].add(dependent);  // 间接层
+          queue.push({ nodeId: dependent, depth: depth + 1 });
+        }
+      }
+    }
+  }
+  
+  // ...
+}
+```
+
+### 1.4 输出格式模板
+
+```
+## Impact Analysis
+
+### Target Files
+- src/auth.ts
+- src/utils.ts#formatDate
+
+### Direct Dependents (3 files)
+- src/pages/login.tsx → imports auth.ts
+- src/api/client.ts → imports auth.ts
+- src/components/AuthProvider.tsx → imports auth.ts
+
+### Indirect Dependents (5 files)
+- src/pages/dashboard.tsx (via login.tsx)
+- src/pages/profile.tsx (via AuthProvider.tsx)
+- src/api/handlers.ts (via client.ts)
+- src/hooks/useAuth.ts (via AuthProvider.tsx)
+- src/App.tsx (via dashboard.tsx)
+
+### Summary
+- Total affected: 8 files
+- Direct: 3, Indirect: 5
+- Estimated blast radius: medium
+```
+
+---
+
+## 2. 分层推断算法 (getArchitectureLayers)
+
+### 2.1 一级子目录分组
+
+**定义**: 一级子目录是相对于项目源码根目录的第一个目录层级。
+
+```typescript
+// 示例：假设项目根为 /project，源码根为 src/
+// src/pages/foo.ts        → 一级子目录 = "pages"
+// src/components/Bar.tsx  → 一级子目录 = "components"
+// src/utils/date/format.ts → 一级子目录 = "utils"
+// src/index.ts            → 无一级子目录（根目录文件）
+```
+
+**分组规则**:
+
+```typescript
+interface DirectoryGroup {
+  name: string;           // 一级子目录名，如 "pages"
+  files: string[];        // 该组下所有 FILE 节点 ID
+  importStats: {
+    importedBy: Map<string, number>;  // 被哪些组导入，各多少次
+    importsFrom: Map<string, number>; // 导入哪些组，各多少次
+  };
+}
+
+function groupFilesByFirstLevelDirectory(
+  graph: CodeGraph, 
+  sourceRoot: string = 'src'
+): Map<string, DirectoryGroup> {
+  const groups = new Map<string, DirectoryGroup>();
+  
+  // 初始化根目录文件组（特殊组）
+  groups.set('__root__', { 
+    name: '__root__', 
+    files: [], 
+    importStats: { importedBy: new Map(), importsFrom: new Map() }
+  });
+  
+  for (const [nodeId, node] of graph.nodes) {
+    if (node.type !== NodeType.FILE) continue;
+    
+    // 提取相对路径
+    const relativePath = node.path;  // 如 "src/pages/login.tsx"
+    
+    // 判断是否在源码根目录下
+    if (!relativePath.startsWith(sourceRoot + '/')) {
+      continue;  // 跳过非源码文件
+    }
+    
+    // 提取一级子目录
+    const pathAfterSrc = relativePath.slice(sourceRoot.length + 1);  // "pages/login.tsx"
+    const firstSlashIndex = pathAfterSrc.indexOf('/');
+    
+    let groupName: string;
+    if (firstSlashIndex === -1) {
+      // 无子目录 → 根目录文件
+      groupName = '__root__';
+    } else {
+      // 有子目录 → 提取一级目录名
+      groupName = pathAfterSrc.slice(0, firstSlashIndex);  // "pages"
+    }
+    
+    // 初始化组（如果不存在）
+    if (!groups.has(groupName)) {
+      groups.set(groupName, {
+        name: groupName,
+        files: [],
+        importStats: { importedBy: new Map(), importsFrom: new Map() }
+      });
+    }
+    
+    // 添加文件到组
+    groups.get(groupName)!.files.push(nodeId);
+  }
+  
+  return groups;
+}
+```
+
+### 2.2 统计组间导入方向
+
+**遍历逻辑**: 对每条 IMPORTS 边，确定其所属组，并统计方向。
+
+```typescript
+function computeImportDirectionStats(
+  graph: CodeGraph, 
+  groups: Map<string, DirectoryGroup>
+): void {
+  for (const edge of graph.edges) {
+    // 只处理 IMPORTS 和 RE_EXPORTS 边
+    if (edge.type !== EdgeType.IMPORTS && edge.type !== EdgeType.RE_EXPORTS) {
+      continue;
+    }
+    
+    // 解析边的源和目标
+    const fromFile = edge.from;  // FILE:src/pages/login.tsx
+    const toFile = edge.to;      // FILE:src/auth.ts
+    
+    // 确定所属组
+    const fromGroup = getGroupNameFromFile(fromFile, 'src');
+    const toGroup = getGroupNameFromFile(toFile, 'src');
+    
+    // 跳过同一组内的导入（不计入组间统计）
+    if (fromGroup === toGroup) continue;
+    
+    // 跳过外部依赖组
+    if (toGroup === '__external__') continue;
+    
+    // 更新统计
+    // fromGroup 导入了 toGroup
+    const fromGroupData = groups.get(fromGroup);
+    if (fromGroupData) {
+      const count = fromGroupData.importStats.importsFrom.get(toGroup) || 0;
+      fromGroupData.importStats.importsFrom.set(toGroup, count + 1);
+    }
+    
+    // toGroup 被 fromGroup 导入
+    const toGroupData = groups.get(toGroup);
+    if (toGroupData) {
+      const count = toGroupData.importStats.importedBy.get(fromGroup) || 0;
+      toGroupData.importStats.importedBy.set(fromGroup, count + 1);
+    }
+  }
+}
+
+function getGroupNameFromFile(fileId: string, sourceRoot: string): string {
+  // FILE:src/pages/login.tsx → "pages"
+  const path = fileId.replace('FILE:', '');
+  
+  if (!path.startsWith(sourceRoot + '/')) {
+    return '__external__';  // 外部文件
+  }
+  
+  const pathAfterSrc = path.slice(sourceRoot.length + 1);
+  const firstSlashIndex = pathAfterSrc.indexOf('/');
+  
+  if (firstSlashIndex === -1) {
+    return '__root__';
+  }
+  return pathAfterSrc.slice(0, firstSlashIndex);
+}
+```
+
+### 2.3 层级推断判定
+
+**判定原则**:
+- **被导入数多 = 底层**（基础设施，被广泛依赖）
+- **导入别人多 = 上层**（应用层，依赖基础设施）
+- **相互导入 = 同层或需要拆分警告**
+
+**算法步骤**:
+
+```typescript
+interface LayerAssignment {
+  layer: number;           // 层级序号，1=最底层（基础设施）
+  role: string;            // 层级角色名称
+  groups: string[];        // 该层包含的组名
+}
+
+function inferArchitectureLayers(
+  groups: Map<string, DirectoryGroup>
+): LayerAssignment[] {
+  // 步骤1: 计算每个组的净依赖分数
+  // netScore = 被导入次数 - 导入次数
+  // 正值大 → 被更多组依赖 → 更底层
+  // 负值大 → 依赖更多组 → 更上层
+  
+  const groupScores: { name: string; netScore: number; importedBy: number; importsFrom: number }[] = [];
+  
+  for (const [groupName, groupData] of groups) {
+    const importedByCount = Array.from(groupData.importStats.importedBy.values())
+      .reduce((sum, c) => sum + c, 0);
+    const importsFromCount = Array.from(groupData.importStats.importsFrom.values())
+      .reduce((sum, c) => sum + c, 0);
+    
+    groupScores.push({
+      name: groupName,
+      netScore: importedByCount - importsFromCount,
+      importedBy: importedByCount,
+      importsFrom: importsFromCount
+    });
+  }
+  
+  // 步骤2: 按净分数降序排序（分数高 → 层级低）
+  groupScores.sort((a, b) => b.netScore - a.netScore);
+  
+  // 步骤3: 分配层级
+  // 策略: 相邻分数差距小于阈值(2)的归为同一层
+  const LAYER_THRESHOLD = 2;
+  const layers: LayerAssignment[] = [];
+  let currentLayer = 1;
+  let currentLayerGroups: string[] = [];
+  let prevScore = groupScores[0]?.netScore ?? 0;
+  
+  const LAYER_ROLES: Record<number, string> = {
+    1: 'Foundation',
+    2: 'Core',
+    3: 'Application',
+    4: 'Presentation'
+  };
+  
+  for (const score of groupScores) {
+    if (Math.abs(score.netScore - prevScore) > LAYER_THRESHOLD && currentLayerGroups.length > 0) {
+      // 分数差距足够大，开始新的一层
+      layers.push({
+        layer: currentLayer,
+        role: LAYER_ROLES[currentLayer] || `Layer ${currentLayer}`,
+        groups: currentLayerGroups
+      });
+      currentLayer++;
+      currentLayerGroups = [];
+    }
+    currentLayerGroups.push(score.name);
+    prevScore = score.netScore;
+  }
+  
+  // 添加最后一层
+  if (currentLayerGroups.length > 0) {
+    layers.push({
+      layer: currentLayer,
+      role: LAYER_ROLES[currentLayer] || `Layer ${currentLayer}`,
+      groups: currentLayerGroups
+    });
+  }
+  
+  return layers;
+}
+```
+
+### 2.4 违规检测
+
+**规则**: 低层不应导入高层。
+
+```typescript
+interface LayerViolation {
+  fromGroup: string;   // 违规导入方（应为高层）
+  toGroup: string;     // 被导入方（应为低层）
+  count: number;       // 违规导入次数
+  expectedLayerGap: number; // 期望层级差（from层 - to层 应为正数）
+}
+
+function detectLayerViolations(
+  groups: Map<string, DirectoryGroup>,
+  layers: LayerAssignment[]
+): LayerViolation[] {
+  const violations: LayerViolation[] = [];
+  
+  // 构建组 → 层级映射
+  const groupToLayer = new Map<string, number>();
+  for (const layer of layers) {
+    for (const group of layer.groups) {
+      groupToLayer.set(group, layer.layer);
+    }
+  }
+  
+  // 检查每条组间导入
+  for (const [groupName, groupData] of groups) {
+    const fromLayer = groupToLayer.get(groupName) ?? 0;
+    
+    for (const [targetGroup, count] of groupData.importStats.importsFrom) {
+      const toLayer = groupToLayer.get(targetGroup) ?? 0;
+      
+      // 违规判定: 高层号导入低层号（号大=上层）
+      // 正常: 上层导入底层 (fromLayer > toLayer)
+      // 违规: 低层导入高层 (fromLayer < toLayer) 或 同层互导
+      if (fromLayer < toLayer) {
+        violations.push({
+          fromGroup: groupName,
+          toGroup: targetGroup,
+          count,
+          expectedLayerGap: toLayer - fromLayer
+        });
+      }
+    }
+  }
+  
+  return violations;
+}
+```
+
+### 2.5 输出格式模板
+
+```
+## Architecture Layers
+
+### Layer 1 (Foundation)
+- **utils**: 12 files, imported by 8 groups (45 times)
+- **types**: 5 files, imported by 6 groups (32 times)
+- Role: Core utilities and type definitions
+
+### Layer 2 (Core)
+- **services**: 8 files, imported by 4 groups (28 times)
+- **hooks**: 6 files, imported by 3 groups (15 times)
+- Role: Business logic and shared state
+
+### Layer 3 (Application)
+- **components**: 15 files, imported by 2 groups (22 times)
+- Role: UI components
+
+### Layer 4 (Presentation)
+- **pages**: 10 files, imports from 3 layers above
+- Role: Page-level composition
+
+## Layer Violations (2 detected)
+- **components → pages**: 3 imports (should be pages → components)
+  - components/Layout.tsx → pages/Home.tsx
+  - components/Header.tsx → pages/Dashboard.tsx
+  - components/Modal.tsx → pages/Settings.tsx
+- **utils → services**: 1 import (should be services → utils)
+  - utils/api-helper.ts → services/AuthService.ts
+
+## Layer Health Score: 85/100
+- Violation penalty: -15 points (3 violations)
+```
+
+---
+
+## 3. 完整实现代码骨架
+
+```typescript
+// packages/codegraph/src/api/impact.ts
+
+import { CodeGraph, EdgeType, NodeType } from '../types';
+
+export function getImpact(
+  graph: CodeGraph,
+  targets: string[],
+  options?: { maxDepth?: number }
+): ImpactResult {
+  const maxDepth = options?.maxDepth ?? 10;
+  
+  // 规范化目标为 FILE 节点
+  const fileTargets = normalizeTargetsToFile(graph, targets);
+  
+  // BFS 遍历
+  const result = bfsDependents(graph, fileTargets, maxDepth);
+  
+  // 格式化输出
+  const content = formatImpactText(fileTargets, result);
+  
+  return {
+    content,
+    affectedFiles: result.allAffected,
+    directDependents: result.direct.size,
+    indirectDependents: result.indirect.size
+  };
+}
+
+// packages/codegraph/src/api/layers.ts
+
+import { CodeGraph, EdgeType, NodeType } from '../types';
+
+export function getArchitectureLayers(
+  graph: CodeGraph,
+  options?: { sourceRoot?: string }
+): LayersResult {
+  const sourceRoot = options?.sourceRoot ?? 'src';
+  
+  // 步骤1: 按一级子目录分组
+  const groups = groupFilesByFirstLevelDirectory(graph, sourceRoot);
+  
+  // 步骤2: 统计组间导入方向
+  computeImportDirectionStats(graph, groups);
+  
+  // 步骤3: 推断层级
+  const layers = inferArchitectureLayers(groups);
+  
+  // 步骤4: 检测违规
+  const violations = detectLayerViolations(groups, layers);
+  
+  // 步骤5: 格式化输出
+  const content = formatLayersText(groups, layers, violations);
+  
+  return {
+    content,
+    layers,
+    violations,
+    healthScore: calculateLayerHealthScore(violations, groups)
+  };
+}
+```
+
+---
+
+## 4. 测试场景
+
+### 4.1 Fixture 结构
+
+```
+fixtures/sample-project/
+├── src/
+│   ├── index.ts              # 根文件，导入 pages
+│   ├── utils/
+│   │   ├── format.ts         # 被 services、components 导入
+│   │   └── validate.ts       # 被 services 导入
+│   ├── types/
+│   │   ├── index.ts          # 被全项目导入
+│   │   └── api.ts            # 被 services 导入
+│   ├── services/
+│   │   ├── auth.ts           # 导入 utils、types；被 pages 导入
+│   │   └── api.ts            # 导入 utils、types；被 pages 导入
+│   ├── components/
+│   │   ├── Button.tsx        # 导入 types；被 pages 导入
+│   │   └── Modal.tsx         # 导入 types、utils；被 pages 导入
+│   ├── pages/
+│   │   ├── Home.tsx          # 导入 components、services、utils
+│   │   └── Login.tsx         # 导入 components、services
+│   │   └── Dashboard.tsx     # 导入 components、services、utils
+│   └── tests/
+│       ├── auth.test.ts      # 导入 services（测试文件，不计入分层）
+```
+
+### 4.2 期望分层输出
+
+```
+## Architecture Layers
+
+### Layer 1 (Foundation)
+- **types**: 2 files, imported by 5 groups
+- **utils**: 2 files, imported by 3 groups
+
+### Layer 2 (Core)
+- **services**: 2 files, imported by 1 group (pages)
+- **components**: 2 files, imported by 1 group (pages)
+
+### Layer 3 (Application)
+- **pages**: 3 files, imports from 2 layers above
+
+### Layer 4 (Presentation)
+- **__root__**: 1 file (index.ts), imports pages
+
+## Layer Violations: 0
+✓ All imports follow layer hierarchy
+```
+
+### 4.3 影响范围测试场景
+
+**输入**: `getImpact(["FILE:src/utils/format.ts"])`
+
+**期望输出**:
+
+```
+## Impact Analysis
+
+### Target Files
+- src/utils/format.ts
+
+### Direct Dependents (3 files)
+- src/services/auth.ts → imports format.ts
+- src/services/api.ts → imports format.ts
+- src/components/Modal.tsx → imports format.ts
+
+### Indirect Dependents (4 files)
+- src/pages/Home.tsx (via auth.ts, Modal.tsx)
+- src/pages/Dashboard.tsx (via api.ts, Modal.tsx)
+- src/pages/Login.tsx (via auth.ts)
+- src/index.ts (via Home.tsx)
+
+### Summary
+- Total affected: 7 files
+- Direct: 3, Indirect: 4
+```
+
+### 4.4 违规场景测试
+
+**Fixture**: 添加违规导入
+
+```typescript
+// src/components/Button.tsx 添加违规导入
+import { Home } from '../pages/Home';  // 违规：components 导入 pages
+```
+
+**期望输出**:
+
+```
+## Layer Violations (1 detected)
+- **components → pages**: 1 import (should be pages → components)
+  - components/Button.tsx → pages/Home.tsx
+  
+## Layer Health Score: 90/100
+- Violation penalty: -10 points
+```
+
+### 4.5 单元测试清单
+
+```typescript
+// tests/unit/api/impact.test.ts
+
+describe('getImpact', () => {
+  it('should return empty for isolated file', () => {
+    // 无导入者的文件
+  });
+  
+  it('should find direct dependents', () => {
+    // 只有一层依赖
+  });
+  
+  it('should traverse indirect dependents via BFS', () => {
+    // 多层依赖链
+  });
+  
+  it('should respect depth limit', () => {
+    // 深度超过 maxDepth 时截断
+  });
+  
+  it('should handle MODULE target by resolving to FILE', () => {
+    // MODULE 输入转换为 FILE
+  });
+  
+  it('should not include test files in impact', () => {
+    // 测试文件不计入影响范围（可选配置）
+  });
+});
+
+// tests/unit/api/layers.test.ts
+
+describe('getArchitectureLayers', () => {
+  it('should group files by first-level directory', () => {
+    // 验证分组正确性
+  });
+  
+  it('should place __root__ files in separate group', () => {
+    // 根目录文件处理
+  });
+  
+  it('should infer layers by import direction', () => {
+    // utils 被 services 导入 → utils 在底层
+  });
+  
+  it('should detect layer violations', () => {
+    // components 导入 pages 应为违规
+  });
+  
+  it('should handle mutual imports within same layer', () => {
+    // 同层互导不视为违规
+  });
+  
+  it('should calculate health score based on violations', () => {
+    // 健康度计算公式验证
+  });
+  
+  it('should handle project without src directory', () => {
+    // 非 src 根项目（如 lib/、app/）
+  });
+});
+```
+
+---
+
+## 5. API 类型定义汇总
+
+```typescript
+// packages/codegraph/src/api/types.ts
+
+export interface ImpactResult {
+  content: string;
+  affectedFiles: string[];
+  directDependents: number;
+  indirectDependents: number;
+}
+
+export interface LayersResult {
+  content: string;
+  layers: LayerAssignment[];
+  violations: LayerViolation[];
+  healthScore: number;
+}
+
+export interface LayerAssignment {
+  layer: number;
+  role: string;
+  groups: string[];
+  stats: {
+    fileCount: number;
+    importedByCount: number;
+    importsFromCount: number;
+  }[];
+}
+
+export interface LayerViolation {
+  fromGroup: string;
+  toGroup: string;
+  count: number;
+  affectedFiles: string[];  // 具体违规文件对
+  expectedLayerGap: number;
+}
+```
+
+---
+
+## 6. 实现注意事项
+
+### 6.1 边缘情况处理
+
+| 场景 | 处理方式 |
+|------|---------|
+| 无 src 目录 | 支持自定义 sourceRoot 参数，默认 'src' |
+| 根目录文件 | 录入 `__root__` 特殊组，单独分层 |
+| 外部依赖 | 跳过 EXTERNAL 节点，不计入分组 |
+| 测试目录 | 默认排除 `tests/`、`__tests__/`，可选计入 |
+| 空组 | 无文件的组不参与分层 |
+| 无导入关系 | 单文件项目返回单层结构 |
+
+### 6.2 性能考量
+
+- **BFS 遍历**: 使用 Set 防止重复访问，O(V+E) 复杂度
+- **分组统计**: 预计算导入矩阵，避免重复遍历边
+- **大项目**: 1000+ 文件时，考虑惰性计算（仅计算用户关注的层）
+
+### 6.3 与后续 Milestone 的关系
+
+- **M2**: CALLS 边加入后，`getImpact` 需扩展支持函数级影响分析
+- **M3**: `detectLayerViolations` 将集成到架构约束引擎
+- **M4**: `buildContextFor` 将使用分层信息优先注入底层模块上下文
+
+---
+
+**文档版本**: v1.0  
+**创建日期**: 2026-05-02  
+**用途**: Change 8 (`cg-api-impact-layers`) 实现参考
