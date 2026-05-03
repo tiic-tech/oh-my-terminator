@@ -1,6 +1,6 @@
 import ts from 'typescript';
 import { GraphNode, GraphEdge, NodeType, EdgeType } from '../types.js';
-import { ModuleExtractor, ModuleExtractResult } from './module-extractor.js';
+import { ModuleExtractor, ModuleExtractResult } from './module-extractor/index.js';
 
 /**
  * Result of parsing a single file

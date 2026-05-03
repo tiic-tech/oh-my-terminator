@@ -32,4 +32,4 @@ export {
   type ModuleKind,
   type ModuleMetadata,
   type ModuleExtractResult,
-} from './module-extractor.js';
+} from './module-extractor/index.js';

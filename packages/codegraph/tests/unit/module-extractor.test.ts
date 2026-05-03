@@ -12,7 +12,7 @@ import {
   generateModuleId,
   type ModuleExtractResult,
   type ModuleMetadata,
-} from '../../src/parser/module-extractor.js';
+} from '../../src/parser/module-extractor/index.js';
 import { NodeType, EdgeType } from '../../src/types.js';
 
 const fixturesDir = path.join(process.cwd(), 'tests', 'fixtures');
