@@ -1,5 +1,6 @@
 import ts from 'typescript';
 import { GraphNode, GraphEdge, NodeType, EdgeType } from '../types.js';
+import { ModuleExtractor, ModuleExtractResult } from './module-extractor.js';
 
 /**
  * Result of parsing a single file
@@ -353,9 +354,9 @@ export class TypeScriptParser {
       warnings: [],
     };
 
+    // Initialize program if not exists (for standalone parseFile calls)
     if (!this.program) {
-      result.warnings.push('Program not initialized');
-      return result;
+      this.program = createParserProgram([filePath], this.projectRoot, this.options);
     }
 
     const sourceFile = this.program.getSourceFile(filePath);
@@ -385,6 +386,15 @@ export class TypeScriptParser {
         // Note: deduplication happens in parseAll
         result.nodes.push(createExternalNode(packageName));
       }
+    }
+
+    // Extract MODULE nodes
+    if (this.program) {
+      const moduleExtractor = new ModuleExtractor(this.program, this.projectRoot);
+      const moduleResult = moduleExtractor.extractModules(sourceFile);
+      result.nodes.push(...moduleResult.nodes);
+      result.edges.push(...moduleResult.edges);
+      result.warnings.push(...moduleResult.warnings);
     }
 
     return result;

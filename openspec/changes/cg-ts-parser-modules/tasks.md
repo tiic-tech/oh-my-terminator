@@ -6,7 +6,7 @@
 - [x] 1.4 Create `packages/codegraph/src/parser/loc-counter.ts` module (merged into module-extractor.ts per D7)
 - [x] 1.5 Create `ModuleExtractResult` interface in module-extractor.ts
 - [x] 1.6 Create `ModuleMetadata` interface extending base GraphNode metadata
-- [ ] 1.7 Export types from parser/index.ts
+- [x] 1.7 Export types from parser/index.ts
 
 ## 2. Kind Classification (D2)
 
@@ -101,10 +101,10 @@
 
 ## 9. Integration with TypeScriptParser
 
-- [ ] 9.1 Add `extractModules()` call to TypeScriptParser.parseFile()
-- [ ] 9.2 Add MODULE nodes to parse result
-- [ ] 9.3 Create CONTAINS edges from FILE to MODULE nodes
-- [ ] 9.4 Reuse TypeScript Program from C3
+- [x] 9.1 Add `extractModules()` call to TypeScriptParser.parseFile()
+- [x] 9.2 Add MODULE nodes to parse result
+- [x] 9.3 Create CONTAINS edges from FILE to MODULE nodes
+- [x] 9.4 Reuse TypeScript Program from C3
 
 ## 10. Error Handling
 
@@ -118,10 +118,10 @@
 
 - [x] 11.1 Test named function export extraction
 - [x] 11.2 Test named class export extraction
-- [ ] 11.3 Test named interface export extraction
-- [ ] 11.4 Test named type export extraction
-- [ ] 11.5 Test named enum export extraction (with enumMembers)
-- [ ] 11.6 Test named variable export extraction
+- [x] 11.3 Test named interface export extraction
+- [x] 11.4 Test named type export extraction
+- [x] 11.5 Test named enum export extraction (with enumMembers)
+- [x] 11.6 Test named variable export extraction
 - [ ] 11.7 Test named default export (uses function name)
 - [ ] 11.8 Test anonymous default export (uses "default")
 - [ ] 11.9 Test anonymous default class export
@@ -132,7 +132,7 @@
 - [ ] 11.14 Test hook not classified as component
 - [x] 11.15 Test complexity calculation (simple function = 1)
 - [x] 11.16 Test complexity calculation (if-else = 3)
-- [ ] 11.17 Test complexity calculation (switch 3 cases = 4)
+- [x] 11.17 Test complexity calculation (switch 3 cases = 4)
 - [x] 11.18 Test complexity calculation (logical operators)
 - [x] 11.19 Test LOC counting (exclude comments)
 - [x] 11.20 Test LOC counting (exclude empty lines)
@@ -144,15 +144,15 @@
 - [x] 11.26 Test MODULE ID format
 - [ ] 11.27 Test metadata.originalName for renamed exports
 - [ ] 11.28 Test metadata.namedDefault for named defaults
-- [ ] 11.29 Test metadata.enumMembers for enums
-- [ ] 11.30 Verify test coverage ≥ 80% for module-extractor
+- [x] 11.29 Test metadata.enumMembers for enums
+- [x] 11.30 Verify test coverage ≥ 80% for module-extractor
 
 ## 12. Integration
 
-- [ ] 12.1 Export ModuleExtractor from parser/index.ts
-- [ ] 12.2 Export extractModules function from parser/index.ts
-- [ ] 12.3 Export module types from main package index.ts
+- [x] 12.1 Export ModuleExtractor from parser/index.ts
+- [x] 12.2 Export extractModules function from parser/index.ts
+- [x] 12.3 Export module types from main package index.ts
 - [ ] 12.4 Create integration test: scanner → parser (imports + modules) → graph
 - [ ] 12.5 Test with fixture project: module-test-project
-- [ ] 12.6 Verify MODULE nodes correctly linked to FILE nodes
+- [x] 12.6 Verify MODULE nodes correctly linked to FILE nodes
 - [ ] 12.7 Add JSDoc comments to all public functions
