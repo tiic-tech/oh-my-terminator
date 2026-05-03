@@ -161,3 +161,70 @@ MIT
 - `@oh-my-terminator/codegraph-parser` - TypeScript parser (planned)
 - `@oh-my-terminator/codegraph-cli` - CLI tools (planned)
 - `@oh-my-terminator/codegraph-api` - Intelligence APIs (planned)
+
+## Full Analysis (C5)
+
+### analyzeFull(cwd, options?)
+
+Perform complete repository analysis combining scanner and parser.
+
+```typescript
+import { analyzeFull } from '@oh-my-terminator/codegraph';
+
+const result = await analyzeFull('./my-project');
+console.log(`Parsed ${result.stats.filesParsed} files`);
+console.log(`Found ${result.stats.modules} modules`);
+```
+
+### FullAnalysisResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| graph | CodeGraph | Complete graph with all nodes and edges |
+| stats | AnalysisStats | Timing and count statistics |
+| warnings | string[] | Non-fatal warning messages |
+
+### AnalysisStats
+
+| Field | Description |
+|-------|-------------|
+| scanTimeMs | Time spent scanning (ms) |
+| parseTimeMs | Time spent parsing (ms) |
+| totalTimeMs | Total analysis time (ms) |
+| filesParsed | Files successfully parsed |
+| parseErrors | Parsing errors |
+| directories | DIRECTORY node count |
+| files | FILE node count |
+| modules | MODULE node count |
+| edges | Total edge count |
+
+### AnalysisOptions
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| extensions | string[] | ['.ts', '.tsx', '.js', '.jsx', '.mjs'] | File extensions to parse |
+| onProgress | ProgressCallback | undefined | Progress callback |
+| scanOptions | ScanOptions | undefined | Scanner options |
+
+### Progress Reporting
+
+```typescript
+await analyzeFull('./project', {
+  onProgress: (event) => {
+    console.log(`${event.phase}: ${event.current}/${event.total}`);
+  }
+});
+```
+
+Progress phases: `scan`, `parse`, `complete`
+
+### Parser Registry
+
+Extensible parser system for multi-language support:
+
+```typescript
+import { DefaultParserRegistry, TypeScriptParserAdapter } from '@oh-my-terminator/codegraph';
+
+const registry = new DefaultParserRegistry();
+registry.register(new TypeScriptParserAdapter());
+```
