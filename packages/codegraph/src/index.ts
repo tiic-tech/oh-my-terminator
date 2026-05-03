@@ -56,6 +56,8 @@ export {
   type ParserResult,
   type ImportInfo,
   type ParserOptions,
+  // C5: TypeScript Parser Adapter
+  TypeScriptParserAdapter,
 } from './parser/index.js';
 
 // C5: Parser Registry

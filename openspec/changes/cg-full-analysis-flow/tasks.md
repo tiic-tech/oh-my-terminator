@@ -18,12 +18,12 @@
 
 ## 3. TypeScript Parser Adapter
 
-- [ ] 3.1 Create `TypeScriptParserAdapter` implementing `Parser` interface
-- [ ] 3.2 Wrap existing C3 import extraction logic
-- [ ] 3.3 Wrap existing C4 module extraction logic
-- [ ] 3.4 Return unified `ParserResult` with nodes and edges
-- [ ] 3.5 Register TypeScriptParserAdapter extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs']
-- [ ] 3.6 Export TypeScriptParserAdapter from parser module
+- [x] 3.1 Create `TypeScriptParserAdapter` implementing `Parser` interface
+- [x] 3.2 Wrap existing C3 import extraction logic
+- [x] 3.3 Wrap existing C4 module extraction logic
+- [x] 3.4 Return unified `ParserResult` with nodes and edges
+- [x] 3.5 Register TypeScriptParserAdapter extensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs']
+- [x] 3.6 Export TypeScriptParserAdapter from parser module
 
 ## 4. Core Analyzer
 

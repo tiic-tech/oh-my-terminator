@@ -33,3 +33,6 @@ export {
   type ModuleMetadata,
   type ModuleExtractResult,
 } from './module-extractor/index.js';
+
+// C5: TypeScript Parser Adapter
+export { TypeScriptParserAdapter } from './typescript-adapter.js';
