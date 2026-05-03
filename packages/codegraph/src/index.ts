@@ -30,3 +30,20 @@ export {
   type ScanResult,
   type ScanOptions,
 } from './scanner.js';
+
+export {
+  TypeScriptParser,
+  parseImports,
+  createParserProgram,
+  resolveModulePath,
+  createExternalNode,
+  generateImportEdge,
+  generateReExportEdge,
+  generateDynamicImportEdge,
+  extractPackageName,
+  isBuiltinModule,
+  type ParseResult,
+  type ParserResult,
+  type ImportInfo,
+  type ParserOptions,
+} from './parser/index.js';

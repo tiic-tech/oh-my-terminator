@@ -18,9 +18,11 @@
   ],
   "author": "Oh-my-terminator",
   "license": "MIT",
-  "devDependencies": {
-    "tsx": "^4.19.0",
+  "dependencies": {
     "typescript": "^5.4.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
   },
   "engines": {
     "node": ">=18.0.0"
