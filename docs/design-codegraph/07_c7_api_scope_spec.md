@@ -820,6 +820,65 @@ export interface ModifiedInfo {
 
 ---
 
+## 3.5 CLI输出格式
+
+> **跨规格说明**: CLI JSON 输出格式遵循 C6 §5.6 定义的模式。
+> 错误代码与 C6 附录 A 对齐，确保 CLI 命令统一的 Agent-Friendly 输出。
+
+```typescript
+// §3.5 CLI输出格式
+// CLI命令 --json 输出的结构化schema
+
+/**
+ * scope命令JSON输出格式
+ */
+interface ScopeResult {
+  success: boolean;
+  target: string;
+  exports: { name: string; kind: string; id: string }[];
+  imports: { from: string; type: string; specifiers: string[] }[];
+  importedBy: { file: string; specifiers: string[] }[];
+  testFile?: string;
+  complexity?: { level: 'low' | 'medium' | 'high' | 'unknown'; value: number };
+  lastModified?: string;
+  metadata: { hasTest: boolean; deprecated: boolean };
+  durationMs: number;
+  warnings?: string[];
+  nextSuggested?: string[];
+}
+
+/**
+ * brief命令JSON输出格式
+ */
+interface BriefResult {
+  success: boolean;
+  file: string;
+  imports: number;
+  importedBy: number;
+  hasTest: boolean;
+  deprecated: boolean;
+  complexityLevel: 'low' | 'medium' | 'high' | 'unknown';
+  quickFacts: string[];
+  durationMs: number;
+}
+
+/**
+ * CLI统一错误格式
+ * 与 C6 附录 B 错误消息模板对齐
+ */
+interface CLIError {
+  success: false;
+  error: {
+    code: string;         // E001_TARGET_NOT_FOUND (与 C6 错误代码模式一致)
+    message: string;
+    suggestion?: string;
+  };
+  durationMs: number;
+}
+```
+
+---
+
 ## 4. 测试场景
 
 ### 4.1 Fixture 结构
@@ -1102,6 +1161,156 @@ describe('getQuickBrief', () => {
 });
 ```
 
+### 4.5 CLI JSON输出测试
+
+> **跨规格说明**: CLI JSON 输出测试与 Change 10 (`cg-cli-query-commands`) 对齐。
+
+**场景 1: scope命令成功返回**
+
+输入: `codegraph scope FILE:src/utils/format.ts --json`
+
+期望输出符合 ScopeResult schema:
+```json
+{
+  "success": true,
+  "target": "FILE:src/utils/format.ts",
+  "exports": [
+    {"name": "formatDate", "kind": "function", "id": "MODULE:src/utils/format.ts#formatDate"}
+  ],
+  "imports": [
+    {"from": "src/utils/math.ts", "type": "static", "specifiers": []}
+  ],
+  "importedBy": [
+    {"file": "src/index.ts", "specifiers": []}
+  ],
+  "testFile": null,
+  "complexity": {"level": "medium", "value": 12},
+  "lastModified": "5 commits in last 30 days",
+  "metadata": {"hasTest": false, "deprecated": false},
+  "durationMs": 45,
+  "warnings": [],
+  "nextSuggested": ["codegraph impact FILE:src/utils/format.ts"]
+}
+```
+
+**验证要点**:
+- `success: true` 存在
+- `exports[].id` 格式为 `MODULE:路径#名称`
+- `durationMs` 为正数
+- `nextSuggested` 包含有效的后续命令建议
+
+**场景 2: brief命令成功返回**
+
+输入: `codegraph brief src/utils/format.ts --json`
+
+期望输出符合 BriefResult schema:
+```json
+{
+  "success": true,
+  "file": "src/utils/format.ts",
+  "imports": 2,
+  "importedBy": 5,
+  "hasTest": false,
+  "deprecated": false,
+  "complexityLevel": "medium",
+  "quickFacts": [
+    "2 imports, 5 dependents"
+  ],
+  "durationMs": 23
+}
+```
+
+**验证要点**:
+- `success: true` 存在
+- `imports` 和 `importedBy` 为边数量（A4决议）
+- `quickFacts` 包含人类可读的摘要
+- `complexityLevel` 为有效枚举值
+
+**场景 3: scope命令错误返回**
+
+输入: `codegraph scope FILE:src/nonexistent.ts --json`
+
+期望输出符合 CLIError schema:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "E001_TARGET_NOT_FOUND",
+    "message": "Target 'FILE:src/nonexistent.ts' not found in graph",
+    "suggestion": "Run `codegraph analyze` to build graph first"
+  },
+  "durationMs": 12
+}
+```
+
+**验证要点**:
+- `success: false` 存在
+- `error.code` 为有效的错误代码（与 C6 附录 A 对齐）
+- `error.suggestion` 提供可操作的建议
+- Exit code 为 2（目标不存在）
+
+**场景 4: brief命令错误返回**
+
+输入: `codegraph brief src/nonexistent.ts --json`
+
+期望输出符合 CLIError schema:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "E001_TARGET_NOT_FOUND",
+    "message": "File 'src/nonexistent.ts' not found in graph",
+    "suggestion": "Run `codegraph analyze` to build graph first"
+  },
+  "durationMs": 8
+}
+```
+
+**CLI JSON 测试清单**:
+```typescript
+// tests/integration/cli/scope-cli.test.ts
+
+describe('scope CLI JSON output', () => {
+  it('should return valid ScopeResult for existing FILE target', () => {
+    // 执行 CLI 命令，验证 JSON schema
+  });
+
+  it('should return valid ScopeResult for existing MODULE target', () => {
+    // MODULE 目标查询
+  });
+
+  it('should return CLIError with E001 for nonexistent target', () => {
+    // 错误处理验证
+  });
+
+  it('should include nextSuggested with valid commands', () => {
+    // 后续建议验证
+  });
+
+  it('should exit with code 0 on success', () => {
+    // Exit code 验证
+  });
+
+  it('should exit with code 2 on target not found', () => {
+    // Exit code 验证
+  });
+});
+
+describe('brief CLI JSON output', () => {
+  it('should return valid BriefResult for existing file', () => {
+    // 执行 CLI 命令，验证 JSON schema
+  });
+
+  it('should return CLIError with E001 for nonexistent file', () => {
+    // 错误处理验证
+  });
+
+  it('should generate meaningful quickFacts', () => {
+    // quickFacts 内容验证
+  });
+});
+```
+
 ---
 
 ## 5. Token估算
@@ -1270,6 +1479,110 @@ packages/codegraph/src/
 
 ---
 
-**文档版本**: v1.0
+## 9. CLI命令映射
+
+> **跨规格说明**: 本节定义 API 输出如何映射到 CLI JSON 输出格式。
+> CLI 命令实现在 Change 10 (`cg-cli-query-commands`) 中完成。
+
+### 9.1 scope命令
+
+**CLI调用**: `codegraph scope <target> --json`
+
+**映射函数**:
+```typescript
+function mapScopeToCLI(api: GetScopeOutput, target: string, durationMs: number): ScopeResult {
+  return {
+    success: true,
+    target,
+    exports: api.exports.map(e => {
+      const [kind, name] = e.split(':');
+      return { name, kind, id: `MODULE:${target.split(':')[1]}#${name}` };
+    }),
+    imports: api.imports.map(i => ({
+      from: i,
+      type: 'static',  // 或从metadata推断
+      specifiers: []    // 从metadata.importSpecifier解析
+    })),
+    importedBy: api.importedBy.map(i => ({
+      file: i,
+      specifiers: []
+    })),
+    testFile: api.testFile,
+    complexity: api.complexity,
+    lastModified: api.lastModified.relativeTime,
+    metadata: {
+      hasTest: api.testFile !== null,
+      deprecated: api.deprecated
+    },
+    durationMs,
+    warnings: [],
+    nextSuggested: ['codegraph impact ' + target]
+  };
+}
+```
+
+### 9.2 brief命令
+
+**CLI调用**: `codegraph brief <file> --json`
+
+**映射函数**:
+```typescript
+function mapBriefToCLI(api: GetQuickBriefOutput, file: string, durationMs: number): BriefResult {
+  const facts: string[] = [];
+  if (api.hasTest) facts.push('Has test file');
+  if (api.deprecated) facts.push('Marked @deprecated');
+  facts.push(`${api.importCount} imports, ${api.importedByCount} dependents`);
+
+  return {
+    success: true,
+    file,
+    imports: api.importCount,
+    importedBy: api.importedByCount,
+    hasTest: api.hasTest,
+    deprecated: api.deprecated,
+    complexityLevel: api.complexityLevel,
+    quickFacts: facts,
+    durationMs
+  };
+}
+```
+
+### 9.3 错误映射
+
+当 target 不存在时:
+```typescript
+function mapErrorToCLI(target: string, durationMs: number): CLIError {
+  return {
+    success: false,
+    error: {
+      code: 'E001_TARGET_NOT_FOUND',  // 与 C6 §5.6 错误代码模式一致
+      message: `Target '${target}' not found in graph`,
+      suggestion: 'Run `codegraph analyze` to build graph first'
+    },
+    durationMs
+  };
+}
+```
+
+**错误代码定义** (与 C6 附录 A 对齐):
+
+| 错误代码 | 含义 | 触发场景 |
+|---------|------|---------|
+| E001_TARGET_NOT_FOUND | 目标节点不存在 | scope/brief 查询的目标文件或模块不存在 |
+| E002_PARSE_ERROR | 解析错误 | 基线数据解析失败（继承 C6 定义） |
+
+**Exit Codes** (与 C6 §5.6 对齐):
+
+| Exit Code | 含义 | 触发场景 |
+|-----------|------|---------|
+| 0 | 成功 | 命令正常执行完成 |
+| 1 | 一般错误 | 参数错误、配置问题 |
+| 2 | 目标不存在 | scope/brief 查询的目标未找到 |
+
+---
+
+**文档版本**: v1.1
 **创建日期**: 2026-05-03
-**用途**: Change 7 (`cg-api-scope`) 实现参考
+**更新日期**: 2026-05-03
+**关联Change**: C7 `cg-api-scope`
+**用途**: Change 7 实现参考 + Change 10 CLI 输出映射参考
