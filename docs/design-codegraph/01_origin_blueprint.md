@@ -280,6 +280,44 @@ function createProgram(filePaths: string[], projectRoot: string): ts.Program {
 - 对 `export { x } from '...'` 生成 `RE_EXPORTS` 边。
 - 对 `import()` 生成 `DYNAMIC_IMPORTS` 边。
 
+**路径别名解析规则（A2 决议）**：
+当 `tsconfig.json` 的 `paths` 配置存在多个匹配时，**严格遵循 TypeScript 的解析顺序**——首个匹配生效。实现时直接使用 `ts.resolveModuleName()` 返回的第一个有效结果，不做额外遍历。例如：
+```json
+{
+  "paths": {
+    "@utils/*": ["src/utils/*", "src/shared/utils/*"],
+    "@shared/*": ["src/shared/*"]
+  }
+}
+```
+对 `import { helper } from '@utils/format'`，TypeScript 会按数组顺序尝试 `src/utils/format`，若存在则立即返回；若不存在才尝试 `src/shared/utils/format`。
+
+**通配符重导出处理（A3 决议）**：
+对 `export * from './utils'` 形式的通配符重导出，生成**单条** `RE_EXPORTS` 边，并在 `metadata.importSpecifier` 中标记为 `"wildcard"`：
+```typescript
+{
+  from: "FILE:src/index.ts",
+  to: "FILE:src/utils.ts",
+  type: EdgeType.RE_EXPORTS,
+  metadata: {
+    line: 5,
+    importSpecifier: "wildcard"  // 特殊标记，表示批量重导出
+  }
+}
+```
+不展开为所有导出符号的多条边，以避免图谱膨胀。如需查询具体导出的符号，可通过目标文件的 MODULE 节点获取。
+
+**边元数据 importSpecifier 规范**：
+| 导入类型 | importSpecifier 值 | 示例 |
+|---------|-------------------|------|
+| 默认导入 | `"default"` | `import utils from './utils'` |
+| 命名导入 | `"named:<symbol>"` | `import { formatDate } from './utils'` → `"named:formatDate"` |
+| 多命名导入 | `"named:<sym1>,<sym2>"` | `import { a, b } from './utils'` → `"named:a,b"` |
+| 命名空间导入 | `"namespace"` | `import * as utils from './utils'` |
+| 通配符重导出 | `"wildcard"` | `export * from './utils'` |
+| 动态导入 | `"dynamic"` | `import('./utils')` |
+| 空导入 | `"empty"` | `import './setup'`（副作用导入）|
+
 #### 4.2.3 提取 MODULE 节点（可导出符号）
 
 在同一个 `SourceFile` 中，遍历所有顶级声明：

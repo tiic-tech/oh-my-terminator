@@ -220,8 +220,20 @@ packages/codegraph/src/
 
 **验证标准**:
 - 测试 fixture 仓库的导入关系正确提取
-- 别名路径（`tsconfig.json paths`）正确解析
+- **别名路径解析正确性（A2 验证）**:
+  - 多匹配路径时遵循 TypeScript 首匹配原则
+  - `ts.resolveModuleName()` 返回首个有效结果
+  - 测试 fixture 包含多 paths 匹配场景
+- **通配符重导出正确处理（A3 验证）**:
+  - `export * from './utils'` 生成单条 RE_EXPORTS 边
+  - 边 metadata.importSpecifier 为 `"wildcard"`
+  - 不展开为多条边
 - 外部依赖正确标记
+- **importSpecifier 元数据规范**:
+  - 默认导入标记 `"default"`
+  - 命名导入标记 `"named:<symbol>"`
+  - 命名空间导入标记 `"namespace"`
+  - 动态导入标记 `"dynamic"`
 
 **交付文件**:
 ```
