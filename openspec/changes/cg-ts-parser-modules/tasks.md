@@ -82,7 +82,7 @@
 - [x] 7.9 Apply LOC counting
 - [x] 7.10 Apply JSDoc extraction
 - [x] 7.11 Generate correct MODULE ID
-- [ ] 7.12 Handle multiple exports of same symbol (store in metadata.exports)
+- [x] 7.12 Handle multiple exports of same symbol (store in metadata.exports)
 
 ## 8. Export Declaration Processing
 
@@ -97,7 +97,7 @@
 - [x] 8.9 Process `export default class {}` syntax (anonymous)
 - [x] 8.10 Process `export { name }` syntax
 - [x] 8.11 Process `export { orig as exp }` syntax (renamed)
-- [ ] 8.12 Process `export { name } from './file'` syntax (re-export)
+- [x] 8.12 Process `export { name } from './file'` syntax (re-export)
 
 ## 9. Integration with TypeScriptParser
 
@@ -152,7 +152,7 @@
 - [x] 12.1 Export ModuleExtractor from parser/index.ts
 - [x] 12.2 Export extractModules function from parser/index.ts
 - [x] 12.3 Export module types from main package index.ts
-- [ ] 12.4 Create integration test: scanner → parser (imports + modules) → graph
-- [ ] 12.5 Test with fixture project: module-test-project
+- [x] 12.4 Create integration test: scanner → parser (imports + modules) → graph
+- [x] 12.5 Test with fixture project: module-test-project
 - [x] 12.6 Verify MODULE nodes correctly linked to FILE nodes
-- [ ] 12.7 Add JSDoc comments to all public functions
+- [x] 12.7 Add JSDoc comments to all public functions

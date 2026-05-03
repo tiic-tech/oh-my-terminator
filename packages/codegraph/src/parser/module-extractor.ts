@@ -419,22 +419,116 @@ export class ModuleExtractor {
     // Track export names to handle duplicates
     const exportNames = new Map<string, number>();
 
-    // Traverse declarations
+    // First pass: build export info map from all export declarations
+    // Maps internal symbol name -> { exportTypes: string[], exportedNames: string[] }
+    const exportInfoMap = new Map<string, { exportTypes: string[], exportedNames: string[] }>();
+
+    // Collect export info from all export statements
     ts.forEachChild(sourceFile, (node) => {
-      // Check if exported
-      if (this.isExported(node)) {
-        this.processDeclaration(node, sourceFile, relativePath, fileId, result, exportNames);
+      if (ts.isExportDeclaration(node)) {
+        this.collectExportInfo(node, exportInfoMap);
+      }
+      // Handle: export default identifier (ExportAssignment)
+      if (ts.isExportAssignment(node)) {
+        const isDefault = true; // ExportAssignment is always default
+        if (ts.isIdentifier(node.expression)) {
+          const internalName = node.expression.text;
+          const existing = exportInfoMap.get(internalName) ?? { exportTypes: [], exportedNames: [] };
+          existing.exportTypes.push('default');
+          existing.exportedNames.push(internalName);
+          exportInfoMap.set(internalName, existing);
+        }
       }
     });
 
-    // Also process export declarations
+    // Second pass: process declarations
+    ts.forEachChild(sourceFile, (node) => {
+      // Check if this declaration is exported (directly or via export statement)
+      const symbolName = this.getDeclarationName(node, sourceFile);
+      const isDirectExport = this.isExported(node);
+      const isIndirectExport = symbolName && exportInfoMap.has(symbolName);
+
+      if (isDirectExport || isIndirectExport) {
+        this.processDeclaration(node, sourceFile, relativePath, fileId, result, exportNames, exportInfoMap);
+      }
+    });
+
+    // Third pass: handle export statements for symbols not declared in file (re-exports)
     ts.forEachChild(sourceFile, (node) => {
       if (ts.isExportDeclaration(node)) {
-        this.processExportDeclaration(node, sourceFile, relativePath, fileId, result, exportNames);
+        this.processExportDeclaration(node, sourceFile, relativePath, fileId, result, exportNames, exportInfoMap);
       }
     });
 
     return result;
+  }
+
+  /**
+   * Get declaration name (internal symbol name)
+   */
+  private getDeclarationName(node: ts.Node, sourceFile: ts.SourceFile): string | undefined {
+    if (ts.isFunctionDeclaration(node) && node.name) {
+      return node.name.text;
+    }
+    if (ts.isClassDeclaration(node) && node.name) {
+      return node.name.text;
+    }
+    if (ts.isInterfaceDeclaration(node)) {
+      return node.name.text;
+    }
+    if (ts.isTypeAliasDeclaration(node)) {
+      return node.name.text;
+    }
+    if (ts.isEnumDeclaration(node)) {
+      return node.name.text;
+    }
+    if (ts.isVariableStatement(node)) {
+      // Return first variable name
+      const decls = node.declarationList.declarations;
+      if (decls.length > 0) {
+        return decls[0].name.getText(sourceFile);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Collect export info from export declaration
+   */
+  private collectExportInfo(
+    node: ts.ExportDeclaration,
+    exportInfoMap: Map<string, { exportTypes: string[], exportedNames: string[] }>
+  ): void {
+    // Check for default keyword
+    const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
+    const isDefault = modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword);
+
+    // Handle: export default identifier
+    if (isDefault && node.exportClause && ts.isIdentifier(node.exportClause)) {
+      const internalName = node.exportClause.text;
+      const existing = exportInfoMap.get(internalName) ?? { exportTypes: [], exportedNames: [] };
+      existing.exportTypes.push('default');
+      existing.exportedNames.push(internalName); // default export uses original name
+      exportInfoMap.set(internalName, existing);
+      return;
+    }
+
+    if (!node.exportClause) {
+      // export * from './file' - wildcard, skip
+      return;
+    }
+
+    if (ts.isNamedExports(node.exportClause)) {
+      for (const element of node.exportClause.elements) {
+        const internalName = element.propertyName?.text ?? element.name.text;
+        const exportedName = element.name.text;
+
+        const existing = exportInfoMap.get(internalName) ?? { exportTypes: [], exportedNames: [] };
+        existing.exportTypes.push('named');
+        existing.exportedNames.push(exportedName);
+        exportInfoMap.set(internalName, existing);
+      }
+    }
   }
 
   /**
@@ -446,12 +540,14 @@ export class ModuleExtractor {
     relativePath: string,
     fileId: string,
     result: ModuleExtractResult,
-    exportNames: Map<string, number>
+    exportNames: Map<string, number>,
+    exportInfoMap: Map<string, { exportTypes: string[], exportedNames: string[] }>
   ): void {
     let name: string;
     let kind: ModuleKind;
     let hasName = true;
     let isDefault = false;
+    let internalName: string | undefined;
 
     // Check if this is a default export
     const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
@@ -467,19 +563,24 @@ export class ModuleExtractor {
     if (ts.isFunctionDeclaration(node)) {
       name = node.name?.text ?? 'default';
       hasName = !!node.name;
+      internalName = node.name?.text;
       kind = detectKind(node, sourceFile);
     } else if (ts.isClassDeclaration(node)) {
       name = node.name?.text ?? 'default';
       hasName = !!node.name;
+      internalName = node.name?.text;
       kind = 'class';
     } else if (ts.isInterfaceDeclaration(node)) {
       name = node.name.text;
+      internalName = name;
       kind = 'interface';
     } else if (ts.isTypeAliasDeclaration(node)) {
       name = node.name.text;
+      internalName = name;
       kind = 'type';
     } else if (ts.isEnumDeclaration(node)) {
       name = node.name.text;
+      internalName = name;
       kind = 'type';
     } else if (ts.isVariableStatement(node)) {
       // Handle variable exports
@@ -487,14 +588,35 @@ export class ModuleExtractor {
       for (const decl of decls) {
         const varName = decl.name.getText(sourceFile);
         const varKind = detectKind(decl, sourceFile);
-        this.createModuleNode(decl, sourceFile, relativePath, fileId, varName, varKind, result, exportNames, true, false);
+        this.createModuleNode(decl, sourceFile, relativePath, fileId, varName, varKind, result, exportNames, true, false, varName, exportInfoMap);
       }
       return;
     } else {
       return;
     }
 
-    this.createModuleNode(node, sourceFile, relativePath, fileId, name, kind, result, exportNames, hasName, isDefault);
+    // Get export info for this symbol
+    const exportInfo = internalName ? exportInfoMap.get(internalName) : undefined;
+    const allExportTypes: string[] = [];
+
+    // Add direct export type if declaration has export modifier
+    if (isDefault) {
+      allExportTypes.push('default');
+    } else if (this.isExported(node)) {
+      allExportTypes.push('named');
+    }
+
+    // Add indirect export types from export statements
+    if (exportInfo) {
+      allExportTypes.push(...exportInfo.exportTypes);
+    }
+
+    // Use first exported name from export info if available
+    const exportName = (exportInfo && exportInfo.exportedNames.length > 0)
+      ? exportInfo.exportedNames[0]
+      : name;
+
+    this.createModuleNode(node, sourceFile, relativePath, fileId, exportName, kind, result, exportNames, hasName, isDefault, internalName, exportInfoMap, allExportTypes);
   }
 
   /**
@@ -510,7 +632,10 @@ export class ModuleExtractor {
     result: ModuleExtractResult,
     exportNames: Map<string, number>,
     hasName: boolean,
-    isDefault: boolean
+    isDefault: boolean,
+    internalName?: string,
+    exportInfoMap?: Map<string, { exportTypes: string[], exportedNames: string[] }>,
+    allExportTypes?: string[]
   ): void {
     // Handle duplicate names (anonymous defaults)
     let finalName = name;
@@ -543,19 +668,31 @@ export class ModuleExtractor {
       metadata.namedDefault = true;
     }
 
+    // For renamed exports (internalName !== name)
+    if (internalName && internalName !== name) {
+      metadata.originalName = internalName;
+    }
+
     // For enums
     if (ts.isEnumDeclaration(node)) {
       metadata.enumMembers = node.members.map(m => m.name.getText(sourceFile));
     }
 
+    // Add exports metadata if multiple export types exist
+    if (allExportTypes && allExportTypes.length > 1) {
+      metadata.exports = allExportTypes;
+    }
+
     // Create node
-    result.nodes.push({
+    const moduleNode: GraphNode = {
       id: moduleId,
       type: NodeType.MODULE,
       path: relativePath,
       name: finalName,
       metadata,
-    });
+    };
+
+    result.nodes.push(moduleNode);
 
     // Create CONTAINS edge
     result.edges.push({
@@ -574,9 +711,84 @@ export class ModuleExtractor {
     relativePath: string,
     fileId: string,
     result: ModuleExtractResult,
+    exportNames: Map<string, number>,
+    exportInfoMap: Map<string, { exportTypes: string[], exportedNames: string[] }>
+  ): void {
+    // Handle re-exports: export { name } from './file'
+    if (node.moduleSpecifier) {
+      this.processReExport(node, sourceFile, relativePath, fileId, result, exportNames);
+      return;
+    }
+
+    if (!node.exportClause) {
+      return;
+    }
+
+    if (ts.isNamedExports(node.exportClause)) {
+      for (const element of node.exportClause.elements) {
+        const exportedName = element.name.text;
+        const internalName = element.propertyName?.text ?? exportedName;
+
+        // Skip if already processed in processDeclaration (declaration exists in file)
+        // This handles cases like: function foo() {} export { foo }
+        if (exportInfoMap.has(internalName)) {
+          continue; // Already handled in processDeclaration
+        }
+
+        // Create MODULE node for exported-only symbols
+        const kind: ModuleKind = 'variable'; // Default, we don't know the actual kind
+
+        const metadata: ModuleMetadata = { kind };
+        if (internalName !== exportedName) {
+          metadata.originalName = internalName;
+        }
+
+        // Handle duplicates
+        let finalName = exportedName;
+        const count = exportNames.get(exportedName) ?? 0;
+        if (count > 0) {
+          finalName = `${exportedName}_${count}`;
+        }
+        exportNames.set(exportedName, count + 1);
+
+        const moduleId = generateModuleId(relativePath, finalName);
+
+        result.nodes.push({
+          id: moduleId,
+          type: NodeType.MODULE,
+          path: relativePath,
+          name: finalName,
+          metadata,
+        });
+
+        result.edges.push({
+          from: fileId,
+          to: moduleId,
+          type: EdgeType.CONTAINS,
+        });
+      }
+    }
+  }
+
+  /**
+   * Process re-export: export { name } from './file'
+   */
+  private processReExport(
+    node: ts.ExportDeclaration,
+    sourceFile: ts.SourceFile,
+    relativePath: string,
+    fileId: string,
+    result: ModuleExtractResult,
     exportNames: Map<string, number>
   ): void {
+    if (!node.moduleSpecifier || !ts.isStringLiteral(node.moduleSpecifier)) {
+      return;
+    }
+
+    // Get the specifier text for metadata
     if (!node.exportClause) {
+      // export * from './file' - wildcard, create no MODULE nodes
+      // This would require analyzing the source file which we skip for now
       return;
     }
 
@@ -585,11 +797,9 @@ export class ModuleExtractor {
         const exportedName = element.name.text;
         const originalName = element.propertyName?.text ?? exportedName;
 
-        // We need to find the actual declaration
-        // For now, create node with exported name
-        const kind: ModuleKind = 'variable'; // Default
-
-        const metadata: ModuleMetadata = { kind };
+        // Create MODULE node for the re-exported symbol
+        // Kind is unknown without analyzing source file - use 'variable' as default
+        const metadata: ModuleMetadata = { kind: 'variable' };
         if (originalName !== exportedName) {
           metadata.originalName = originalName;
         }

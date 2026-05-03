@@ -425,6 +425,45 @@ describe('ModuleExtractor', () => {
       // Should have exactly one fetchData node (not two)
       const fetchNodes = result.nodes.filter(n => n.name === 'fetchData');
       assert.strictEqual(fetchNodes.length, 1, 'Should have single MODULE for symbol with multiple exports');
+
+      // Should have exports metadata tracking both named and default
+      const exportsMeta = fetchNodes[0]?.metadata?.exports;
+      assert.ok(exportsMeta, 'Should have exports metadata');
+      assert.ok(exportsMeta?.includes('named'), 'Should include named export');
+      assert.ok(exportsMeta?.includes('default'), 'Should include default export');
+    });
+
+    it('should handle ApiService with multiple exports', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'multiple-exports.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const apiNodes = result.nodes.filter(n => n.name === 'ApiService');
+      assert.strictEqual(apiNodes.length, 1, 'Should have single ApiService MODULE');
+      assert.strictEqual(apiNodes[0]?.metadata?.kind, 'class');
+    });
+  });
+
+  describe('re-exports', () => {
+    it('should process export { name } from syntax', async () => {
+      // Create a test file with re-export
+      const code = `export { formatDate } from './utils/format.js';`;
+      const sourceFile = ts.createSourceFile('re-export.ts', code, ts.ScriptTarget.ESNext, true);
+      const program = ts.createProgram(['re-export.ts'], {
+        allowJs: true,
+        noEmit: true,
+      });
+      const extractor = new ModuleExtractor(program, '/test');
+      const result = extractor.extractModules(sourceFile);
+
+      // Should create MODULE node for the re-exported symbol
+      const node = result.nodes.find(n => n.name === 'formatDate');
+      assert.ok(node, 'Should have MODULE node for re-exported symbol');
     });
   });
 });
