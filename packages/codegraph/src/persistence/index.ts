@@ -63,8 +63,13 @@ export {
   executeAction,
 } from './compatibility.js';
 
-// Baseline load/save functions - will be added when implemented
-// export { loadBaseline, saveBaseline, validateBaselineStructure, verifyDataIntegrity } from './baseline.js';
+// Baseline load/save functions
+export {
+  validateBaselineStructure,
+  verifyDataIntegrity,
+  handleFailure,
+  loadBaseline,
+} from './baseline.js';
 
 // Migration functions - will be added when implemented
 // export { registerMigration, migrateBaseline, safeMigrateBaseline, findMigrationPath } from './migrations/index.js';

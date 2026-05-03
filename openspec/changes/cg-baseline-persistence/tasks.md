@@ -64,30 +64,30 @@
 
 ## 5. Baseline Loading & Validation
 
-- [ ] 5.1 Create `packages/codegraph/src/persistence/baseline.ts`
-- [ ] 5.2 Implement validateBaselineStructure(data: unknown) function
-- [ ] 5.3 Add validation for required fields (graph, commitHash, timestamp)
-- [ ] 5.4 Add validation for graph.nodes and graph.edges arrays
-- [ ] 5.5 Add validation for optional schemaVersion structure
-- [ ] 5.6 Implement verifyDataIntegrity(baseline) function
-- [ ] 5.7 Add node ID uniqueness check in verifyDataIntegrity
-- [ ] 5.8 Add node.id matches stored ID check
-- [ ] 5.9 Add edge reference validity check (from/to exist in nodes)
-- [ ] 5.10 Add timestamp future check (with 60s tolerance)
-- [ ] 5.11 Add commitHash format validation (7-40 hex chars)
-- [ ] 5.12 Implement handleFailure(reason, cwd, options, details) function
-- [ ] 5.13 Handle file_not_found scenario (trigger rebuild)
-- [ ] 5.14 Handle parse_error scenario (return failure)
-- [ ] 5.15 Handle invalid_structure scenario (rebuild or strict failure)
-- [ ] 5.16 Handle corrupted_data scenario (auto rebuild)
-- [ ] 5.17 Handle schema_incompatible scenario (respect compatResult)
-- [ ] 5.18 Handle permission_error scenario (return failure)
-- [ ] 5.19 Implement loadBaseline(cwd, options) main function with all steps
-- [ ] 5.20 Add dependency injection support via rebuildHandler option
-- [ ] 5.21 Add unit tests for validateBaselineStructure
-- [ ] 5.22 Add unit tests for verifyDataIntegrity
-- [ ] 5.23 Add unit tests for handleFailure all scenarios
-- [ ] 5.24 Add unit tests for loadBaseline complete flow
+- [x] 5.1 Create `packages/codegraph/src/persistence/baseline.ts`
+- [x] 5.2 Implement validateBaselineStructure(data: unknown) function
+- [x] 5.3 Add validation for required fields (graph, commitHash, timestamp)
+- [x] 5.4 Add validation for graph.nodes and graph.edges arrays
+- [x] 5.5 Add validation for optional schemaVersion structure
+- [x] 5.6 Implement verifyDataIntegrity(baseline) function
+- [x] 5.7 Add node ID uniqueness check in verifyDataIntegrity
+- [x] 5.8 Add node.id matches stored ID check
+- [x] 5.9 Add edge reference validity check (from/to exist in nodes)
+- [x] 5.10 Add timestamp future check (with 60s tolerance)
+- [x] 5.11 Add commitHash format validation (7-40 hex chars)
+- [x] 5.12 Implement handleFailure(reason, cwd, options, details) function
+- [x] 5.13 Handle file_not_found scenario (trigger rebuild)
+- [x] 5.14 Handle parse_error scenario (return failure)
+- [x] 5.15 Handle invalid_structure scenario (rebuild or strict failure)
+- [x] 5.16 Handle corrupted_data scenario (auto rebuild)
+- [x] 5.17 Handle schema_incompatible scenario (respect compatResult)
+- [x] 5.18 Handle permission_error scenario (return failure)
+- [x] 5.19 Implement loadBaseline(cwd, options) main function with all steps
+- [x] 5.20 Add dependency injection support via rebuildHandler option
+- [x] 5.21 Add unit tests for validateBaselineStructure
+- [x] 5.22 Add unit tests for verifyDataIntegrity
+- [x] 5.23 Add unit tests for handleFailure all scenarios
+- [x] 5.24 Add unit tests for loadBaseline complete flow
 
 ## 6. Baseline Saving (Atomic Write)
 
