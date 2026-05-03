@@ -52,6 +52,34 @@ export class CodeGraph {
   }
 
   /**
+   * Get all nodes as an array
+   *
+   * @returns Array of all GraphNode objects
+   */
+  getNodes(): GraphNode[] {
+    return Array.from(this.nodes.values());
+  }
+
+  /**
+   * Get all edges
+   *
+   * @returns Array of all GraphEdge objects
+   */
+  getEdges(): GraphEdge[] {
+    return this.edges;
+  }
+
+  /**
+   * Get a node by id
+   *
+   * @param id - Node id
+   * @returns Node or undefined if not found
+   */
+  getNode(id: string): GraphNode | undefined {
+    return this.nodes.get(id);
+  }
+
+  /**
    * Add an edge to the graph
    *
    * Updates both outEdges (source) and inEdges (target) indexes.

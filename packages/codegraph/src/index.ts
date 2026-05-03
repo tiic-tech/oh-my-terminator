@@ -62,3 +62,6 @@ export {
 
 // C5: Parser Registry
 export { DefaultParserRegistry } from './parser-registry.js';
+
+// C5: Core Analyzer
+export { analyzeFull } from './analyzer.js';

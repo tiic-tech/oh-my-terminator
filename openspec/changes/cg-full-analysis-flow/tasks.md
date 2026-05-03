@@ -27,35 +27,35 @@
 
 ## 4. Core Analyzer
 
-- [ ] 4.1 Create `analyzer.ts` module
-- [ ] 4.2 Implement `analyzeFull(cwd, options)` main function
-- [ ] 4.3 Initialize CodeGraph and ParserRegistry
-- [ ] 4.4 Register TypeScriptParserAdapter at initialization
-- [ ] 4.5 Call scanDirectory (C2) with options.scanOptions
-- [ ] 4.6 Merge scan nodes/edges into CodeGraph
-- [ ] 4.7 Implement file grouping by extension
-- [ ] 4.8 Implement sequential file parsing loop
-- [ ] 4.9 Implement parser selection via registry.getParser()
-- [ ] 4.10 Implement mergeParserResult helper (addNode/addEdge)
-- [ ] 4.11 Implement continue-on-error pattern with warning collection
-- [ ] 4.12 Calculate and populate AnalysisStats
-- [ ] 4.13 Return FullAnalysisResult
+- [x] 4.1 Create `analyzer.ts` module
+- [x] 4.2 Implement `analyzeFull(cwd, options)` main function
+- [x] 4.3 Initialize CodeGraph and ParserRegistry
+- [x] 4.4 Register TypeScriptParserAdapter at initialization
+- [x] 4.5 Call scanDirectory (C2) with options.scanOptions
+- [x] 4.6 Merge scan nodes/edges into CodeGraph
+- [x] 4.7 Implement file grouping by extension
+- [x] 4.8 Implement sequential file parsing loop
+- [x] 4.9 Implement parser selection via registry.getParser()
+- [x] 4.10 Implement mergeParserResult helper (addNode/addEdge)
+- [x] 4.11 Implement continue-on-error pattern with warning collection
+- [x] 4.12 Calculate and populate AnalysisStats
+- [x] 4.13 Return FullAnalysisResult
 
 ## 5. Progress Reporting
 
-- [ ] 5.1 Implement progress callback invocation in scan phase
-- [ ] 5.2 Implement progress callback invocation in parse phase (per-file)
-- [ ] 5.3 Implement progress callback invocation in complete phase
-- [ ] 5.4 Skip callback when onProgress is undefined (silent mode)
-- [ ] 5.5 Include filePath in parse phase ProgressEvent
+- [x] 5.1 Implement progress callback invocation in scan phase
+- [x] 5.2 Implement progress callback invocation in parse phase (per-file)
+- [x] 5.3 Implement progress callback invocation in complete phase
+- [x] 5.4 Skip callback when onProgress is undefined (silent mode)
+- [x] 5.5 Include filePath in parse phase ProgressEvent
 
 ## 6. Edge Cases
 
-- [ ] 6.1 Handle empty project (no parseable files) - return valid result
-- [ ] 6.2 Handle all files failing parsing - return graph with only scan results
-- [ ] 6.3 Handle unknown file extensions - log warning, skip file
-- [ ] 6.4 Handle path not exists - propagate C2 warning
-- [ ] 6.5 Handle filesToParse.length === 0 - early return with empty stats
+- [x] 6.1 Handle empty project (no parseable files) - return valid result
+- [x] 6.2 Handle all files failing parsing - return graph with only scan results
+- [x] 6.3 Handle unknown file extensions - log warning, skip file
+- [x] 6.4 Handle path not exists - propagate C2 warning
+- [x] 6.5 Handle filesToParse.length === 0 - early return with empty stats
 
 ## 7. Unit Tests
 
