@@ -403,38 +403,68 @@ packages/codegraph/src/api/
 
 **名称**: `cg-cli-analyze-update`
 
-**目标**: 实现 `analyze`, `update` CLI 命令
+**目标**: 实现 `analyze`, `update` CLI 命令，支持 Agent-Friendly 结构化输出
 
 **范围**:
 - 使用 `cac` 库构建 CLI 框架
+- **通用特性**:
+  - 所有命令支持 `--json` flag
+  - JSON 输出包含 success/stats/durationMs/nextSuggested
+  - 定义明确的 JSON schema
 - `codegraph analyze` 命令
   - 执行全量分析
   - 写入基线
-  - 输出摘要
+  - 输出摘要（文本格式）
+  - `--json` 输出: `{success, stats, baseline, warnings, nextSuggested}`
 - `codegraph update` 命令（MVP简化版）
   - 读取 lastCommit
   - 获取变更文件（`isomorphic-git`）
   - 简化增量：删除旧节点+重新解析变更文件
   - 更新基线
+  - `--json` 输出: `{success, changes{added/removed/modified}, warnings}`
+
+**JSON Schema**:
+```typescript
+interface AnalyzeResult {
+  success: boolean;
+  stats: { filesScanned: number; modulesExtracted: number; edgesCreated: object };
+  baseline: { path: string; commitHash: string; timestamp: number };
+  durationMs: number;
+  warnings: string[];
+  nextSuggested: string[];
+}
+
+interface UpdateResult {
+  success: boolean;
+  changes: { added: string[]; removed: string[]; modified: string[] };
+  durationMs: number;
+  warnings: string[];
+}
+```
 
 **依赖**: Change 5, 6
 
-**预计工期**: 1天
+**预计工期**: 1.5天（增加 JSON 输出设计）
 
 **验证标准**:
 - CLI 可执行
 - `analyze` 生成 `.codegraph/` 目录
+- `analyze --json` 输出符合 schema
 - `update` 正确处理 git 变更（简化逻辑）
+- `update --json` 输出符合 schema
 
 **交付文件**:
 ```
 packages/codegraph/
 ├─ bin/
-│   └─ codegraph.ts   # CLI入口
+│   └─ codegraph.ts        # CLI入口
 ├─ src/cli/
 │   ├─ commands/
 │   │   ├─ analyze.ts
 │   │   └─ update.ts
+│   ├─ output/
+│   │   ├─ json-formatter.ts   # JSON 输出格式化
+│   │   └─ text-formatter.ts   # 文本输出格式化
 │   └─ index.ts
 ```
 
@@ -444,28 +474,77 @@ packages/codegraph/
 
 **名称**: `cg-cli-query-commands`
 
-**目标**: 实现 `scope`, `impact`, `layers` CLI 命令
+**目标**: 实现查询 CLI 命令，与 Tool API 对齐，支持 Agent-Friendly 输出
 
 **范围**:
+- **通用特性**:
+  - 所有命令支持 `--json` flag
+  - JSON 输出符合定义的 schema
+  - 错误时输出 JSON 格式错误信息
 - `codegraph scope <target>` 命令
+  - 对应 `getScope` API
+  - `--json` 输出: `{target, exports[], imports[], importedBy[], metadata}`
+- `codegraph brief <file>` 命令 **(新增)**
+  - 对应 `getQuickBrief` API
+  - 极简输出：导入数、被导入数、是否有测试、是否deprecated
+  - `--json` 输出: `{file, imports, importedBy, hasTest, deprecated, quickFacts[]}`
 - `codegraph impact <files...>` 命令
+  - 对应 `getImpact` API
+  - `--json` 输出: `{targets[], directImpact[], transitiveImpact[], recommendations[]}`
 - `codegraph layers` 命令
-- 加载基线后调用对应 API
-- 格式化输出到终端
+  - 对应 `getArchitectureLayers` API
+  - `--json` 输出: `{layers[], violations[], summary}`
+
+**JSON Schema**:
+```typescript
+interface ScopeResult {
+  target: string;
+  exports: { name: string; kind: string; id: string }[];
+  imports: { from: string; specifiers: string[] }[];
+  importedBy: { file: string; specifiers: string[] }[];
+  testFile?: string;
+  metadata: { hasTest: boolean; deprecated: boolean };
+}
+
+interface BriefResult {
+  file: string;
+  imports: number;
+  importedBy: number;
+  hasTest: boolean;
+  deprecated: boolean;
+  quickFacts: string[];
+}
+
+interface ImpactResult {
+  targets: string[];
+  directImpact: { file: string; relation: string }[];
+  transitiveImpact: { file: string; depth: number }[];
+  summary: { directCount: number; transitiveCount: number };
+  recommendations: string[];
+}
+
+interface LayersResult {
+  layers: { name: string; files: number }[];
+  violations: { from: string; to: string }[];
+  summary: { layerCount: number; violationCount: number };
+}
+```
 
 **依赖**: Change 7, 8, 9
 
-**预计工期**: 1天
+**预计工期**: 1.5天（增加 brief 命令 + JSON schema）
 
 **验证标准**:
 - 各命令正确执行
-- 输出可读性强
-- 错误处理（无基线、节点不存在）
+- 所有命令 `--json` 输出符合 schema
+- 输出可读性强（文本格式）
+- 错误处理（无基线、节点不存在）- JSON 格式错误
 
 **交付文件**:
 ```
 packages/codegraph/src/cli/commands/
 ├─ scope.ts
+├─ brief.ts    # 新增
 ├─ impact.ts
 ├─ layers.ts
 ```
