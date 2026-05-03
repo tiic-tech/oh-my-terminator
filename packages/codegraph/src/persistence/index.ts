@@ -39,8 +39,22 @@ export {
 // Version constants and SchemaVersionImpl class - will be added when implemented
 // export { CURRENT_SCHEMA_VERSION, GENERATOR_VERSION, LEGACY_VERSION, SchemaVersionImpl } from '../version.js';
 
-// Path utilities - will be added when implemented
-// export { ... } from './paths.js';
+// Path utilities
+export {
+  CODEGRAPH_DIR,
+  BASELINE_FILE,
+  LAST_COMMIT_FILE,
+  VERSION_FILE,
+  MIGRATION_LOG_FILE,
+  getBaselinePath,
+  getLastCommitPath,
+  getVersionPath,
+  getMigrationLogPath,
+  getCodegraphDirPath,
+  ensureCodegraphDir,
+  getBackupPath,
+  getTempPath,
+} from './paths.js';
 
 // Compatibility functions - will be added when implemented
 // export { checkSchemaCompatibility, determineAction, executeAction } from './compatibility.js';

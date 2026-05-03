@@ -30,19 +30,19 @@
 - [x] 2.4 Implement SchemaVersion.parse() static method with strict validation
 - [x] 2.5 Implement SchemaVersion.isGreaterThan() comparison method
 - [x] 2.6 Implement SchemaVersion.isCompatibleWith() method (major match)
-- [ ] 2.7 Add unit tests for SchemaVersion parsing (valid/invalid formats)
-- [ ] 2.8 Add unit tests for SchemaVersion comparison operations
-- [ ] 2.9 Add unit tests for version string validation (negative, non-numeric)
+- [x] 2.7 Add unit tests for SchemaVersion parsing (valid/invalid formats)
+- [x] 2.8 Add unit tests for SchemaVersion comparison operations
+- [x] 2.9 Add unit tests for version string validation (negative, non-numeric)
 
 ## 3. Directory Paths & Constants
 
-- [ ] 3.1 Create `packages/codegraph/src/persistence/paths.ts` with path definitions
-- [ ] 3.2 Define CODEGRAPH_DIR = '.codegraph' constant
-- [ ] 3.3 Define BASELINE_FILE, LAST_COMMIT_FILE, VERSION_FILE paths
-- [ ] 3.4 Define MIGRATION_LOG_FILE path
-- [ ] 3.5 Implement getBaselinePath(cwd: string) helper function
-- [ ] 3.6 Implement getLastCommitPath(cwd: string) helper function
-- [ ] 3.7 Implement ensureCodegraphDir(cwd: string) to create directory if missing
+- [x] 3.1 Create `packages/codegraph/src/persistence/paths.ts` with path definitions
+- [x] 3.2 Define CODEGRAPH_DIR = '.codegraph' constant
+- [x] 3.3 Define BASELINE_FILE, LAST_COMMIT_FILE, VERSION_FILE paths
+- [x] 3.4 Define MIGRATION_LOG_FILE path
+- [x] 3.5 Implement getBaselinePath(cwd: string) helper function
+- [x] 3.6 Implement getLastCommitPath(cwd: string) helper function
+- [x] 3.7 Implement ensureCodegraphDir(cwd: string) to create directory if missing
 
 ## 4. Compatibility Checking
 
