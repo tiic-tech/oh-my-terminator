@@ -19,7 +19,7 @@ export {
   type ParserResult,
   type ImportInfo,
   type ParserOptions,
-} from './ts-parser.js';
+} from './ts-parser/index.js';
 
 export {
   ModuleExtractor,

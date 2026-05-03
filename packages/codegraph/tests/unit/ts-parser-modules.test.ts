@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'path';
-import { TypeScriptParser, parseImports } from '../../src/parser/ts-parser.js';
+import { TypeScriptParser, parseImports } from '../../src/parser/ts-parser/index.js';
 import { NodeType, EdgeType } from '../../src/types.js';
 
 const fixturesDir = path.join(process.cwd(), 'tests', 'fixtures');

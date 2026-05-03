@@ -1,0 +1,43 @@
+/**
+ * TypeScript/JavaScript Parser Module
+ *
+ * Extracts import relationships and MODULE nodes using TypeScript Compiler API.
+ */
+
+// Types
+export {
+  type ParseResult,
+  type ParserResult,
+  type ImportInfo,
+  type ParserOptions,
+} from './types.js';
+
+// Program creation
+export {
+  createParserProgram,
+  resolveModulePath,
+} from './program.js';
+
+// Module Resolution Utilities
+export {
+  isBuiltinModule,
+  extractPackageName,
+} from './module-resolution.js';
+
+// External Node Creation
+export {
+  createExternalNode,
+} from './external-node.js';
+
+// Edge Generation
+export {
+  generateImportEdge,
+  generateReExportEdge,
+  generateDynamicImportEdge,
+} from './edge-generator.js';
+
+// Parser Class and Convenience Function
+export {
+  TypeScriptParser,
+  parseImports,
+} from './class.js';
