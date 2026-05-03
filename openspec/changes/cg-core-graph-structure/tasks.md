@@ -37,5 +37,5 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 Add JSDoc comments to all public interfaces and methods
-- [ ] 5.2 Create README.md with package overview and usage example
+- [x] 5.1 Add JSDoc comments to all public interfaces and methods
+- [x] 5.2 Create README.md with package overview and usage example
