@@ -340,4 +340,72 @@ describe('CodeGraph', () => {
       assert.strictEqual(restored.timestamp, graph.timestamp);
     });
   });
+
+  describe('schemaVersion', () => {
+    it('should include schemaVersion in toJSON when set', () => {
+      graph.addNode({ id: 'FILE:src/main.ts', type: NodeType.FILE, path: 'src/main.ts', name: 'main.ts' });
+      graph.schemaVersion = { major: 1, minor: 0, patch: 0 };
+
+      const serialized = graph.toJSON();
+
+      assert.ok(serialized.schemaVersion);
+      assert.strictEqual(serialized.schemaVersion.major, 1);
+      assert.strictEqual(serialized.schemaVersion.minor, 0);
+      assert.strictEqual(serialized.schemaVersion.patch, 0);
+    });
+
+    it('should not include schemaVersion in toJSON when not set', () => {
+      graph.addNode({ id: 'FILE:src/main.ts', type: NodeType.FILE, path: 'src/main.ts', name: 'main.ts' });
+
+      const serialized = graph.toJSON();
+
+      assert.strictEqual(serialized.schemaVersion, undefined);
+    });
+
+    it('should restore schemaVersion from fromJSON when present', () => {
+      const serialized = {
+        nodes: [
+          ['FILE:src/main.ts', { id: 'FILE:src/main.ts', type: NodeType.FILE, path: 'src/main.ts', name: 'main.ts' }],
+        ],
+        edges: [],
+        commitHash: 'abc123',
+        timestamp: 1234567890,
+        schemaVersion: { major: 1, minor: 2, patch: 3 },
+      };
+
+      const graph = CodeGraph.fromJSON(serialized);
+
+      assert.ok(graph.schemaVersion);
+      assert.strictEqual(graph.schemaVersion.major, 1);
+      assert.strictEqual(graph.schemaVersion.minor, 2);
+      assert.strictEqual(graph.schemaVersion.patch, 3);
+    });
+
+    it('should leave schemaVersion undefined when not in serialized data', () => {
+      const serialized = {
+        nodes: [
+          ['FILE:src/main.ts', { id: 'FILE:src/main.ts', type: NodeType.FILE, path: 'src/main.ts', name: 'main.ts' }],
+        ],
+        edges: [],
+        commitHash: 'abc123',
+        timestamp: 1234567890,
+      };
+
+      const graph = CodeGraph.fromJSON(serialized);
+
+      assert.strictEqual(graph.schemaVersion, undefined);
+    });
+
+    it('should preserve schemaVersion through round-trip', () => {
+      graph.addNode({ id: 'FILE:src/main.ts', type: NodeType.FILE, path: 'src/main.ts', name: 'main.ts' });
+      graph.schemaVersion = { major: 1, minor: 5, patch: 2 };
+      graph.commitHash = 'abc123';
+      graph.timestamp = 1234567890;
+
+      const serialized = graph.toJSON();
+      const restored = CodeGraph.fromJSON(serialized);
+
+      assert.deepStrictEqual(restored.schemaVersion, graph.schemaVersion);
+    });
+  });
 });

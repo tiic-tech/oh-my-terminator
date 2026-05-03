@@ -91,67 +91,67 @@
 
 ## 6. Baseline Saving (Atomic Write)
 
-- [ ] 6.1 Implement saveBaseline(baseline, cwd, options) function
-- [ ] 6.2 Implement atomic write: write to .tmp file first
-- [ ] 6.3 Implement atomic rename to final location
-- [ ] 6.4 Implement optional backup creation (createBackup option)
-- [ ] 6.5 Implement file permission handling (inherit or default 0644)
-- [ ] 6.6 Update lastCommit.txt after baseline save
-- [ ] 6.7 Optionally create .version file
-- [ ] 6.8 Handle write errors (disk full, permission denied)
-- [ ] 6.9 Add unit tests for atomic write success
-- [ ] 6.10 Add unit tests for backup creation
-- [ ] 6.11 Add integration test for save/load round-trip
+- [x] 6.1 Implement saveBaseline(baseline, cwd, options) function
+- [x] 6.2 Implement atomic write: write to .tmp file first
+- [x] 6.3 Implement atomic rename to final location
+- [x] 6.4 Implement optional backup creation (createBackup option)
+- [x] 6.5 Implement file permission handling (inherit or default 0644)
+- [x] 6.6 Update lastCommit.txt after baseline save
+- [x] 6.7 Optionally create .version file
+- [x] 6.8 Handle write errors (disk full, permission denied)
+- [x] 6.9 Add unit tests for atomic write success
+- [x] 6.10 Add unit tests for backup creation
+- [x] 6.11 Add integration test for save/load round-trip
 
 ## 7. Migration Framework
 
-- [ ] 7.1 Create `packages/codegraph/src/persistence/migrations/` directory
-- [ ] 7.2 Create migrations/index.ts with migration registry Map
-- [ ] 7.3 Implement registerMigration(script) function
-- [ ] 7.4 Implement versionMatchesPattern(version, pattern) with 'x' wildcard
-- [ ] 7.5 Implement findMigrationPath(fromV, toV) with BFS
-- [ ] 7.6 Add wildcard matching support in findMigrationPath
-- [ ] 7.7 Implement migrateBaseline(baseline, cwd) function
-- [ ] 7.8 Execute multi-step migrations in sequence
-- [ ] 7.9 Update schemaVersion after each migration step
-- [ ] 7.10 Append to migrationHistory after each step
-- [ ] 7.11 Implement safeMigrateBaseline with backup/restore
-- [ ] 7.12 Restore backup on migration failure
-- [ ] 7.13 Trigger rebuild when no migration path exists
-- [ ] 7.14 Add checksum fields to MigrationRecord (optional)
-- [ ] 7.15 Optionally write migration.log entries
-- [ ] 7.16 Add unit tests for registerMigration
-- [ ] 7.17 Add unit tests for versionMatchesPattern wildcard matching
-- [ ] 7.18 Add unit tests for findMigrationPath BFS logic
-- [ ] 7.19 Add unit tests for migrateBaseline single/multi-step
-- [ ] 7.20 Add unit tests for safeMigrateBaseline rollback
+- [x] 7.1 Create `packages/codegraph/src/persistence/migrations/` directory
+- [x] 7.2 Create migrations/index.ts with migration registry Map
+- [x] 7.3 Implement registerMigration(script) function
+- [x] 7.4 Implement versionMatchesPattern(version, pattern) with 'x' wildcard
+- [x] 7.5 Implement findMigrationPath(fromV, toV) with BFS
+- [x] 7.6 Add wildcard matching support in findMigrationPath
+- [x] 7.7 Implement migrateBaseline(baseline, cwd) function
+- [x] 7.8 Execute multi-step migrations in sequence
+- [x] 7.9 Update schemaVersion after each migration step
+- [x] 7.10 Append to migrationHistory after each step
+- [x] 7.11 Implement safeMigrateBaseline with backup/restore
+- [x] 7.12 Restore backup on migration failure
+- [x] 7.13 Trigger rebuild when no migration path exists
+- [x] 7.14 Add checksum fields to MigrationRecord (optional)
+- [x] 7.15 Optionally write migration.log entries
+- [x] 7.16 Add unit tests for registerMigration
+- [x] 7.17 Add unit tests for versionMatchesPattern wildcard matching
+- [x] 7.18 Add unit tests for findMigrationPath BFS logic
+- [x] 7.19 Add unit tests for migrateBaseline single/multi-step
+- [x] 7.20 Add unit tests for safeMigrateBaseline rollback
 
 ## 8. Legacy Migration Script
 
-- [ ] 8.1 Create migrations/legacy-to-1.0.0.ts
-- [ ] 8.2 Implement migration adding schemaVersion 1.0.0
-- [ ] 8.3 Implement migration adding generatorVersion "1.0.0"
-- [ ] 8.4 Initialize migrationHistory with single record
-- [ ] 8.5 Preserve all existing graph data unchanged
-- [ ] 8.6 Register the script in migrations/index.ts
-- [ ] 8.7 Add unit test for legacy baseline migration
+- [x] 8.1 Create migrations/legacy-to-1.0.0.ts
+- [x] 8.2 Implement migration adding schemaVersion 1.0.0
+- [x] 8.3 Implement migration adding generatorVersion "1.0.0"
+- [x] 8.4 Initialize migrationHistory with single record
+- [x] 8.5 Preserve all existing graph data unchanged
+- [x] 8.6 Register the script in migrations/index.ts
+- [x] 8.7 Add unit test for legacy baseline migration
 
 ## 9. Graph.ts Modifications
 
-- [ ] 9.1 Update CodeGraph.toJSON() to include schemaVersion when set
-- [ ] 9.2 Add optional schemaVersion property to CodeGraph class
-- [ ] 9.3 Update CodeGraph.fromJSON() to handle optional schemaVersion
-- [ ] 9.4 Add unit test for toJSON with schemaVersion
-- [ ] 9.5 Add unit test for fromJSON with optional schemaVersion
+- [x] 9.1 Update CodeGraph.toJSON() to include schemaVersion when set
+- [x] 9.2 Add optional schemaVersion property to CodeGraph class
+- [x] 9.3 Update CodeGraph.fromJSON() to handle optional schemaVersion
+- [x] 9.4 Add unit test for toJSON with schemaVersion
+- [x] 9.5 Add unit test for fromJSON with optional schemaVersion
 
 ## 10. Index Exports
 
-- [ ] 10.1 Update packages/codegraph/src/index.ts to export persistence types
-- [ ] 10.2 Export loadBaseline, saveBaseline functions
-- [ ] 10.3 Export migrateBaseline, safeMigrateBaseline functions
-- [ ] 10.4 Export SchemaVersion class
-- [ ] 10.5 Export CURRENT_SCHEMA_VERSION, GENERATOR_VERSION constants
-- [ ] 10.6 Export compatibility functions
+- [x] 10.1 Update packages/codegraph/src/index.ts to export persistence types
+- [x] 10.2 Export loadBaseline, saveBaseline functions
+- [x] 10.3 Export migrateBaseline, safeMigrateBaseline functions
+- [x] 10.4 Export SchemaVersion class
+- [x] 10.5 Export CURRENT_SCHEMA_VERSION, GENERATOR_VERSION constants
+- [x] 10.6 Export compatibility functions
 
 ## 11. Integration Tests
 

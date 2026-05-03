@@ -36,8 +36,13 @@ export {
   BaselineError,
 } from './types.js';
 
-// Version constants and SchemaVersionImpl class - will be added when implemented
-// export { CURRENT_SCHEMA_VERSION, GENERATOR_VERSION, LEGACY_VERSION, SchemaVersionImpl } from '../version.js';
+// Version constants and SchemaVersionImpl class
+export {
+  CURRENT_SCHEMA_VERSION,
+  GENERATOR_VERSION,
+  LEGACY_VERSION,
+  SchemaVersionImpl,
+} from '../version.js';
 
 // Path utilities
 export {
@@ -71,5 +76,16 @@ export {
   loadBaseline,
 } from './baseline.js';
 
-// Migration functions - will be added when implemented
-// export { registerMigration, migrateBaseline, safeMigrateBaseline, findMigrationPath } from './migrations/index.js';
+export {
+  saveBaseline,
+} from './save.js';
+
+// Migration functions
+export {
+  registerMigration,
+  versionMatchesPattern,
+  findMigrationPath,
+  migrateBaseline,
+  safeMigrateBaseline,
+  clearMigrationRegistry,
+} from './migrations/index.js';

@@ -1,4 +1,4 @@
-import { GraphNode, GraphEdge, SerializedCodeGraph } from './types.js';
+import { GraphNode, GraphEdge, SerializedCodeGraph, SchemaVersion } from './types.js';
 
 /**
  * CodeGraph - Core graph data structure for repository modeling
@@ -31,6 +31,9 @@ export class CodeGraph {
 
   /** Timestamp when graph was generated */
   timestamp: number = 0;
+
+  /** Optional schema version for compatibility checking */
+  schemaVersion?: SchemaVersion;
 
   /**
    * Add a node to the graph
@@ -205,22 +208,31 @@ export class CodeGraph {
    * Serialize the graph to JSON format
    *
    * Converts nodes Map to array format for JSON compatibility.
+   * Includes schemaVersion if set.
    *
    * @returns Serialized graph object
    */
   toJSON(): SerializedCodeGraph {
-    return {
+    const result: SerializedCodeGraph = {
       nodes: Array.from(this.nodes.entries()),
       edges: this.edges,
       commitHash: this.commitHash,
       timestamp: this.timestamp,
     };
+
+    // Include schemaVersion if set
+    if (this.schemaVersion) {
+      result.schemaVersion = this.schemaVersion;
+    }
+
+    return result;
   }
 
   /**
    * Deserialize a graph from JSON format
    *
    * Reconstructs nodes Map and rebuilds all edge indexes.
+   * Handles optional schemaVersion if present.
    *
    * @param data - Serialized graph data
    * @returns Restored CodeGraph instance
@@ -255,6 +267,11 @@ export class CodeGraph {
     // Restore metadata
     graph.commitHash = data.commitHash;
     graph.timestamp = data.timestamp;
+
+    // Restore schemaVersion if present
+    if (data.schemaVersion) {
+      graph.schemaVersion = data.schemaVersion;
+    }
 
     // Initialize edge indexes for nodes without edges
     for (const [id] of graph.nodes) {

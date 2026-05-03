@@ -65,3 +65,65 @@ export { DefaultParserRegistry } from './parser-registry.js';
 
 // C5: Core Analyzer
 export { analyzeFull } from './analyzer.js';
+
+// C6: Persistence Module
+export {
+  // Types
+  type SchemaVersion,
+  type SkillDemand,
+  type MigrationRecord,
+  type Baseline,
+  type CompatibilityReason,
+  type CompatibilityAction,
+  type CompatibilityResult,
+  type ActionConfig,
+  type ActionResult,
+  type LoadFailureReason,
+  type FailureInfo,
+  type LoadBaselineOptions,
+  type LoadBaselineResult,
+  type SaveBaselineOptions,
+  type ValidationResult,
+  type IntegrityResult,
+  type MigrationScript,
+  // Error classes
+  BaselineErrorCode,
+  IncompatibleBaselineError,
+  BaselineError,
+  // Version
+  CURRENT_SCHEMA_VERSION,
+  GENERATOR_VERSION,
+  LEGACY_VERSION,
+  SchemaVersionImpl,
+  // Paths
+  CODEGRAPH_DIR,
+  BASELINE_FILE,
+  LAST_COMMIT_FILE,
+  VERSION_FILE,
+  MIGRATION_LOG_FILE,
+  getBaselinePath,
+  getLastCommitPath,
+  getVersionPath,
+  getMigrationLogPath,
+  getCodegraphDirPath,
+  ensureCodegraphDir,
+  getBackupPath,
+  getTempPath,
+  // Compatibility
+  checkSchemaCompatibility,
+  determineAction,
+  executeAction,
+  // Baseline operations
+  validateBaselineStructure,
+  verifyDataIntegrity,
+  handleFailure,
+  loadBaseline,
+  saveBaseline,
+  // Migration
+  registerMigration,
+  versionMatchesPattern,
+  findMigrationPath,
+  migrateBaseline,
+  safeMigrateBaseline,
+  clearMigrationRegistry,
+} from './persistence/index.js';
