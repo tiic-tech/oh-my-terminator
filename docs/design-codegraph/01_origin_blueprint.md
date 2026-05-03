@@ -323,16 +323,71 @@ function createProgram(filePaths: string[], projectRoot: string): ts.Program {
 在同一个 `SourceFile` 中，遍历所有顶级声明：
 
 - `FunctionDeclaration`, `ClassDeclaration`, `VariableStatement` (export const/let), `InterfaceDeclaration`, `TypeAliasDeclaration`, `EnumDeclaration`。
-- 仅当声明被导出（通过 `export` 修饰符或显式 `export { name }` 导出）时，才创建 `MODULE` 节点。节点的 `kind` 依据语法推断：
-  - `FunctionDeclaration` → `function`
-  - `ClassDeclaration` → `class`
-  - `VariableStatement` 中若初始化器为箭头函数/函数表达式 → `function`，若为组件（JSX 元素）→ `component`
-  - `InterfaceDeclaration` → `interface`
-  - `TypeAliasDeclaration` → `type`
-  - 其他 → `variable`
+- 仅当声明被导出（通过 `export` 修饰符或显式 `export { name }` 导出）时，才创建 `MODULE` 节点。
+
+**节点命名与 ID 规则（歧义消除决议）**:
+
+| 导出类型 | name 值 | id 格式 | metadata |
+|---------|---------|---------|----------|
+| 命名导出 `export function foo()` | `"foo"` | `MODULE:file#foo` | `{ exports: ["named"] }` |
+| 重命名导出 `export { orig as exp }` | `"exp"` | `MODULE:file#exp` | `{ exports: ["named"], originalName: "orig" }` |
+| 匿名默认导出 `export default function()` | `"default"` | `MODULE:file#default` | `{ exports: ["default"], anonymous: true }` |
+| 多匿名默认导出 | `"default"` | `MODULE:file#default_N` | `{ exports: ["default"], anonymous: true, anonymousIndex: N }` |
+| 命名默认导出 `export default function foo()` | `"foo"` | `MODULE:file#foo` | `{ exports: ["default"], namedDefault: true }` |
+| 多重导出 `export { foo }; export default foo` | `"foo"` | `MODULE:file#foo` | `{ exports: ["named", "default"] }` |
+
+**节点的 `kind` 依据语法推断**:
+- `FunctionDeclaration` → `function`（若返回 JSX 则 → `component`）
+- `ClassDeclaration` → `class`
+- `VariableStatement` 中若初始化器为箭头函数/函数表达式 → `function`（若返回 JSX 则 → `component`）
+- `InterfaceDeclaration` → `interface`
+- `TypeAliasDeclaration` → `type`
+- `EnumDeclaration` → `type`（metadata.enumMembers 记录成员名）
+- 其他 → `variable`
+
+**Component 判断规则（A2 决议）**:
+- 返回类型注解包含 `JSX.Element`, `React.ReactElement`, `React.ReactNode` → `component`
+- 函数体包含 JSX 元素（`<Tag...>`）→ `component`
+- 例外：函数名以 `use` 开头且有 hooks → `function`（React hook）
+
+**圈复杂度计算（A4 决议 - McCabe 标准）**:
+- 基础复杂度 = 1
+- 每个 `if/else/for/while/do-while` +1
+- 每个 `switch` 语句 +1（基础），每个 `case` +1（不含 default）
+- 每个 `catch` clause +1
+- 每个 `&&`, `||` 逻辑运算符 +1
+- 每个 `?:` 三元运算符 +1
+
+**LOC 计算（A5 决议）**:
+- 统计非空行、非注释行
+- 包含 import/export/type/interface/enum 声明行
+- 排除：空行、单行注释（`//`）、多行注释（`/* */`）、JSDoc（`/** */`）
+
+**完整 MODULE metadata schema**:
+```typescript
+interface ModuleMetadata {
+  kind: 'function' | 'class' | 'variable' | 'interface' | 'type' | 'component' | 'unknown';
+  exports: ('named' | 'default' | 'renamed' | 'wildcard')[];
+  isExported: boolean;
+  originalName?: string;      // 重命名导出时记录原名称
+  namedDefault?: boolean;     // 命名默认导出标记
+  anonymous?: boolean;        // 匿名导出标记
+  anonymousIndex?: number;    // 多匿名导出时的序号
+  jsDoc?: string;             // 前 200 字符
+  complexity?: number;        // McCabe 圈复杂度
+  loc?: number;               // 有效代码行数
+  deprecated?: boolean;       // @deprecated 标记
+  enumMembers?: string[];     // Enum 成员列表（kind: "type" 时）
+  // 动态字段（增量更新）
+  testFile?: string;
+  lastModifiedCommit?: string;
+  changeFrequency?: number;
+}
+```
+
 - 提取 JSDoc 注释，取前 200 字符存入 `jsDoc`。
-- 计算圈复杂度：基于 AST 中条件分支、循环、逻辑运算符的数量（可参考 eslint 的复杂度计算），存入 `complexity`。
-- 计算有效代码行数（不含注释和空行）存入 `loc`。
+- 检测 `@deprecated` 标记，设置 `deprecated: true`。
+- 枚举类型记录成员列表：`enumMembers: ['Active', 'Inactive', 'Pending']`。
 
 #### 4.2.4 构建调用图（CALLS/EXTENDS/IMPLEMENTS）
 

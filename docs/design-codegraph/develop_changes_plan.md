@@ -253,12 +253,13 @@ packages/codegraph/src/
 **目标**: 提取导出符号，生成 MODULE 节点
 
 **范围**:
-- 遍历顶级声明（Function, Class, Variable, Interface, Type）
+- 遍历顶级声明（Function, Class, Variable, Interface, Type, Enum）
 - 创建 MODULE 节点（仅导出的符号）
 - 提取 JSDoc（前200字符）
-- 计算圈复杂度
+- 计算 McCabe 圈复杂度
 - 计算有效代码行数（LOC）
 - 确定 `kind`（function/class/component/type/variable）
+- 处理各种导出场景（匿名、重命名、默认、多重）
 
 **依赖**: Change 1, Change 3
 
@@ -267,16 +268,40 @@ packages/codegraph/src/
 **验证标准**:
 - 导出函数/类正确创建 MODULE 节点
 - 未导出的符号不创建节点
-- JSDoc 截断正确
-- 复杂度计算合理
+- JSDoc 截断正确（前200字符）
+- 复杂度计算正确（McCabe 标准）
+- **匿名导出命名正确性（A8 验证）**:
+  - 单匿名默认导出：name="default", id="MODULE:file#default"
+  - 多匿名默认导出：id 使用 `_N` 后缀
+  - metadata.anonymous=true
+- **重命名导出命名正确性（A9 验证）**:
+  - 使用导出名称而非原名称
+  - metadata.originalName 记录原名称
+- **命名默认导出正确性（A12 验证）**:
+  - 使用原函数名作为 MODULE name
+  - metadata.namedDefault=true
+- **Component 判断正确性（A2 验证）**:
+  - JSX.Element 返回类型 → kind="component"
+  - JSX 元素在函数体 → kind="component"
+  - Hook（use开头）不误判为 component
+- **Enum 分类正确性（A10 验证）**:
+  - EnumDeclaration → kind="type"
+  - metadata.enumMembers 记录成员列表
+- **多重导出处理正确性（A11 验证）**:
+  - 单一 MODULE 节点
+  - metadata.exports 数组记录所有导出类型
 
 **交付文件**:
 ```
 packages/codegraph/src/parser/
 ├─ module-extractor.ts  # MODULE节点提取
-├─ complexity.ts        # 圈复杂度计算
-└─ loc-counter.ts       # LOC计算
+├─ complexity.ts        # McCabe圈复杂度计算
+├─ loc-counter.ts       # LOC计算（非空非注释行）
+└─ kind-detector.ts     # kind类型判断（含component检测）
 ```
+
+**测试 Fixture**: `packages/codegraph/tests/fixtures/module-test-project/`
+- 覆盖所有歧义场景（A2/A4/A5/A8-A12）
 
 ---
 
