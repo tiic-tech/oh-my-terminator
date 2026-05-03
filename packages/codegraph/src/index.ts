@@ -127,3 +127,36 @@ export {
   safeMigrateBaseline,
   clearMigrationRegistry,
 } from './persistence/index.js';
+
+// C7: API Module (Scope Query and QuickBrief)
+export {
+  // Types
+  type ComplexityLevel,
+  type ComplexityInfo,
+  type ModifiedInfo,
+  type ExportInfo,
+  type ImportInfo,
+  type ImportedByInfo,
+  type ScopeResult,
+  type ScopeError,
+  type QuickBriefResult,
+  type QuickBriefError,
+  type TargetType,
+  type NormalizedTarget,
+  ErrorCode,
+  // Functions
+  getScope,
+  getQuickBrief,
+  // Internal helpers (exported for testing)
+  normalizeTarget,
+  extractExports,
+  extractImports,
+  extractImportedBy,
+  findTestFile,
+  aggregateComplexity,
+  checkDeprecated,
+  countImports,
+  countImportedBy,
+  formatScopeOutput,
+  formatQuickBriefOutput,
+} from './api/index.js';
