@@ -227,5 +227,204 @@ describe('ModuleExtractor', () => {
       const privateNode = result.nodes.find(n => n.name === 'privateFunction');
       assert.strictEqual(privateNode, undefined);
     });
+
+    it('should extract interface export', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'all-kinds.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const interfaceNode = result.nodes.find(n => n.name === 'MyInterface');
+      assert.ok(interfaceNode);
+      assert.strictEqual(interfaceNode?.metadata?.kind, 'interface');
+    });
+
+    it('should extract type export', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'all-kinds.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const typeNode = result.nodes.find(n => n.name === 'MyType');
+      assert.ok(typeNode);
+      assert.strictEqual(typeNode?.metadata?.kind, 'type');
+    });
+
+    it('should extract enum with enumMembers', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'all-kinds.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const enumNode = result.nodes.find(n => n.name === 'MyEnum');
+      assert.ok(enumNode);
+      assert.strictEqual(enumNode?.metadata?.kind, 'type');
+      assert.ok(enumNode?.metadata?.enumMembers);
+      assert.deepStrictEqual(enumNode?.metadata?.enumMembers, ['First', 'Second', 'Third']);
+    });
+
+    it('should extract variable export', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'all-kinds.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const varNode = result.nodes.find(n => n.name === 'SIMPLE_CONSTANT');
+      assert.ok(varNode);
+      assert.strictEqual(varNode?.metadata?.kind, 'variable');
+    });
+  });
+
+  describe('named default exports', () => {
+    it('should use function name for named default export', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'named-default.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      // Should use "getConfig" not "default"
+      const node = result.nodes.find(n => n.name === 'getConfig');
+      assert.ok(node, 'Should have MODULE node with function name');
+      assert.strictEqual(node?.id, 'MODULE:src/named-default.ts#getConfig');
+      assert.strictEqual(node?.metadata?.namedDefault, true);
+    });
+  });
+
+  describe('anonymous exports', () => {
+    it('should use "default" for anonymous function export', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'anonymous-export.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const node = result.nodes.find(n => n.name === 'default');
+      assert.ok(node, 'Should have MODULE node with name "default"');
+      assert.strictEqual(node?.id, 'MODULE:src/anonymous-export.ts#default');
+      assert.strictEqual(node?.metadata?.kind, 'function');
+    });
+
+    it('should use "default" for anonymous class export', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'anonymous-class.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const node = result.nodes.find(n => n.name === 'default');
+      assert.ok(node, 'Should have MODULE node with name "default"');
+      assert.strictEqual(node?.metadata?.kind, 'class');
+    });
+  });
+
+  describe('renamed exports', () => {
+    it('should use exported name for renamed export', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'renamed-export.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      // Should use exported name "formatDate" not internal name
+      const node = result.nodes.find(n => n.name === 'formatDate');
+      assert.ok(node, 'Should have MODULE with exported name');
+      assert.strictEqual(node?.metadata?.originalName, 'formatDateInternal');
+    });
+  });
+
+  describe('component detection', () => {
+    it('should detect component with JSX.Element return type', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'component-detection.tsx')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const headerNode = result.nodes.find(n => n.name === 'Header');
+      assert.ok(headerNode);
+      assert.strictEqual(headerNode?.metadata?.kind, 'component');
+    });
+
+    it('should detect component with JSX in body', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'component-detection.tsx')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const buttonNode = result.nodes.find(n => n.name === 'Button');
+      assert.ok(buttonNode);
+      assert.strictEqual(buttonNode?.metadata?.kind, 'component');
+    });
+
+    it('should not classify hook as component', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'component-detection.tsx')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        jsx: ts.JsxEmit.ReactJSX,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      const hookNode = result.nodes.find(n => n.name === 'useModal');
+      assert.ok(hookNode);
+      assert.strictEqual(hookNode?.metadata?.kind, 'function', 'Hook should be function, not component');
+    });
+  });
+
+  describe('multiple exports', () => {
+    it('should create single node for symbol with multiple exports', async () => {
+      const files = [path.join(moduleTestProject, 'src', 'multiple-exports.ts')];
+      const program = ts.createProgram(files, {
+        allowJs: true,
+        noEmit: true,
+      });
+      const sourceFile = program.getSourceFile(files[0])!;
+      const extractor = new ModuleExtractor(program, moduleTestProject);
+      const result = extractor.extractModules(sourceFile);
+
+      // Should have exactly one fetchData node (not two)
+      const fetchNodes = result.nodes.filter(n => n.name === 'fetchData');
+      assert.strictEqual(fetchNodes.length, 1, 'Should have single MODULE for symbol with multiple exports');
+    });
   });
 });

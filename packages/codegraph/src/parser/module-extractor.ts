@@ -59,6 +59,11 @@ export interface ModuleExtractResult {
 export function detectKind(node: ts.Node, sourceFile?: ts.SourceFile): ModuleKind {
   // FunctionDeclaration
   if (ts.isFunctionDeclaration(node)) {
+    const sf = sourceFile ?? node.getSourceFile();
+    // Check if it's a component
+    if (sf && isComponentFunction(node, sf)) {
+      return 'component';
+    }
     return 'function';
   }
 
@@ -107,6 +112,41 @@ export function detectKind(node: ts.Node, sourceFile?: ts.SourceFile): ModuleKin
   }
 
   return 'variable';
+}
+
+/**
+ * Check if FunctionDeclaration is a React component
+ */
+function isComponentFunction(func: ts.FunctionDeclaration, sourceFile: ts.SourceFile): boolean {
+  // Check if hook (useXxx)
+  if (func.name && func.name.text.startsWith('use')) {
+    return false;
+  }
+
+  // Check return type
+  const returnType = func.type;
+  if (returnType) {
+    const typeText = returnType.getText(sourceFile);
+    if (typeText.includes('JSX.Element') || typeText.includes('ReactElement') || typeText.includes('React.ReactNode')) {
+      return true;
+    }
+  }
+
+  // Check body for JSX elements
+  if (func.body) {
+    let hasJsx = false;
+    const visit = (node: ts.Node) => {
+      if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+        hasJsx = true;
+        return;
+      }
+      ts.forEachChild(node, visit);
+    };
+    ts.forEachChild(func.body, visit);
+    return hasJsx;
+  }
+
+  return false;
 }
 
 /**
@@ -411,11 +451,23 @@ export class ModuleExtractor {
     let name: string;
     let kind: ModuleKind;
     let hasName = true;
+    let isDefault = false;
+
+    // Check if this is a default export
+    const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
+    if (modifiers) {
+      for (const mod of modifiers) {
+        if (mod.kind === ts.SyntaxKind.DefaultKeyword) {
+          isDefault = true;
+          break;
+        }
+      }
+    }
 
     if (ts.isFunctionDeclaration(node)) {
       name = node.name?.text ?? 'default';
       hasName = !!node.name;
-      kind = 'function';
+      kind = detectKind(node, sourceFile);
     } else if (ts.isClassDeclaration(node)) {
       name = node.name?.text ?? 'default';
       hasName = !!node.name;
@@ -435,14 +487,14 @@ export class ModuleExtractor {
       for (const decl of decls) {
         const varName = decl.name.getText(sourceFile);
         const varKind = detectKind(decl, sourceFile);
-        this.createModuleNode(decl, sourceFile, relativePath, fileId, varName, varKind, result, exportNames, true);
+        this.createModuleNode(decl, sourceFile, relativePath, fileId, varName, varKind, result, exportNames, true, false);
       }
       return;
     } else {
       return;
     }
 
-    this.createModuleNode(node, sourceFile, relativePath, fileId, name, kind, result, exportNames, hasName);
+    this.createModuleNode(node, sourceFile, relativePath, fileId, name, kind, result, exportNames, hasName, isDefault);
   }
 
   /**
@@ -457,7 +509,8 @@ export class ModuleExtractor {
     kind: ModuleKind,
     result: ModuleExtractResult,
     exportNames: Map<string, number>,
-    hasName: boolean
+    hasName: boolean,
+    isDefault: boolean
   ): void {
     // Handle duplicate names (anonymous defaults)
     let finalName = name;
@@ -485,8 +538,8 @@ export class ModuleExtractor {
       metadata.loc = countLOC(sourceFile, node);
     }
 
-    // Named default
-    if (name !== 'default' && !hasName) {
+    // Named default (export default function name() {})
+    if (isDefault && hasName) {
       metadata.namedDefault = true;
     }
 

@@ -122,14 +122,14 @@
 - [x] 11.4 Test named type export extraction
 - [x] 11.5 Test named enum export extraction (with enumMembers)
 - [x] 11.6 Test named variable export extraction
-- [ ] 11.7 Test named default export (uses function name)
-- [ ] 11.8 Test anonymous default export (uses "default")
-- [ ] 11.9 Test anonymous default class export
-- [ ] 11.10 Test renamed export (uses exported name)
+- [x] 11.7 Test named default export (uses function name)
+- [x] 11.8 Test anonymous default export (uses "default")
+- [x] 11.9 Test anonymous default class export
+- [x] 11.10 Test renamed export (uses exported name)
 - [x] 11.11 Test kind classification for all types
-- [ ] 11.12 Test component detection (JSX.Element return)
-- [ ] 11.13 Test component detection (JSX in body)
-- [ ] 11.14 Test hook not classified as component
+- [x] 11.12 Test component detection (JSX.Element return)
+- [x] 11.13 Test component detection (JSX in body)
+- [x] 11.14 Test hook not classified as component
 - [x] 11.15 Test complexity calculation (simple function = 1)
 - [x] 11.16 Test complexity calculation (if-else = 3)
 - [x] 11.17 Test complexity calculation (switch 3 cases = 4)
@@ -139,11 +139,11 @@
 - [x] 11.21 Test JSDoc extraction (full)
 - [x] 11.22 Test JSDoc extraction (truncated at 200)
 - [x] 11.23 Test JSDoc extraction (no JSDoc)
-- [ ] 11.24 Test multiple exports of same symbol
+- [x] 11.24 Test multiple exports of same symbol
 - [x] 11.25 Test non-exported declarations skipped
 - [x] 11.26 Test MODULE ID format
-- [ ] 11.27 Test metadata.originalName for renamed exports
-- [ ] 11.28 Test metadata.namedDefault for named defaults
+- [x] 11.27 Test metadata.originalName for renamed exports
+- [x] 11.28 Test metadata.namedDefault for named defaults
 - [x] 11.29 Test metadata.enumMembers for enums
 - [x] 11.30 Verify test coverage ≥ 80% for module-extractor
 
