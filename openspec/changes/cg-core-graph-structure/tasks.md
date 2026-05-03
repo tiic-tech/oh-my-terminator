@@ -6,12 +6,12 @@
 
 ## 2. Core Types (types.ts)
 
-- [ ] 2.1 Define `NodeType` enum (DIRECTORY, FILE, MODULE, EXTERNAL)
-- [ ] 2.2 Define `EdgeType` enum (CONTAINS, IMPORTS, EXPORTS, CALLS, EXTENDS, IMPLEMENTS, RE_EXPORTS, DYNAMIC_IMPORTS)
-- [ ] 2.3 Define `GraphNode` interface with id, type, path, name, and optional metadata
-- [ ] 2.4 Define `GraphEdge` interface with from, to, type, and optional metadata
-- [ ] 2.5 Define `SerializedCodeGraph` interface for JSON serialization format
-- [ ] 2.6 Export all types from `index.ts`
+- [x] 2.1 Define `NodeType` enum (DIRECTORY, FILE, MODULE, EXTERNAL)
+- [x] 2.2 Define `EdgeType` enum (CONTAINS, IMPORTS, EXPORTS, CALLS, EXTENDS, IMPLEMENTS, RE_EXPORTS, DYNAMIC_IMPORTS)
+- [x] 2.3 Define `GraphNode` interface with id, type, path, name, and optional metadata
+- [x] 2.4 Define `GraphEdge` interface with from, to, type, and optional metadata
+- [x] 2.5 Define `SerializedCodeGraph` interface for JSON serialization format
+- [x] 2.6 Export all types from `index.ts`
 
 ## 3. CodeGraph Class (graph.ts)
 
