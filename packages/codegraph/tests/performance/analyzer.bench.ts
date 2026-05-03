@@ -111,4 +111,41 @@ describe('Performance Benchmarks', () => {
       `Expected stdDev < 20% of avg (${avg * 0.2}ms), got ${stdDev}ms`
     );
   });
+
+  // Scale test: 1000 files (tasks 9.3-9.5)
+  it('should analyze 1000 files in < 30s', async () => {
+    const projectPath = path.resolve('tests/fixtures/performance-large');
+
+    // Measure memory before
+    const memBefore = process.memoryUsage().heapUsed / 1024 / 1024; // MB
+
+    const result = await analyzeFull(projectPath);
+
+    // Measure memory after
+    const memAfter = process.memoryUsage().heapUsed / 1024 / 1024; // MB
+    const memDelta = memAfter - memBefore;
+
+    formatStats('1000-file scale test', result.stats);
+
+    console.log(`Memory delta: ${memDelta.toFixed(2)}MB`);
+    console.log(`Files parsed: ${result.stats.filesParsed}`);
+
+    // Performance assertion: should complete in under 30 seconds
+    assert.ok(
+      result.stats.totalTimeMs < 30000,
+      `Expected totalTimeMs < 30000, got ${result.stats.totalTimeMs}ms`
+    );
+
+    // Memory assertion: should use less than 256MB additional memory
+    assert.ok(
+      memDelta < 256,
+      `Expected memory delta < 256MB, got ${memDelta.toFixed(2)}MB`
+    );
+
+    // Verify all files parsed
+    assert.ok(
+      result.stats.filesParsed >= 900,
+      `Expected at least 900 files parsed, got ${result.stats.filesParsed}`
+    );
+  });
 });

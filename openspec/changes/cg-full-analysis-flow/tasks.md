@@ -86,9 +86,9 @@
 
 - [x] 9.1 Create performance-small fixture (20 files) for baseline
 - [x] 9.2 Verify totalTime < 2s for 20 files (benchmark tests pass)
-- [ ] 9.3 Create 1000-file fixture for scale test (deferred)
-- [ ] 9.4 Verify totalTime < 30s for 1000 files (deferred)
-- [ ] 9.5 Verify memory usage < 256MB for 1000 files (deferred)
+- [x] 9.3 Create 1000-file fixture for scale test
+- [x] 9.4 Verify totalTime < 30s for 1000 files (~22s actual)
+- [x] 9.5 Verify memory usage < 256MB for 1000 files
 - [x] 9.6 Performance benchmarks in analyzer.bench.ts
 
 ## 10. Documentation
