@@ -12,6 +12,16 @@ export {
   type ModuleMetadata,
   type EdgeMetadata,
   type SerializedCodeGraph,
+  // C5: Analyzer Types
+  type FullAnalysisResult,
+  type AnalysisStats,
+  type AnalysisOptions,
+  type ProgressEvent,
+  type ProgressCallback,
+  // C5: Parser Registry Types
+  type ParserResult,
+  type Parser,
+  type ParserRegistry,
 } from './types.js';
 
 export { CodeGraph } from './graph.js';
@@ -47,3 +57,6 @@ export {
   type ImportInfo,
   type ParserOptions,
 } from './parser/index.js';
+
+// C5: Parser Registry
+export { DefaultParserRegistry } from './parser-registry.js';

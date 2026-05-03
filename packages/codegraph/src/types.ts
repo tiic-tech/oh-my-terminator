@@ -1,3 +1,6 @@
+import type { CodeGraph } from './graph.js';
+import type { ScanOptions } from './scanner.js';
+
 /**
  * Node types in the CodeGraph
  *
@@ -127,4 +130,154 @@ export interface SerializedCodeGraph {
   commitHash: string;
   /** Timestamp when graph was generated */
   timestamp: number;
+}
+
+// ============================================================================
+// C5: Analyzer Types (Full Analysis Flow)
+// ============================================================================
+
+/**
+ * Progress callback for analysis reporting
+ *
+ * Invoked at each phase with current progress state
+ */
+export type ProgressCallback = (event: ProgressEvent) => void;
+
+/**
+ * Progress event structure
+ *
+ * Reports current analysis phase and progress
+ */
+export interface ProgressEvent {
+  /** Current phase of analysis */
+  phase: 'scan' | 'parse' | 'merge' | 'complete';
+  /** Number of items processed so far */
+  current: number;
+  /** Total items to process */
+  total: number;
+  /** Optional description message */
+  message?: string;
+  /** Current file path (only in parse phase) */
+  filePath?: string;
+}
+
+/**
+ * Statistics from full analysis
+ *
+ * Contains timing and count information
+ */
+export interface AnalysisStats {
+  /** Time spent scanning (ms) */
+  scanTimeMs: number;
+  /** Time spent parsing (ms) */
+  parseTimeMs: number;
+  /** Total analysis time (ms) */
+  totalTimeMs: number;
+  /** Number of files successfully parsed */
+  filesParsed: number;
+  /** Number of parsing errors */
+  parseErrors: number;
+  /** DIRECTORY node count */
+  directories: number;
+  /** FILE node count */
+  files: number;
+  /** MODULE node count */
+  modules: number;
+  /** Total edge count */
+  edges: number;
+}
+
+/**
+ * Options for full analysis
+ *
+ * Controls analysis behavior and output
+ */
+export interface AnalysisOptions {
+  /** File extensions to parse (default: ['.ts', '.tsx', '.js', '.jsx', '.mjs']) */
+  extensions?: string[];
+  /** Progress callback for reporting */
+  onProgress?: ProgressCallback;
+  /** Scanner options (passed to scanDirectory) */
+  scanOptions?: ScanOptions;
+}
+
+/**
+ * Result of full repository analysis
+ *
+ * Contains complete graph and metadata
+ */
+export interface FullAnalysisResult {
+  /** Complete CodeGraph with all nodes and edges */
+  graph: CodeGraph;
+  /** Analysis statistics */
+  stats: AnalysisStats;
+  /** Non-fatal warning messages */
+  warnings: string[];
+}
+
+// ============================================================================
+// C5: Parser Registry Types
+// ============================================================================
+
+/**
+ * Result from a single file parse operation
+ *
+ * Contains extracted nodes, edges, and warnings
+ */
+export interface ParserResult {
+  /** Nodes extracted from the file */
+  nodes: GraphNode[];
+  /** Edges extracted from the file */
+  edges: GraphEdge[];
+  /** Non-fatal warnings during parsing */
+  warnings: string[];
+}
+
+/**
+ * Parser interface for language-specific file parsing
+ *
+ * All language parsers must implement this interface
+ */
+export interface Parser {
+  /** Unique parser name (e.g., 'typescript', 'python') */
+  name: string;
+  /** Supported file extensions (e.g., ['.ts', '.tsx']) */
+  extensions: string[];
+  /**
+   * Parse a single file
+   * @param filePath - Relative file path
+   * @param content - File content
+   * @param projectRoot - Project root directory
+   * @returns ParserResult with nodes, edges, warnings
+   */
+  parse(filePath: string, content: string, projectRoot: string): Promise<ParserResult>;
+}
+
+/**
+ * Parser registry interface
+ *
+ * Manages parser registration and selection
+ */
+export interface ParserRegistry {
+  /**
+   * Register a parser
+   * @param parser - Parser instance
+   */
+  register(parser: Parser): void;
+  /**
+   * Get parser for extension
+   * @param extension - File extension (e.g., '.ts')
+   * @returns Parser instance or undefined
+   */
+  getParser(extension: string): Parser | undefined;
+  /**
+   * Check if extension has registered parser
+   * @param extension - File extension
+   */
+  hasParser(extension: string): boolean;
+  /**
+   * Get all registered extensions
+   * @returns Array of extensions
+   */
+  getAllExtensions(): string[];
 }
