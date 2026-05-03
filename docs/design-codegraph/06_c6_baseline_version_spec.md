@@ -15,7 +15,13 @@
 3. [不兼容处理策略](#3-不兼容处理策略)
 4. [loadBaseline失败处理](#4-loadbaseline失败处理)
 5. [升级路径设计](#5-升级路径设计)
+   - [5.1 向后兼容原则](#5.1-向后兼容原则)
+   - [5.2 迁移脚本框架](#5.2-迁移脚本框架)
+   - [5.3-5.5 迁移示例](#5.3-首个迁移脚本示例)
+   - [5.6 CLI命令支持](#5.6-cli命令支持)
+   - [5.7 迁移原子性与安全](#5.7-迁移原子性与安全)
 6. [测试场景](#6-测试场景)
+7. [附录](#附录-a-错误代码定义)
 
 ---
 
@@ -73,6 +79,14 @@ interface MigrationRecord {
   strategy: 'migrate' | 'rebuild';  // 使用的策略
 }
 
+// SkillDemand 定义（参考 Blueprint §3.4）
+interface SkillDemand {
+  testWriter: number;           // 测试编写需求量
+  refactorSpecialist: number;   // 重构专家需求量
+  architect: number;            // 架构师需求量
+  securityReviewer: number;     // 安全审查需求量
+}
+
 // SerializedCodeGraph 同步更新
 interface SerializedCodeGraph {
   nodes: [string, GraphNode][];
@@ -98,6 +112,43 @@ interface SerializedCodeGraph {
 **初始版本**: `1.0.0`
 
 ### 1.4 版本存储位置
+
+#### 版本字段双重存储策略
+
+> **重要说明**: SchemaVersion 存储于两个位置，遵循以下策略：
+
+| 位置 | 状态 | 说明 |
+|-----|------|-----|
+| `Baseline.schemaVersion` | **必需** | 主要存储位置，版本检查的首选来源 |
+| `SerializedCodeGraph.schemaVersion` | 可选 | 兼容旧基线，向后兼容性保留 |
+
+**加载策略**:
+```typescript
+function resolveSchemaVersion(baseline: Baseline): SchemaVersion | undefined {
+  // 优先使用 Baseline.schemaVersion
+  if (baseline.schemaVersion) {
+    return baseline.schemaVersion;
+  }
+  // 回退到 SerializedCodeGraph.schemaVersion（兼容旧版本）
+  if (baseline.graph.schemaVersion) {
+    return baseline.graph.schemaVersion;
+  }
+  // 无版本标识 -> legacy
+  return undefined;
+}
+```
+
+**保存策略**:
+```typescript
+function saveBaseline(baseline: Baseline, cwd: string): void {
+  // 写入时同步更新两处
+  baseline.schemaVersion = CURRENT_SCHEMA_VERSION;
+  baseline.graph.schemaVersion = CURRENT_SCHEMA_VERSION;  // 同步写入graph
+  // ... 执行保存
+}
+```
+
+#### 文件存储结构
 
 ```
 .codegraph/
@@ -224,6 +275,17 @@ class SchemaVersion {
   patch: number;
 
   constructor(major: number, minor: number, patch: number) {
+    // 验证约束
+    if (!Number.isInteger(major) || major < 0) {
+      throw new Error(`Invalid major version: ${major} (must be non-negative integer)`);
+    }
+    if (!Number.isInteger(minor) || minor < 0) {
+      throw new Error(`Invalid minor version: ${minor} (must be non-negative integer)`);
+    }
+    if (!Number.isInteger(patch) || patch < 0) {
+      throw new Error(`Invalid patch version: ${patch} (must be non-negative integer)`);
+    }
+
     this.major = major;
     this.minor = minor;
     this.patch = patch;
@@ -234,10 +296,23 @@ class SchemaVersion {
   }
 
   static parse(versionStr: string): SchemaVersion {
+    // 检查输入格式
+    if (typeof versionStr !== 'string') {
+      throw new Error(`Version must be a string, got: ${typeof versionStr}`);
+    }
+
     const parts = versionStr.split('.');
     if (parts.length !== 3) {
-      throw new Error(`Invalid version format: ${versionStr}`);
+      throw new Error(`Invalid version format: ${versionStr} (expected "major.minor.patch")`);
     }
+
+    // 验证每个部分都是纯数字
+    for (let i = 0; i < parts.length; i++) {
+      if (!/^\d+$/.test(parts[i])) {
+        throw new Error(`Invalid version component: ${parts[i]} (must be numeric)`);
+      }
+    }
+
     return new SchemaVersion(
       parseInt(parts[0], 10),
       parseInt(parts[1], 10),
@@ -268,10 +343,18 @@ class SchemaVersion {
 export const CURRENT_SCHEMA_VERSION = new SchemaVersion(1, 0, 0);
 export const GENERATOR_VERSION = '1.0.0';
 
+// Legacy版本标识常量（用于无版本信息的旧基线）
+export const LEGACY_VERSION = 'legacy';
+
 // 版本更新时机
 // - Major: 图结构核心字段变更（NodeType/EdgeType重定义）
 // - Minor: 新增可选字段（GraphNode.metadata扩展）
 // - Patch: 计算逻辑优化（不影响数据结构）
+
+// 文件系统操作导入（Node.js built-ins）
+// import { readFile, writeFile, access, rename, unlink } from 'fs/promises';
+// import { join } from 'path';
+// import { existsSync } from 'fs';
 ```
 
 ---
@@ -745,6 +828,137 @@ interface IntegrityResult {
 }
 ```
 
+### 4.6 saveBaseline 函数规格
+
+```typescript
+/**
+ * 保存基线到磁盘
+ * 使用原子写入策略确保数据安全
+ */
+async function saveBaseline(baseline: Baseline, cwd: string): Promise<void> {
+  const baselineDir = join(cwd, '.codegraph');
+  const baselinePath = join(baselineDir, 'baseline.json');
+  const tempPath = join(baselineDir, '.baseline.tmp');
+  const backupPath = join(baselineDir, 'baseline.json.backup');
+
+  // 确保目录存在
+  if (!await directoryExists(baselineDir)) {
+    await mkdir(baselineDir, { recursive: true });
+  }
+
+  // 同步版本字段到两处位置
+  if (baseline.schemaVersion) {
+    baseline.graph.schemaVersion = baseline.schemaVersion;
+  }
+
+  // Step 1: 创建备份（可选，保护现有数据）
+  try {
+    if (await fileExists(baselinePath)) {
+      await copyFile(baselinePath, backupPath);
+    }
+  } catch (e) {
+    // 备份失败不阻止保存，仅记录警告
+    console.warn('Failed to create backup:', e);
+  }
+
+  // Step 2: 写入临时文件
+  const content = JSON.stringify(baseline, null, 2);
+  try {
+    await writeFile(tempPath, content, 'utf-8');
+  } catch (e) {
+    // 处理写入错误
+    if (e.code === 'ENOENT') {
+      throw new BaselineError(
+        BaselineErrorCode.E005_PERMISSION_ERROR,
+        'Cannot write to baseline directory - permission denied',
+        { path: tempPath }
+      );
+    }
+    if (e.code === 'ENOSPC') {
+      throw new BaselineError(
+        BaselineErrorCode.E005_PERMISSION_ERROR,
+        'Disk full - cannot save baseline',
+        { path: tempPath }
+      );
+    }
+    throw e;
+  }
+
+  // Step 3: 设置文件权限（继承或使用默认 0644）
+  // 注意: Windows 不支持 chmod，需条件判断
+  if (process.platform !== 'win32') {
+    try {
+      const existingPerm = await getFilePermissions(baselinePath);
+      const perm = existingPerm || 0o644;  // 继承现有权限或默认
+      await chmod(tempPath, perm);
+    } catch (e) {
+      // 权限设置失败不阻止保存
+      console.warn('Failed to set file permissions:', e);
+    }
+  }
+
+  // Step 4: 原子替换（rename是原子操作）
+  try {
+    await rename(tempPath, baselinePath);
+  } catch (e) {
+    // rename失败时清理临时文件
+    await unlink(tempPath).catch(() => {});
+    throw new BaselineError(
+      BaselineErrorCode.E005_PERMISSION_ERROR,
+      'Failed to finalize baseline save',
+      { originalError: e }
+    );
+  }
+
+  // Step 5: 更新 .version 文件（可选）
+  const versionPath = join(baselineDir, '.version');
+  const versionInfo = {
+    schema: baseline.schemaVersion?.toString() || LEGACY_VERSION,
+    generator: baseline.generatorVersion,
+    lastMigration: baseline.migrationHistory?.slice(-1)[0] || null
+  };
+  await writeFile(versionPath, JSON.stringify(versionInfo, null, 2), 'utf-8');
+}
+
+// 辅助函数
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function directoryExists(path: string): Promise<boolean> {
+  try {
+    const stats = await stat(path);
+    return stats.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function getFilePermissions(path: string): Promise<number | null> {
+  try {
+    const stats = await stat(path);
+    return stats.mode & 0o777;  // 提取权限位
+  } catch {
+    return null;
+  }
+}
+```
+
+#### 错误处理策略
+
+| 错误类型 | 处理方式 | 用户提示 |
+|---------|---------|---------|
+| 磁盘满 (ENOSPC) | 抛出错误，拒绝保存 | "Disk full, cannot save baseline" |
+| 权限拒绝 (EPERM/EACCES) | 抛出错误，拒绝保存 | "Permission denied, check .codegraph permissions" |
+| 目录不存在 | 自动创建（recursive） | 无（自动处理） |
+| 备份失败 | 警告日志，继续保存 | 无（静默处理） |
+| 临时文件清理失败 | 静默忽略 | 无（不影响主流程） |
+
 ---
 
 ## 5. 升级路径设计
@@ -780,8 +994,8 @@ interface IntegrityResult {
 
 ```typescript
 interface MigrationScript {
-  fromVersion: string;
-  toVersion: string;
+  fromVersion: string;           // 支持通配符（如 '1.x', '1.0.x'）
+  toVersion: string;             // 目标版本（必须是精确版本）
   migrate: (baseline: Baseline) => Baseline;
   description: string;
 }
@@ -792,6 +1006,35 @@ const migrationRegistry: Map<string, MigrationScript> = new Map();
 function registerMigration(script: MigrationScript) {
   const key = `${script.fromVersion}->${script.toVersion}`;
   migrationRegistry.set(key, script);
+}
+
+// 通配符版本匹配
+function versionMatchesPattern(version: string, pattern: string): boolean {
+  // 精确匹配
+  if (pattern === version) {
+    return true;
+  }
+
+  // 通配符匹配 ('x' 代表任意数字)
+  // 例如: '1.x' 匹配 '1.0', '1.1', '1.99' 等
+  // 例如: '1.0.x' 匹配 '1.0.0', '1.0.1', '1.0.99' 等
+  const patternParts = pattern.split('.');
+  const versionParts = version.split('.');
+
+  if (patternParts.length !== versionParts.length) {
+    return false;
+  }
+
+  for (let i = 0; i < patternParts.length; i++) {
+    if (patternParts[i] === 'x') {
+      continue;  // 通配符匹配任意值
+    }
+    if (patternParts[i] !== versionParts[i]) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 // 执行迁移
@@ -880,9 +1123,10 @@ function findMigrationPath(fromV: string, toV: string): MigrationScript[] | null
   while (queue.length > 0) {
     const current = queue.shift()!;
 
-    // 查找从current.version出发的所有迁移
+    // 查找从current.version出发的所有迁移（支持通配符）
     for (const [key, script] of migrationRegistry) {
-      if (script.fromVersion === current.version) {
+      // 使用通配符匹配而非精确匹配
+      if (versionMatchesPattern(current.version, script.fromVersion)) {
         const nextV = script.toVersion;
         const newPath = [...current.path, script];
 
@@ -1036,6 +1280,57 @@ function updateNodeId(id: string, typeMap: Record<string, string>): string {
 
 ### 5.6 CLI命令支持
 
+#### 与 C9 analyze 命令的集成
+
+> **跨规格说明**: 本节定义与 C9 `analyze` 命令的集成关系。
+>
+> `analyze --force` 命令负责触发基线重建，其行为如下：
+> - 绕过兼容性检查，强制执行全量分析
+> - 适用场景：基线损坏、无法迁移的不兼容版本
+> - CLI 层实现（非 loadBaseline 内部）
+>
+> 详细规格见 C9 `cg-cli-interface` spec。
+
+#### exit codes 定义
+
+| Exit Code | 含义 | 触发场景 |
+|-----------|------|---------|
+| 0 | 成功 | 命令正常执行完成 |
+| 1 | 一般错误 | 参数错误、配置问题 |
+| 2 | 基线不兼容 | schema版本不匹配且无法自动处理 |
+| 3 | 迁移失败 | 迁移过程出错 |
+| 4 | 权限错误 | 文件读写权限不足 |
+| 5 | 数据损坏 | 基线数据完整性校验失败 |
+
+#### JSON 输出规格
+
+```typescript
+// version 命令 JSON 输出
+interface VersionResult {
+  generatorVersion: string;
+  schemaVersion: string;
+  baseline?: {
+    version: string;
+    compatible: boolean;
+    migratedFrom?: string;
+  };
+}
+
+// migrate 命令 JSON 输出
+interface MigrateResult {
+  success: boolean;
+  fromVersion: string;
+  toVersion: string;
+  strategy: 'migrate' | 'rebuild';
+  durationMs: number;
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// CLI 命令实现
+
 ```typescript
 // packages/codegraph/src/cli/commands/version.ts
 
@@ -1088,6 +1383,147 @@ export function registerVersionCommand(cli: CAC) {
     });
 }
 ```
+
+### 5.7 迁移原子性与安全
+
+#### 迁移流程安全策略
+
+```typescript
+/**
+ * 安全迁移流程
+ * 确保迁移失败时可以恢复原始基线
+ */
+async function safeMigrateBaseline(
+  baseline: Baseline,
+  cwd: string,
+  migrationPath: MigrationScript[]
+): Promise<Baseline> {
+  const baselineDir = join(cwd, '.codegraph');
+  const baselinePath = join(baselineDir, 'baseline.json');
+  const backupPath = join(baselineDir, '.migration-backup.json');
+  const logPath = join(baselineDir, 'migration.log');
+
+  // Step 1: 备份原始基线（强制）
+  await copyFile(baselinePath, backupPath);
+
+  // Step 2: 记录迁移开始
+  const startTime = Date.now();
+  const logEntry = {
+    timestamp: startTime,
+    action: 'migration_start',
+    fromVersion: baseline.schemaVersion?.toString() || LEGACY_VERSION,
+    toVersion: CURRENT_SCHEMA_VERSION.toString(),
+    steps: migrationPath.map(s => `${s.fromVersion}->${s.toVersion}`)
+  };
+  await appendMigrationLog(logPath, logEntry);
+
+  // Step 3: 执行迁移链
+  let current = baseline;
+  try {
+    for (const step of migrationPath) {
+      console.log(`Executing migration: ${step.fromVersion} -> ${step.toVersion}`);
+      current = step.migrate(current);
+
+      // 记录每步完成
+      await appendMigrationLog(logPath, {
+        timestamp: Date.now(),
+        action: 'step_complete',
+        step: `${step.fromVersion}->${step.toVersion}`
+      });
+    }
+
+    // Step 4: 更新版本元数据
+    current.schemaVersion = CURRENT_SCHEMA_VERSION;
+    current.generatorVersion = GENERATOR_VERSION;
+    current.migrationHistory = [
+      ...(baseline.migrationHistory || []),
+      {
+        fromVersion: baseline.schemaVersion?.toString() || LEGACY_VERSION,
+        toVersion: CURRENT_SCHEMA_VERSION.toString(),
+        migratedAt: startTime,
+        strategy: 'migrate'
+      }
+    ];
+
+    // Step 5: 保存迁移后的基线（原子写入）
+    await saveBaseline(current, cwd);
+
+    // Step 6: 清理备份（可选，保留一段时间更安全）
+    // 可配置延迟清理：setTimeout(() => unlink(backupPath), 86400000) // 24小时后清理
+
+    // Step 7: 记录迁移成功
+    await appendMigrationLog(logPath, {
+      timestamp: Date.now(),
+      action: 'migration_complete',
+      durationMs: Date.now() - startTime,
+      success: true
+    });
+
+    return current;
+
+  } catch (error) {
+    // 迁移失败：回滚
+    console.error('Migration failed, rolling back:', error);
+
+    // Step 8: 从备份恢复
+    try {
+      await copyFile(backupPath, baselinePath);
+      console.log('Baseline restored from backup');
+    } catch (restoreError) {
+      console.error('CRITICAL: Failed to restore backup:', restoreError);
+      // 这是最严重的情况：备份恢复失败
+    }
+
+    // Step 9: 记录失败
+    await appendMigrationLog(logPath, {
+      timestamp: Date.now(),
+      action: 'migration_failed',
+      durationMs: Date.now() - startTime,
+      success: false,
+      error: error.message,
+      rollbackAttempted: true
+    });
+
+    throw new BaselineError(
+      BaselineErrorCode.E202_MIGRATION_FAILED,
+      `Migration failed: ${error.message}. Baseline restored from backup.`,
+      { originalError: error }
+    );
+  }
+}
+
+// 迁移日志记录
+async function appendMigrationLog(logPath: string, entry: object): Promise<void> {
+  const line = JSON.stringify(entry) + '\n';
+  await appendFile(logPath, line, 'utf-8');
+}
+```
+
+#### 迁移日志格式
+
+```typescript
+interface MigrationLogEntry {
+  timestamp: number;
+  action: 'migration_start' | 'step_complete' | 'migration_complete' | 'migration_failed';
+  fromVersion?: string;
+  toVersion?: string;
+  steps?: string[];
+  step?: string;
+  durationMs?: number;
+  success?: boolean;
+  error?: string;
+  rollbackAttempted?: boolean;
+}
+```
+
+#### 错误恢复矩阵
+
+| 失败阶段 | 恢复策略 | 数据状态 |
+|---------|---------|---------|
+| 备份创建失败 | 拒绝迁移 | 原始基线不变 |
+| 单步迁移失败 | 从备份恢复 | 原始基线恢复 |
+| 保存失败 | 从备份恢复 | 原始基线恢复 |
+| 备份恢复失败 | **严重错误** | 数据可能丢失，需手动干预 |
 
 ---
 
@@ -1488,6 +1924,30 @@ class BaselineError extends Error {
 
 ## 附录 B: CLI错误消息模板
 
+#### 统一错误输出Schema
+
+```typescript
+// CLI 统一错误输出格式（适用于所有CLI命令）
+interface CLIError {
+  success: false;
+  error: {
+    code: string;           // 错误代码（如 'E001_FILE_NOT_FOUND'）
+    message: string;        // 用户可读的错误描述
+    suggestion?: string;    // 建议的解决方法
+  };
+  command: string;          // 执行的命令名称（如 'analyze', 'migrate'）
+}
+
+// 成功输出格式
+interface CLISuccess<T> {
+  success: true;
+  data: T;
+  command: string;
+}
+```
+
+#### 错误消息模板
+
 ```typescript
 const errorMessages: Record<BaselineErrorCode, string> = {
   E001_FILE_NOT_FOUND: 'No baseline found. Run `codegraph analyze` to create one.',
@@ -1503,11 +1963,34 @@ const errorMessages: Record<BaselineErrorCode, string> = {
   E301_REBUILD_CANCELLED: 'Rebuild cancelled by user.',
   E302_FORCE_REBUILD_REQUIRED: 'Use `--force` flag to rebuild incompatible baseline.'
 };
+
+// 建议映射（可选）
+const errorSuggestions: Partial<Record<BaselineErrorCode, string>> = {
+  E001_FILE_NOT_FOUND: 'Run `codegraph analyze` to create a new baseline.',
+  E002_PARSE_ERROR: 'Run `codegraph analyze --force` to rebuild from scratch.',
+  E003_INVALID_STRUCTURE: 'Run `codegraph analyze --force` to rebuild from scratch.',
+  E004_CORRUPTED_DATA: 'Run `codegraph analyze --force` to rebuild from scratch.',
+  E101_MAJOR_MISMATCH: 'Run `codegraph migrate` to attempt automatic migration.',
+  E102_FUTURE_VERSION: 'Update CodeGraph CLI version or use `--force` to rebuild.',
+  E201_NO_MIGRATION_PATH: 'Run `codegraph analyze --force` to rebuild from scratch.',
+  E202_MIGRATION_FAILED: 'Check migration.log for details, then run `codegraph analyze --force`.'
+};
 ```
 
 ---
 
-**文档版本**: v1.0
+## 附录 C: 接口引用说明
+
+> **GraphNode / GraphEdge 定义**: 这些核心接口在 Blueprint 文档中定义，
+> 详见 [01_origin_blueprint.md](./01_origin_blueprint.md) §2.1 NodeType定义、§2.2 EdgeType定义。
+>
+> **DeltaSummary 定义**: DeltaSummary 记录存储于 `history.ldjson`，
+> 包含版本字段 `schemaVersion`（可选）。详见 Blueprint §4.3 Delta分析结果结构。
+
+---
+
+**文档版本**: v1.1
 **创建日期**: 2026-05-03
+**更新日期**: 2026-05-03
 **关联Change**: C6 `cg-baseline-persistence`
 **用途**: 实现基线版本管理的详细技术指导
