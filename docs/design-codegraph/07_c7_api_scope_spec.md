@@ -42,8 +42,8 @@ interface GetScopeOutput {
   downstreamCalls: string[];
   /** 关联测试文件路径 */
   testFile: string | null;
-  /** 复杂度等级和数值 */
-  complexity: { level: 'low' | 'medium' | 'high'; value: number };
+  /** 复杂度等级和数值（A6决议: 无数据时返回 "unknown"） */
+  complexity: { level: 'low' | 'medium' | 'high' | 'unknown'; value: number };
   /** 最近修改信息 */
   lastModified: { commit?: string; relativeTime?: string };
   /** 是否标记为 deprecated */
@@ -96,23 +96,31 @@ import { CodeGraph, NodeType, EdgeType, GraphNode } from '../types.js';
  * 目标规范化
  *
  * 将输入 ID 解析为有效的查询目标
+ * 
+ * 支持四种目标类型：
+ * - FILE 节点: 查询文件的完整导入/导出关系
+ * - MODULE 节点: 查询特定导出符号的上下文
+ * - EXTERNAL 节点: 查询外部包的被导入信息
+ * - 路径字符串: 自动添加 FILE: 前缀
  */
 function normalizeTarget(graph: CodeGraph, target: string): {
   fileNode: GraphNode | null;
   moduleNode: GraphNode | null;
   originalTarget: string;
+  targetType: 'FILE' | 'MODULE' | 'EXTERNAL' | 'PATH';
 } {
   // 情况1: FILE 节点
   if (target.startsWith('FILE:')) {
     const fileNode = graph.getNode(target);
-    return { fileNode, moduleNode: null, originalTarget: target };
+    return { fileNode, moduleNode: null, originalTarget: target, targetType: 'FILE' };
   }
 
-  // 情况2: MODULE 节点
+  // 怼况2: MODULE 节点
   if (target.startsWith('MODULE:')) {
     const moduleNode = graph.getNode(target);
     if (!moduleNode) {
-      return { fileNode: null, moduleNode: null, originalTarget: target };
+      // A5决议: MODULE ID不存在时返回null，getScope负责生成警告
+      return { fileNode: null, moduleNode: null, originalTarget: target, targetType: 'MODULE' };
     }
 
     // 解析所属 FILE 节点
@@ -121,13 +129,19 @@ function normalizeTarget(graph: CodeGraph, target: string): {
     const fileId = `FILE:${filePath}`;
     const fileNode = graph.getNode(fileId);
 
-    return { fileNode, moduleNode, originalTarget: target };
+    return { fileNode, moduleNode, originalTarget: target, targetType: 'MODULE' };
   }
 
-  // 情况3: 路径字符串（无前缀） → 自动添加 FILE: 前缀
+  // 情况3: EXTERNAL 节点（A1决议: 添加EXTERNAL处理）
+  if (target.startsWith('EXTERNAL:')) {
+    const externalNode = graph.getNode(target);
+    return { fileNode: externalNode, moduleNode: null, originalTarget: target, targetType: 'EXTERNAL' };
+  }
+
+  // 情况4: 路径字符串（无前缀） → 自动添加 FILE: 前缀
   const fileId = `FILE:${target}`;
   const fileNode = graph.getNode(fileId);
-  return { fileNode, moduleNode: null, originalTarget: fileId };
+  return { fileNode, moduleNode: null, originalTarget: fileId, targetType: 'PATH' };
 }
 
 /**
@@ -190,6 +204,12 @@ function extractImports(graph: CodeGraph, fileNode: GraphNode): string[] {
  * 被导入列表提取
  *
  * 从 inEdges 获取导入该文件的所有源文件
+ * 
+ * A2决议: 不包含 DYNAMIC_IMPORTS 边
+ * 理由: 动态导入在运行时解析，无法静态反向追踪。
+ *       源文件使用 import() 时，目标文件无法知道被谁动态导入。
+ *       这是天然不对称的：我们知道文件动态导入到哪里，
+ *       但无法从目标反向查找谁动态导入了它。
  */
 function extractImportedBy(graph: CodeGraph, fileNode: GraphNode): string[] {
   if (!fileNode) return [];
@@ -199,6 +219,7 @@ function extractImportedBy(graph: CodeGraph, fileNode: GraphNode): string[] {
 
   for (const edge of inEdges) {
     // 处理 IMPORTS, RE_EXPORTS 边（反向）
+    // 注意: DYNAMIC_IMPORTS 不包含在此列表中（见A2决议）
     if (edge.type === EdgeType.IMPORTS ||
         edge.type === EdgeType.RE_EXPORTS) {
 
@@ -265,12 +286,16 @@ function findTestFile(
  *
  * FILE 节点: 聚合所有子 MODULE 的 complexity
  * MODULE 节点: 直接读取 metadata.complexity
+ * 
+ * A6决议: 当无 MODULE 数据时，返回 "unknown" 而非 "low"
+ * 理由: "low" 表示已知低复杂度，"unknown" 表示无数据。
+ *       避免误导用户认为文件复杂度低，实际只是未分析。
  */
 function aggregateComplexity(
   graph: CodeGraph,
   fileNode: GraphNode,
   moduleNode?: GraphNode | null
-): { level: 'low' | 'medium' | 'high'; value: number } {
+): { level: 'low' | 'medium' | 'high' | 'unknown'; value: number } {
   // MODULE 节点: 直接返回
   if (moduleNode && moduleNode.metadata?.complexity !== undefined) {
     const value = moduleNode.metadata.complexity;
@@ -279,10 +304,11 @@ function aggregateComplexity(
 
   // FILE 节点: 聚合
   if (!fileNode) {
-    return { level: 'low', value: 0 };
+    return { level: 'unknown', value: 0 };
   }
 
   let totalComplexity = 0;
+  let hasModuleData = false;
 
   for (const [id, node] of graph.nodes) {
     if (node.type !== NodeType.MODULE) continue;
@@ -290,7 +316,13 @@ function aggregateComplexity(
 
     if (node.metadata?.complexity !== undefined) {
       totalComplexity += node.metadata.complexity;
+      hasModuleData = true;
     }
+  }
+
+  // A6决议: 无 MODULE 数据时返回 "unknown"
+  if (!hasModuleData) {
+    return { level: 'unknown', value: 0 };
   }
 
   return { level: getComplexityLevel(totalComplexity), value: totalComplexity };
@@ -433,15 +465,32 @@ function checkDeprecated(graph: CodeGraph, fileNode: GraphNode): boolean {
 | Target 不存在 | 返回 `{ content: "## Scope Error\n- Target not found: ${target}" }` |
 | 空导入列表 | 输出 "none"，不报错 |
 | 空被导入列表 | 输出 "none (isolated)"，标记为孤立文件 |
-| MODULE ID 解析失败 | 回退查找 FILE 节点，若无则报错 |
-| EXTERNAL 节点作为目标 | 特殊处理，仅显示包名和被导入信息 |
+| MODULE ID 解析失败 | A5决议: 回退查找 FILE 节点，若无则返回警告信息 |
+| EXTERNAL 节点作为目标 | A1决议: 特殊处理，仅显示包名和被导入信息 |
 | 无 metadata 的 MODULE | 使用默认值，不报错 |
+| 无 MODULE 数据的复杂度 | A6决议: 输出 "unknown" 而非 "low" |
 
 **错误处理代码**:
 
 ```typescript
 export function getScope(graph: CodeGraph, target: string): GetScopeOutput {
   const normalized = normalizeTarget(graph, target);
+
+  // A5决议: MODULE ID不存在时添加警告信息
+  if (normalized.targetType === 'MODULE' && !normalized.moduleNode) {
+    return {
+      content: `## Scope Warning\n- MODULE node not found: ${target}\n- Tip: Check if the export name exists in the file`,
+      exports: [],
+      imports: [],
+      importedBy: [],
+      upstreamCalls: [],
+      downstreamCalls: [],
+      testFile: null,
+      complexity: { level: 'unknown', value: 0 },
+      lastModified: {},
+      deprecated: false
+    };
+  }
 
   // 错误处理: 目标不存在
   if (!normalized.fileNode && !normalized.moduleNode) {
@@ -453,13 +502,13 @@ export function getScope(graph: CodeGraph, target: string): GetScopeOutput {
       upstreamCalls: [],
       downstreamCalls: [],
       testFile: null,
-      complexity: { level: 'low', value: 0 },
+      complexity: { level: 'unknown', value: 0 },  // A6决议: 无数据返回unknown
       lastModified: {},
       deprecated: false
     };
   }
 
-  // EXTERNAL 节点特殊处理
+  // A1决议: EXTERNAL 节点特殊处理
   if (normalized.fileNode?.type === NodeType.EXTERNAL) {
     return getScopeForExternal(graph, normalized.fileNode);
   }
@@ -507,7 +556,7 @@ export function getScope(graph: CodeGraph, target: string): GetScopeOutput {
 }
 
 /**
- * EXTERNAL 节点特殊处理
+ * EXTERNAL 节点特殊处理（A1决议）
  */
 function getScopeForExternal(graph: CodeGraph, node: GraphNode): GetScopeOutput {
   const importedBy = extractImportedBy(graph, node);
@@ -529,7 +578,7 @@ ${importedBy.length > 0 ? importedBy.map(f => `- ${f}`).join('\n') : '- none'}
     upstreamCalls: [],
     downstreamCalls: [],
     testFile: null,
-    complexity: { level: 'low', value: 0 },
+    complexity: { level: 'unknown', value: 0 },  // A6决议: 外部包无复杂度数据
     lastModified: {},
     deprecated: false
   };
@@ -561,15 +610,15 @@ interface GetQuickBriefInput {
 interface GetQuickBriefOutput {
   /** Agent友好的压缩文本 */
   content: string;
-  /** 导入文件数量 */
+  /** 导入文件数量（A4决议: 边数量而非文件数量） */
   importCount: number;
-  /** 被导入文件数量 */
+  /** 被导入文件数量（A4决议: 边数量而非文件数量） */
   importedByCount: number;
   /** 是否有测试文件 */
   hasTest: boolean;
   /** 是否标记 deprecated */
   deprecated: boolean;
-  /** 复杂度等级 */
+  /** 复杂度等级（A6决议: 无数据时返回 "unknown"） */
   complexityLevel: 'low' | 'medium' | 'high' | 'unknown';
 }
 ```
@@ -634,6 +683,17 @@ export function getQuickBrief(graph: CodeGraph, filePath: string): GetQuickBrief
 
 /**
  * 统计导入数量
+ * 
+ * A4决议: countImports 计算边数量，而非唯一文件数
+ * 理由: 一个文件可能多次导入同一目标文件的不同符号，
+ *       例如: import { a, b } from './utils' 产生两条 IMPORTS 边
+ *       边数量更精确反映依赖关系的密度。
+ *       QuickBrief 返回的 importCount 表示"导入关系数量"而非"导入文件数量"。
+ * 
+ * 示例:
+ * - import { formatDate, formatNumber } from './utils' → 2 edges, countImports = 2
+ * - import * as utils from './utils' → 1 edge, countImports = 1
+ * - import('./utils') → 1 DYNAMIC_IMPORTS edge, countImports = 1
  */
 function countImports(graph: CodeGraph, fileNode: GraphNode): number {
   const outEdges = graph.outEdges.get(fileNode.id) || [];
@@ -646,6 +706,13 @@ function countImports(graph: CodeGraph, fileNode: GraphNode): number {
 
 /**
  * 统计被导入数量
+ * 
+ * A4决议: countImportedBy 计算边数量，而非唯一文件数
+ * 理由: 与 countImports 保持一致语义。
+ *       一个文件可能被多个文件多次导入不同符号，
+ *       边数量反映"被依赖密度"而非简单的"使用方数量"。
+ * 
+ * 注意: DYNAMIC_IMPORTS 不计入反向统计（见A2决议）
  */
 function countImportedBy(graph: CodeGraph, fileNode: GraphNode): number {
   const inEdges = graph.inEdges.get(fileNode.id) || [];
@@ -735,10 +802,10 @@ export interface QuickBriefResult {
 }
 
 /**
- * 复杂度信息
+ * 复杂度信息（A6决议: 包含 unknown 状态）
  */
 export interface ComplexityInfo {
-  level: 'low' | 'medium' | 'high';
+  level: 'low' | 'medium' | 'high' | 'unknown';
   value: number;
 }
 
@@ -853,7 +920,7 @@ fixtures/import-test-project/
 - Deprecated: no
 ```
 
-**场景 4: EXTERNAL 节点查询**
+**场景 4: EXTERNAL 节点查询（A1决议验证）**
 
 输入: `getScope("EXTERNAL:lodash")`
 
@@ -863,12 +930,19 @@ fixtures/import-test-project/
 ## Scope: lodash (EXTERNAL)
 
 ### Imported by (2)
-- src/index.ts, src/re-export.ts
+- src/index.ts
+- src/re-export.ts
 
 ### Note
 - External package from node_modules
 - No exports/imports data available
 ```
+
+**验证要点**:
+- normalizeTarget 正确处理 EXTERNAL: 前缀
+- 返回 targetType: 'EXTERNAL'
+- getScopeForExternal 正确生成简化输出
+- importedBy 列表不包含动态导入者（A2决议）
 
 **场景 5: Target 不存在**
 
@@ -1058,7 +1132,17 @@ describe('getQuickBrief', () => {
 
 ### 5.2 Token 优化策略
 
-当估算超过 600 tokens 时的裁剪策略:
+> **A3决议: MVP阶段不强制执行Token截断，列为Phase 2优化**
+> 理由:
+> 1. MVP优先实现核心查询逻辑正确性，而非输出优化
+> 2. 典型场景估算显示大多数输出 < 300 tokens，远低于600限制
+> 3. 截断逻辑涉及复杂边界处理，延迟实现降低MVP风险
+> 4. Phase 2可根据实际使用数据优化截断策略
+>
+> MVP阶段: formatScopeOutput 生成完整输出，不截断
+> Phase 2: 实现 formatScopeOutputWithTokenLimit 截断逻辑
+
+当估算超过 600 tokens 时的裁剪策略（Phase 2实现）:
 
 ```typescript
 function formatScopeOutputWithTokenLimit(
