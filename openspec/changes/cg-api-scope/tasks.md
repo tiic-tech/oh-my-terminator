@@ -46,5 +46,5 @@
 
 ## 6. Documentation
 
-- [ ] 6.1 Update README with API usage examples
-- [ ] 6.2 Add JSDoc comments to exported functions
+- [x] 6.1 Update README with API usage examples
+- [x] 6.2 Add JSDoc comments to exported functions

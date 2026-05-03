@@ -355,3 +355,107 @@ Load failures are handled with specific recovery strategies:
 | `corrupted_data` | Auto rebuild |
 | `schema_incompatible` | Use compatResult to decide |
 | `permission_error` | Return failure |
+
+## Scope Query API (C7)
+
+### Overview
+
+Scope query APIs provide Agent-friendly context information for graph nodes. Designed for AI agents that need concise, structured output without traversing raw graph data.
+
+### getScope(graph, target)
+
+Get complete context for FILE, MODULE, or EXTERNAL nodes.
+
+```typescript
+import { getScope } from '@oh-my-terminator/codegraph';
+
+// FILE node query
+const result = getScope(graph, 'FILE:src/utils/format.ts');
+if (result.success) {
+  console.log(result.exports);     // Export symbols
+  console.log(result.imports);      // Import relationships
+  console.log(result.importedBy);   // Reverse dependencies
+  console.log(result.complexity);   // Aggregated complexity
+  console.log(result.content);      // Agent-friendly Markdown
+}
+
+// MODULE node query
+const moduleResult = getScope(graph, 'MODULE:src/utils/format.ts#formatDate');
+
+// EXTERNAL package query
+const extResult = getScope(graph, 'EXTERNAL:lodash');
+
+// Plain path (auto-prefix FILE:)
+const pathResult = getScope(graph, 'src/utils/format.ts');
+```
+
+### ScopeResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| success | boolean | Operation status |
+| target | string | Query target ID |
+| exports | ExportInfo[] | Exported symbols (kind, name, id) |
+| imports | ImportInfo[] | Import relationships |
+| importedBy | ImportedByInfo[] | Reverse dependencies |
+| testFile | string | null | Associated test file |
+| complexity | ComplexityInfo | level + value ('unknown' when no data) |
+| metadata | object | hasTest, deprecated flags |
+| content | string | Agent-friendly Markdown output |
+| durationMs | number | Query execution time |
+
+### Key Resolutions
+
+- **A1**: EXTERNAL nodes return importedBy only (no exports/imports)
+- **A2**: DYNAMIC_IMPORTS excluded from importedBy (runtime-resolved)
+- **A4**: Edge counts, not file counts (reflects dependency density)
+- **A5**: MODULE not found returns specific warning with suggestion
+- **A6**: Complexity "unknown" when no MODULE data (not misleading "low")
+
+### getQuickBrief(graph, filePath)
+
+Get minimal statistics for a FILE node.
+
+```typescript
+import { getQuickBrief } from '@oh-my-terminator/codegraph';
+
+const brief = getQuickBrief(graph, 'src/utils/format.ts');
+if (brief.success) {
+  console.log(brief.imports);        // Edge count
+  console.log(brief.importedBy);     // Edge count
+  console.log(brief.hasTest);        // Test file exists
+  console.log(brief.deprecated);     // Any export deprecated
+  console.log(brief.complexityLevel); // low/medium/high/unknown
+  console.log(brief.quickFacts);     // Human-readable summary
+}
+```
+
+### QuickBriefResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| success | boolean | Operation status |
+| file | string | File path |
+| imports | number | Import edge count |
+| importedBy | number | Imported-by edge count |
+| hasTest | boolean | Test file exists |
+| deprecated | boolean | Any export deprecated |
+| complexityLevel | string | low/medium/high/unknown |
+| quickFacts | string[] | Human-readable summary |
+| content | string | Compact Markdown output |
+
+### Internal Helpers (for testing)
+
+```typescript
+import {
+  normalizeTarget,    // Target normalization
+  extractExports,     // Export extraction
+  extractImports,     // Import extraction
+  extractImportedBy,  // Imported-by extraction
+  findTestFile,       // Test file association
+  aggregateComplexity, // Complexity aggregation
+  checkDeprecated,    // Deprecated detection
+  countImports,       // Import edge count
+  countImportedBy,    // Imported-by edge count
+} from '@oh-my-terminator/codegraph';
+```
