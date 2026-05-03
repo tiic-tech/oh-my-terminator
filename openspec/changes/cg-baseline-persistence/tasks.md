@@ -155,22 +155,22 @@
 
 ## 11. Integration Tests
 
-- [ ] 11.1 Create test fixture project with TypeScript files
-- [ ] 11.2 Add integration test for full analysis → save → load cycle
-- [ ] 11.3 Add integration test for legacy baseline migration
-- [ ] 11.4 Add integration test for corrupted baseline recovery
-- [ ] 11.5 Add integration test for schema incompatible handling
-- [ ] 11.6 Add integration test for permission error handling
-- [ ] 11.7 Add integration test for large baseline fixture (performance)
-- [ ] 11.8 Add integration test for multi-step migration execution
+- [x] 11.1 Create test fixture project with TypeScript files
+- [x] 11.2 Add integration test for full analysis → save → load cycle
+- [x] 11.3 Add integration test for legacy baseline migration
+- [x] 11.4 Add integration test for corrupted baseline recovery
+- [x] 11.5 Add integration test for schema incompatible handling
+- [x] 11.6 Add integration test for permission error handling
+- [x] 11.7 Add integration test for large baseline fixture (performance)
+- [x] 11.8 Add integration test for multi-step migration execution
 
 ## 12. Documentation
 
-- [ ] 12.1 Update README.md with baseline persistence usage
-- [ ] 12.2 Document .codegraph directory structure
-- [ ] 12.3 Document CLI version/migrate commands (for C9 reference)
-- [ ] 12.4 Add API documentation for loadBaseline/saveBaseline
-- [ ] 12.5 Document migration script writing guide
+- [x] 12.1 Update README.md with baseline persistence usage
+- [x] 12.2 Document .codegraph directory structure
+- [x] 12.3 Document CLI version/migrate commands (for C9 reference)
+- [x] 12.4 Add API documentation for loadBaseline/saveBaseline
+- [x] 12.5 Document migration script writing guide
 
 ---
 

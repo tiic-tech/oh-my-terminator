@@ -228,3 +228,130 @@ import { DefaultParserRegistry, TypeScriptParserAdapter } from '@oh-my-terminato
 const registry = new DefaultParserRegistry();
 registry.register(new TypeScriptParserAdapter());
 ```
+
+## Baseline Persistence (C6)
+
+### Overview
+
+Baseline persistence enables incremental updates by storing graph state between sessions.
+
+### .codegraph Directory Structure
+
+```
+.codegraph/
+├── baseline.json     # Complete graph data with metadata
+├── lastCommit.txt    # Git commit hash for version tracking
+├── .version          # Quick version check (optional)
+└── migration.log     # Migration audit trail (optional)
+```
+
+### loadBaseline(cwd, options?)
+
+Load baseline with full validation and compatibility checking.
+
+```typescript
+import { loadBaseline } from '@oh-my-terminator/codegraph';
+
+const result = await loadBaseline('./project', {
+  rebuildHandler: async (cwd) => {
+    // Custom rebuild logic
+    return await analyzeFull(cwd).graph;
+  }
+});
+
+if (result.success) {
+  console.log(`Loaded ${result.graph.nodes.size} nodes`);
+} else {
+  console.log(`Failed: ${result.failure?.reason}`);
+}
+```
+
+### saveBaseline(baseline, cwd, options?)
+
+Save baseline with atomic write (temp file → rename).
+
+```typescript
+import { saveBaseline, Baseline } from '@oh-my-terminator/codegraph';
+
+const baseline: Baseline = {
+  graph: {
+    nodes: Array.from(graph.nodes.entries()),
+    edges: graph.edges,
+    commitHash: 'abc123',
+    timestamp: Date.now(),
+  },
+  commitHash: 'abc123',
+  timestamp: Date.now(),
+  schemaVersion: { major: 1, minor: 0, patch: 0 },
+  generatorVersion: '1.0.0',
+  architectureConstraints: [],
+  healthScore: 50,
+  skillDemand: { testWriter: 0.5, refactorSpecialist: 0.3, architect: 0.2, securityReviewer: 0.1 },
+};
+
+await saveBaseline(baseline, './project', {
+  createBackup: true,       // Create .bak file before write
+  createVersionFile: true,  // Create .version file
+  mode: 0o644,              // File permissions
+});
+```
+
+### Schema Version
+
+```typescript
+import { SchemaVersionImpl, CURRENT_SCHEMA_VERSION } from '@oh-my-terminator/codegraph';
+
+const version = SchemaVersionImpl.parse('1.2.3');
+console.log(version.major);  // 1
+console.log(version.minor);  // 2
+console.log(version.patch);  // 3
+
+console.log(version.isCompatibleWith(CURRENT_SCHEMA_VERSION));  // true (same major)
+```
+
+### Compatibility Checking
+
+```typescript
+import { checkSchemaCompatibility, determineAction } from '@oh-my-terminator/codegraph';
+
+const result = checkSchemaCompatibility(baseline, CURRENT_SCHEMA_VERSION);
+
+console.log(result.compatible);  // true/false
+console.log(result.reason);      // 'version_match', 'major_version_mismatch', etc.
+console.log(result.action);      // 'proceed', 'migrate', 'rebuild', 'error'
+```
+
+### Migration Framework
+
+```typescript
+import { migrateBaseline, registerMigration, MigrationScript } from '@oh-my-terminator/codegraph';
+
+// Custom migration script
+const migration: MigrationScript = {
+  fromVersion: '1.0.0',
+  toVersion: '1.1.0',
+  description: 'Add healthScore field',
+  migrate: (baseline) => {
+    baseline.healthScore = 50;
+    return baseline;
+  },
+};
+
+registerMigration(migration);
+
+// Execute migration
+const migrated = await migrateBaseline(baseline, cwd);
+```
+
+### Error Handling
+
+Load failures are handled with specific recovery strategies:
+
+| Reason | Strategy |
+|--------|----------|
+| `file_not_found` | Auto rebuild (first run) |
+| `parse_error` | Return failure, user intervention |
+| `invalid_structure` | Rebuild or strict failure |
+| `corrupted_data` | Auto rebuild |
+| `schema_incompatible` | Use compatResult to decide |
+| `permission_error` | Return failure |
