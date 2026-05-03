@@ -15,3 +15,18 @@ export {
 } from './types.js';
 
 export { CodeGraph } from './graph.js';
+
+export {
+  DEFAULT_IGNORE_RULES,
+  shouldIgnore,
+} from './ignore-rules.js';
+
+export {
+  scanDirectory,
+  isParseableFile,
+  createDirectoryNode,
+  createFileNode,
+  createContainsEdge,
+  type ScanResult,
+  type ScanOptions,
+} from './scanner.js';
