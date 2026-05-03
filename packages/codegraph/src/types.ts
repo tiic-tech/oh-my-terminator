@@ -1,6 +1,27 @@
 import type { CodeGraph } from './graph.js';
 import type { ScanOptions } from './scanner.js';
 
+// ============================================================================
+// C6: Schema Version Types (Baseline Persistence)
+// ============================================================================
+
+/**
+ * Schema version following semantic versioning (SemVer)
+ *
+ * WHY: Major version changes indicate breaking changes requiring migration.
+ * Minor/patch versions are backward compatible, allowing direct use or optional migration.
+ *
+ * @see 06_c6_baseline_version_spec.md Section 1.3
+ */
+export interface SchemaVersion {
+  /** Major version - breaking changes require migration or rebuild */
+  major: number;
+  /** Minor version - backward compatible new features */
+  minor: number;
+  /** Patch version - backward compatible fixes */
+  patch: number;
+}
+
 /**
  * Node types in the CodeGraph
  *
@@ -130,6 +151,8 @@ export interface SerializedCodeGraph {
   commitHash: string;
   /** Timestamp when graph was generated */
   timestamp: number;
+  /** Optional schema version for compatibility tracking (C6) */
+  schemaVersion?: SchemaVersion;
 }
 
 // ============================================================================
