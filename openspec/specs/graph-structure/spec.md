@@ -122,17 +122,38 @@ The system SHALL implement `removeEdgesForFile(filePath: string): void` that rem
 - **WHEN** removeEdgesForFile is called with "src/utils.ts"
 - **THEN** all edges involving MODULE nodes under that file path are removed
 
-### Requirement: toJSON serializes graph to JSON format
+### Requirement: SerializedCodeGraph interface includes optional schemaVersion
 
-The system SHALL implement `toJSON(): SerializedCodeGraph` that converts nodes Map to array format and returns a JSON-serializable object with nodes, edges, commitHash, timestamp.
+The system SHALL define a `SerializedCodeGraph` interface with the following fields:
+- `nodes`: [string, GraphNode][] (Map-compatible format)
+- `edges`: GraphEdge[]
+- `commitHash`: string
+- `timestamp`: number
+- `schemaVersion`: optional SchemaVersion (for version tracking, backward compatible)
 
-#### Scenario: Serialization produces valid JSON
-- **WHEN** toJSON is called on a graph with nodes and edges
-- **THEN** it returns an object that can be JSON.stringify'd without errors
+#### Scenario: SerializedCodeGraph without schemaVersion is valid
+- **WHEN** a legacy SerializedCodeGraph is deserialized without schemaVersion field
+- **THEN** it is accepted and processed normally
 
-#### Scenario: Serialization converts Map to array
-- **WHEN** toJSON is called on a graph with nodes Map
-- **THEN** nodes are serialized as [string, GraphNode][] array format
+#### Scenario: SerializedCodeGraph with schemaVersion preserves version
+- **WHEN** a SerializedCodeGraph with schemaVersion {major: 1, minor: 0, patch: 0} is serialized
+- **THEN** the schemaVersion field is preserved in JSON output
+
+#### Scenario: Round-trip preserves optional schemaVersion
+- **WHEN** a CodeGraph with schemaVersion is serialized with toJSON then deserialized with fromJSON
+- **THEN** the schemaVersion is preserved if present, or undefined if not
+
+### Requirement: toJSON includes schemaVersion in output
+
+The system SHALL implement `toJSON(): SerializedCodeGraph` that includes the optional schemaVersion field in the output when set on the CodeGraph instance.
+
+#### Scenario: toJSON outputs schemaVersion when set
+- **WHEN** toJSON is called on a CodeGraph with schemaVersion set
+- **THEN** the returned SerializedCodeGraph includes schemaVersion field
+
+#### Scenario: toJSON omits schemaVersion when not set
+- **WHEN** toJSON is called on a CodeGraph without schemaVersion
+- **THEN** the returned SerializedCodeGraph does not include schemaVersion field or it is undefined
 
 ### Requirement: fromJSON deserializes JSON to CodeGraph
 
