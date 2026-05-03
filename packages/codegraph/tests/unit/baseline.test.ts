@@ -5,6 +5,8 @@ import {
   verifyDataIntegrity,
   handleFailure,
   loadBaseline,
+  executeActionWithFallback,
+  handleMigrationNotAvailable,
 } from '../../src/persistence/baseline.js';
 import type {
   Baseline,
@@ -13,6 +15,7 @@ import type {
   LoadFailureReason,
   ValidationResult,
   IntegrityResult,
+  CompatibilityResult,
 } from '../../src/persistence/types.js';
 import { join } from 'node:path';
 
@@ -355,5 +358,170 @@ describe('loadBaseline', () => {
   // These tests will be added in integration test file
   it('should exist as exportable function', () => {
     assert.ok(typeof loadBaseline === 'function');
+  });
+});
+
+describe('handleMigrationNotAvailable', () => {
+  const testCwd = '/test/project';
+
+  function createCompatibleResult(): CompatibilityResult {
+    return {
+      compatible: false,
+      reason: 'major_version_mismatch',
+      action: 'migrate',
+      message: 'Major version mismatch: baseline=1.0.0 < current=2.0.0',
+      details: {
+        baselineVersion: '1.0.0',
+        currentVersion: '2.0.0',
+      },
+    };
+  }
+
+  describe('rebuild fallback', () => {
+    it('should trigger rebuild when migration framework not available', async () => {
+      const baseline = createValidBaseline();
+      const compatResult = createCompatibleResult();
+      const mockGraph = { nodes: [], edges: [], commitHash: '', timestamp: 0 } as any;
+      const rebuildHandler = async () => mockGraph;
+
+      const result = await handleMigrationNotAvailable(baseline, compatResult, testCwd, { rebuildHandler });
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.executedAction, 'rebuild');
+      assert.strictEqual(result.migrated, false);
+      assert.deepStrictEqual(result.graph, mockGraph);
+    });
+
+    it('should return failure when no rebuildHandler provided', async () => {
+      const baseline = createValidBaseline();
+      const compatResult = createCompatibleResult();
+
+      const result = await handleMigrationNotAvailable(baseline, compatResult, testCwd, undefined);
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.failure?.reason, 'schema_incompatible');
+      assert.ok(result.failure?.details instanceof Error);
+      assert.ok((result.failure?.details as Error).message.includes('Rebuild handler not provided'));
+    });
+
+    it('should return failure when rebuildHandler throws', async () => {
+      const baseline = createValidBaseline();
+      const compatResult = createCompatibleResult();
+      const rebuildHandler = async () => {
+        throw new Error('Rebuild failed: analysis error');
+      };
+
+      const result = await handleMigrationNotAvailable(baseline, compatResult, testCwd, { rebuildHandler });
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.failure?.reason, 'schema_incompatible');
+      assert.ok(result.failure?.details instanceof Error);
+      assert.ok((result.failure?.details as Error).message.includes('Rebuild failed'));
+    });
+  });
+});
+
+describe('executeActionWithFallback', () => {
+  const testCwd = '/test/project';
+
+  function createProceedCompatResult(): CompatibilityResult {
+    return {
+      compatible: true,
+      reason: 'version_match',
+      action: 'proceed',
+      message: 'Version compatible: 1.0.0',
+    };
+  }
+
+  function createMigrateCompatResult(): CompatibilityResult {
+    return {
+      compatible: false,
+      reason: 'major_version_mismatch',
+      action: 'migrate',
+      message: 'Major version mismatch: baseline=1.0.0 < current=2.0.0',
+    };
+  }
+
+  function createRebuildCompatResult(): CompatibilityResult {
+    return {
+      compatible: false,
+      reason: 'legacy_baseline',
+      action: 'rebuild',
+      message: 'Legacy baseline without schema version - requires rebuild',
+    };
+  }
+
+  describe('proceed action', () => {
+    it('should execute proceed action successfully', async () => {
+      const baseline = createValidBaseline();
+      const compatResult = createProceedCompatResult();
+
+      const result = await executeActionWithFallback(baseline, compatResult, testCwd, undefined);
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.executedAction, 'proceed');
+      assert.strictEqual(result.migrated, false);
+    });
+  });
+
+  describe('rebuild action', () => {
+    it('should trigger rebuild when action is rebuild', async () => {
+      const baseline = createValidBaseline();
+      const compatResult = createRebuildCompatResult();
+      const mockGraph = { nodes: [], edges: [], commitHash: '', timestamp: 0 } as any;
+      const rebuildHandler = async () => mockGraph;
+
+      const result = await executeActionWithFallback(baseline, compatResult, testCwd, { rebuildHandler });
+
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.executedAction, 'rebuild');
+      assert.strictEqual(result.migrated, false);
+      assert.deepStrictEqual(result.graph, mockGraph);
+    });
+  });
+
+  describe('migrate action with fallback', () => {
+    it('should fallback to rebuild when migration framework not implemented', async () => {
+      const baseline = createValidBaseline();
+      const compatResult = createMigrateCompatResult();
+      const mockGraph = { nodes: [], edges: [], commitHash: '', timestamp: 0 } as any;
+      const rebuildHandler = async () => mockGraph;
+
+      const result = await executeActionWithFallback(baseline, compatResult, testCwd, { rebuildHandler });
+
+      // Migration framework not implemented, should fallback to rebuild
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.executedAction, 'rebuild');
+      assert.strictEqual(result.migrated, false);
+    });
+
+    it('should return failure when migrate action fails and no rebuildHandler', async () => {
+      const baseline = createValidBaseline();
+      const compatResult = createMigrateCompatResult();
+
+      const result = await executeActionWithFallback(baseline, compatResult, testCwd, undefined);
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.failure?.reason, 'schema_incompatible');
+    });
+  });
+
+  describe('action throws non-migration error', () => {
+    it('should return failure when action throws non-migration error', async () => {
+      const baseline = createValidBaseline();
+      // Force 'error' action which throws IncompatibleBaselineError
+      const compatResult: CompatibilityResult = {
+        compatible: false,
+        reason: 'major_version_mismatch',
+        action: 'error',
+        message: 'Cannot downgrade',
+      };
+
+      const result = await executeActionWithFallback(baseline, compatResult, testCwd, undefined);
+
+      assert.strictEqual(result.success, false);
+      assert.strictEqual(result.failure?.reason, 'schema_incompatible');
+      assert.ok(result.failure?.details instanceof Error);
+    });
   });
 });

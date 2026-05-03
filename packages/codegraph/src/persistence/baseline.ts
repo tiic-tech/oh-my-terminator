@@ -553,7 +553,7 @@ async function handleCompatibilityAndAction(
  * @param options - Load options (actionConfig, rebuildHandler)
  * @returns LoadBaselineResult with graph and action metadata
  */
-async function executeActionWithFallback(
+export async function executeActionWithFallback(
   baseline: Baseline,
   compatResult: CompatibilityResult,
   cwd: string,
@@ -598,22 +598,29 @@ async function executeActionWithFallback(
  * @param options - Load options with rebuildHandler
  * @returns LoadBaselineResult with rebuilt graph
  */
-async function handleMigrationNotAvailable(
+export async function handleMigrationNotAvailable(
   baseline: Baseline,
   compatResult: CompatibilityResult,
   cwd: string,
   options?: LoadBaselineOptions
 ): Promise<LoadBaselineResult> {
   if (options?.rebuildHandler) {
-    const graph = await options.rebuildHandler(cwd);
-    return {
-      success: true,
-      graph,
-      baseline,
-      compatibility: compatResult,
-      executedAction: 'rebuild',
-      migrated: false,
-    };
+    try {
+      const graph = await options.rebuildHandler(cwd);
+      return {
+        success: true,
+        graph,
+        baseline,
+        compatibility: compatResult,
+        executedAction: 'rebuild',
+        migrated: false,
+      };
+    } catch (e) {
+      return {
+        success: false,
+        failure: { reason: 'schema_incompatible', details: e },
+      };
+    }
   }
   return {
     success: false,

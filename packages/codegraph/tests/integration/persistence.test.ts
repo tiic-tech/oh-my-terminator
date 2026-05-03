@@ -1,7 +1,7 @@
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { mkdtemp, rm, writeFile, readFile, mkdir, stat } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile, mkdir, stat, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 
 import {
@@ -244,6 +244,110 @@ export function helper(): void {
 
       assert.strictEqual(result.schemaVersion.major, 1);
       assert.strictEqual(result.schemaVersion.minor, 0);
+    });
+  });
+
+  describe('readBaselineFile helper scenarios', () => {
+    it('should return permission_error when file read fails (permission denied)', async () => {
+      // Create baseline file
+      const baselinePath = getBaselinePath(testDir);
+      const validBaseline = {
+        graph: {
+          nodes: [],
+          edges: [],
+          commitHash: 'abc123',
+          timestamp: Date.now(),
+        },
+        commitHash: 'abc123',
+        timestamp: Date.now(),
+        schemaVersion: { major: 1, minor: 0, patch: 0 },
+        generatorVersion: '1.0.0',
+        architectureConstraints: [],
+        healthScore: 50,
+        skillDemand: { testWriter: 0.5, refactorSpecialist: 0.3, architect: 0.2, securityReviewer: 0.1 },
+      };
+
+      await writeFile(baselinePath, JSON.stringify(validBaseline));
+
+      // Make file unreadable (no read permission)
+      await chmod(baselinePath, 0o000);
+
+      // Try to load baseline - should fail with permission_error
+      const loadResult = await loadBaseline(testDir, {
+        rebuildHandler: async () => ({
+          nodes: new Map(),
+          edges: [],
+          commitHash: '',
+          timestamp: 0,
+        }),
+      });
+
+      // Restore permissions for cleanup (even if test fails)
+      try {
+        await chmod(baselinePath, 0o644);
+      } catch {
+        // Ignore if we can't restore
+      }
+
+      assert.strictEqual(loadResult.success, false);
+      assert.strictEqual(loadResult.failure?.reason, 'permission_error');
+    });
+
+    it('should return parse_error for malformed JSON content', async () => {
+      // Create baseline file with broken JSON
+      const baselinePath = getBaselinePath(testDir);
+      const malformedJson = '{ "graph": { "nodes": [broken json';
+
+      await writeFile(baselinePath, malformedJson);
+
+      // Try to load baseline - should fail with parse_error
+      const loadResult = await loadBaseline(testDir, {
+        rebuildHandler: async () => ({
+          nodes: new Map(),
+          edges: [],
+          commitHash: '',
+          timestamp: 0,
+        }),
+      });
+
+      assert.strictEqual(loadResult.success, false);
+      assert.strictEqual(loadResult.failure?.reason, 'parse_error');
+    });
+
+    it('should return parse_error for empty file', async () => {
+      // Create empty baseline file
+      const baselinePath = getBaselinePath(testDir);
+      await writeFile(baselinePath, '');
+
+      // Try to load baseline - should fail with parse_error
+      const loadResult = await loadBaseline(testDir, {
+        rebuildHandler: async () => ({
+          nodes: new Map(),
+          edges: [],
+          commitHash: '',
+          timestamp: 0,
+        }),
+      });
+
+      assert.strictEqual(loadResult.success, false);
+      assert.strictEqual(loadResult.failure?.reason, 'parse_error');
+    });
+
+    it('should return file_not_found when baseline does not exist', async () => {
+      // Do not create baseline file - test directory is empty
+      const loadResult = await loadBaseline(testDir, {
+        rebuildHandler: async () => ({
+          nodes: new Map(),
+          edges: [],
+          commitHash: 'rebuild-hash',
+          timestamp: Date.now(),
+        }),
+      });
+
+      // file_not_found triggers auto-rebuild, so success should be true
+      assert.strictEqual(loadResult.success, true);
+      assert.strictEqual(loadResult.executedAction, 'rebuild');
+      assert.strictEqual(loadResult.graph?.commitHash, 'rebuild-hash');
     });
   });
 });
