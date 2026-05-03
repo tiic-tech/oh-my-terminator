@@ -56,8 +56,12 @@ export {
   getTempPath,
 } from './paths.js';
 
-// Compatibility functions - will be added when implemented
-// export { checkSchemaCompatibility, determineAction, executeAction } from './compatibility.js';
+// Compatibility functions
+export {
+  checkSchemaCompatibility,
+  determineAction,
+  executeAction,
+} from './compatibility.js';
 
 // Baseline load/save functions - will be added when implemented
 // export { loadBaseline, saveBaseline, validateBaselineStructure, verifyDataIntegrity } from './baseline.js';

@@ -46,21 +46,21 @@
 
 ## 4. Compatibility Checking
 
-- [ ] 4.1 Create `packages/codegraph/src/persistence/compatibility.ts`
-- [ ] 4.2 Implement checkSchemaCompatibility(baseline, currentVersion) function
-- [ ] 4.3 Handle legacy baseline case (no schemaVersion)
-- [ ] 4.4 Handle major version mismatch cases (baseline higher/lower)
-- [ ] 4.5 Handle minor version outdated case
-- [ ] 4.6 Handle patch version outdated case
-- [ ] 4.7 Handle version match case
-- [ ] 4.8 Implement determineAction(result, config) function
-- [ ] 4.9 Add autoMigrate configuration handling in determineAction
-- [ ] 4.10 Add forceAction override handling in determineAction
-- [ ] 4.11 Implement executeAction(action, baseline, cwd, config) function
-- [ ] 4.12 Add IncompatibleBaselineError class
-- [ ] 4.13 Add unit tests for checkSchemaCompatibility all scenarios
-- [ ] 4.14 Add unit tests for determineAction strategy matrix
-- [ ] 4.15 Add unit tests for executeAction error cases
+- [x] 4.1 Create `packages/codegraph/src/persistence/compatibility.ts`
+- [x] 4.2 Implement checkSchemaCompatibility(baseline, currentVersion) function
+- [x] 4.3 Handle legacy baseline case (no schemaVersion)
+- [x] 4.4 Handle major version mismatch cases (baseline higher/lower)
+- [x] 4.5 Handle minor version outdated case
+- [x] 4.6 Handle patch version outdated case
+- [x] 4.7 Handle version match case
+- [x] 4.8 Implement determineAction(result, config) function
+- [x] 4.9 Add autoMigrate configuration handling in determineAction
+- [x] 4.10 Add forceAction override handling in determineAction
+- [x] 4.11 Implement executeAction(action, baseline, cwd, config) function
+- [x] 4.12 Add IncompatibleBaselineError class
+- [x] 4.13 Add unit tests for checkSchemaCompatibility all scenarios
+- [x] 4.14 Add unit tests for determineAction strategy matrix
+- [x] 4.15 Add unit tests for executeAction error cases
 
 ## 5. Baseline Loading & Validation
 
