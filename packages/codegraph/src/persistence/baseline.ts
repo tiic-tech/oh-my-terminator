@@ -209,7 +209,7 @@ export async function handleFailure(
           failure: { reason, details: new Error('Rebuild handler not provided') },
         };
       }
-      console.log('No baseline found. Running full analysis...');
+      // Silent rebuild - library does not output to console
       try {
         const graph = await options.rebuildHandler(cwd);
         return {
@@ -226,11 +226,7 @@ export async function handleFailure(
       }
 
     case 'parse_error':
-      // JSON parse error - return failure
-      console.error('Failed to parse baseline.json:', details);
-      console.log('Options:');
-      console.log('  1. Rebuild baseline (codegraph analyze --force)');
-      console.log('  2. Restore from backup (if available)');
+      // JSON parse error - return failure (CLI layer handles messaging)
       return {
         success: false,
         failure: { reason, details },
@@ -251,7 +247,7 @@ export async function handleFailure(
           failure: { reason, details: new Error('Rebuild handler not provided') },
         };
       }
-      console.warn('Baseline structure invalid. Rebuilding...');
+      // Silent rebuild - library does not output to console
       try {
         const graph = await options.rebuildHandler(cwd);
         return {
@@ -268,9 +264,7 @@ export async function handleFailure(
       }
 
     case 'corrupted_data':
-      // Integrity check failed - auto rebuild
-      console.error('Baseline data corrupted:', details);
-      console.log('Rebuilding baseline...');
+      // Integrity check failed - auto rebuild (silent)
       if (!options?.rebuildHandler) {
         return {
           success: false,
@@ -323,8 +317,7 @@ export async function handleFailure(
       };
 
     case 'permission_error':
-      // Permission denied - return failure
-      console.error('Permission denied reading baseline:', details);
+      // Permission denied - return failure (CLI layer handles messaging)
       return {
         success: false,
         failure: { reason, details },
@@ -439,9 +432,8 @@ export async function loadBaseline(
     };
   } catch (e) {
     if (e instanceof Error && e.message.includes('Migration framework not yet implemented')) {
-      // Migration not available - fall back to rebuild
+      // Migration not available - fall back to rebuild (silent)
       if (options?.rebuildHandler) {
-        console.log('Migration not available. Rebuilding baseline...');
         const graph = await options.rebuildHandler(cwd);
         return {
           success: true,

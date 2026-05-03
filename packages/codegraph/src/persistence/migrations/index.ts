@@ -326,7 +326,7 @@ export async function safeMigrateBaseline(
   // No migration path - trigger rebuild if handler provided
   if (!path) {
     if (rebuildHandler) {
-      console.log('No migration path found. Triggering rebuild...');
+      // Silent rebuild - no console output
       const graph = await rebuildHandler(cwd);
       return {
         graph: {
@@ -361,10 +361,8 @@ export async function safeMigrateBaseline(
     const result = await migrateBaseline(baseline, cwd, target);
     return result;
   } catch (error) {
-    // Migration failed - would restore backup here
-    // For now, throw the error (backup/restore handled at higher level)
-    console.error('Migration failed:', error);
-    throw error;
+    // Migration failed - throw with context
+    throw new Error(`Migration failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
