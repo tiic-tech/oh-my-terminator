@@ -30,6 +30,7 @@ import type {
   ValidationResult,
   IntegrityResult,
   RebuildHandler,
+  CompatibilityResult,
 } from './types.js';
 import { checkSchemaCompatibility, determineAction, executeAction } from './compatibility.js';
 import { getBaselinePath } from './paths.js';
@@ -172,6 +173,202 @@ export function verifyDataIntegrity(baseline: Baseline): IntegrityResult {
 // ============================================================================
 
 /**
+ * Execute rebuild operation with error handling
+ *
+ * WHY: Common pattern for failure scenarios that auto-rebuild.
+ * Centralizes rebuild logic to reduce code duplication.
+ *
+ * @param cwd - Project working directory
+ * @param options - Load options with rebuildHandler
+ * @param reason - Failure reason for error reporting
+ * @returns Load result (success with rebuild, or failure)
+ */
+async function executeRebuild(
+  cwd: string,
+  options: LoadBaselineOptions | undefined,
+  reason: LoadFailureReason
+): Promise<LoadBaselineResult> {
+  if (!options?.rebuildHandler) {
+    return {
+      success: false,
+      failure: { reason, details: new Error('Rebuild handler not provided') },
+    };
+  }
+
+  try {
+    const graph = await options.rebuildHandler(cwd);
+    return {
+      success: true,
+      graph,
+      executedAction: 'rebuild',
+      migrated: false,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      failure: { reason, details: e },
+    };
+  }
+}
+
+/**
+ * Handle file_not_found failure - auto rebuild for first run
+ *
+ * WHY: Missing baseline indicates first run, should auto-rebuild.
+ *
+ * @param cwd - Project working directory
+ * @param options - Load options with rebuildHandler
+ * @returns Load result with rebuilt graph
+ */
+async function handleFileNotFound(
+  cwd: string,
+  options?: LoadBaselineOptions
+): Promise<LoadBaselineResult> {
+  return executeRebuild(cwd, options, 'file_not_found');
+}
+
+/**
+ * Handle parse_error failure - return failure for user intervention
+ *
+ * WHY: JSON parse errors require manual file inspection/repair.
+ * Cannot auto-recover without knowing what user intended.
+ *
+ * @param details - Parse error context (original error)
+ * @returns Load result with failure
+ */
+async function handleParseError(
+  details?: unknown
+): Promise<LoadBaselineResult> {
+  return {
+    success: false,
+    failure: { reason: 'parse_error', details },
+  };
+}
+
+/**
+ * Handle invalid_structure failure - rebuild or strict failure
+ *
+ * WHY: Structure validation failed. In strict mode, fail immediately.
+ * In non-strict mode, attempt auto-rebuild.
+ *
+ * @param cwd - Project working directory
+ * @param options - Load options (strict mode, rebuildHandler)
+ * @param details - Validation errors
+ * @returns Load result (rebuild success or failure)
+ */
+async function handleInvalidStructure(
+  cwd: string,
+  options?: LoadBaselineOptions,
+  details?: unknown
+): Promise<LoadBaselineResult> {
+  if (options?.strict) {
+    return {
+      success: false,
+      failure: { reason: 'invalid_structure', details },
+    };
+  }
+  return executeRebuild(cwd, options, 'invalid_structure');
+}
+
+/**
+ * Handle corrupted_data failure - auto rebuild
+ *
+ * WHY: Integrity check failed (duplicate IDs, missing refs).
+ * Auto-rebuild is safest recovery strategy.
+ *
+ * @param cwd - Project working directory
+ * @param options - Load options with rebuildHandler
+ * @param details - Integrity errors
+ * @returns Load result (rebuild success or failure)
+ */
+async function handleCorruptedData(
+  cwd: string,
+  options?: LoadBaselineOptions,
+  details?: unknown
+): Promise<LoadBaselineResult> {
+  return executeRebuild(cwd, options, 'corrupted_data');
+}
+
+/**
+ * Execute forced action for schema incompatibility
+ *
+ * WHY: Allows bypassing compatibility check with explicit action override.
+ * Used when user explicitly chooses action (migrate/rebuild).
+ *
+ * @param cwd - Project working directory
+ * @param options - Load options with actionConfig and rebuildHandler
+ * @returns Load result from executed action
+ */
+async function executeForcedAction(
+  cwd: string,
+  options?: LoadBaselineOptions
+): Promise<LoadBaselineResult> {
+  try {
+    const actionResult = await executeAction(
+      options!.actionConfig!.forceAction!,
+      null,
+      cwd,
+      { ...options!.actionConfig, rebuildHandler: options!.rebuildHandler }
+    );
+    return {
+      success: true,
+      graph: actionResult.graph,
+      executedAction: actionResult.action,
+      migrated: actionResult.migrated,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      failure: { reason: 'schema_incompatible', details: e },
+    };
+  }
+}
+
+/**
+ * Handle schema_incompatible failure - use compatResult to decide
+ *
+ * WHY: Schema version mismatch requires version-specific handling.
+ * Force action override can bypass compatibility check.
+ *
+ * @param cwd - Project working directory
+ * @param options - Load options with actionConfig
+ * @param details - Compatibility result with recommended action
+ * @returns Load result based on action configuration
+ */
+async function handleSchemaIncompatible(
+  cwd: string,
+  options?: LoadBaselineOptions,
+  details?: unknown
+): Promise<LoadBaselineResult> {
+  if (options?.actionConfig?.forceAction) {
+    return executeForcedAction(cwd, options);
+  }
+
+  return {
+    success: false,
+    failure: { reason: 'schema_incompatible', details },
+  };
+}
+
+/**
+ * Handle permission_error failure - return failure
+ *
+ * WHY: Permission denied requires user intervention (fix permissions).
+ * Cannot auto-recover without proper filesystem access.
+ *
+ * @param details - Permission error context
+ * @returns Load result with failure
+ */
+async function handlePermissionError(
+  details?: unknown
+): Promise<LoadBaselineResult> {
+  return {
+    success: false,
+    failure: { reason: 'permission_error', details },
+  };
+}
+
+/**
  * Handle baseline loading failures
  *
  * WHY: Each failure scenario has specific recovery strategy:
@@ -181,6 +378,8 @@ export function verifyDataIntegrity(baseline: Baseline): IntegrityResult {
  * - corrupted_data: Auto rebuild
  * - schema_incompatible: Use compatResult to decide
  * - permission_error: Return failure
+ *
+ * Dispatches to specialized handler functions for each failure type.
  *
  * @param reason - Failure reason enum
  * @param cwd - Project working directory
@@ -199,129 +398,25 @@ export async function handleFailure(
     return options.onFailure(reason, cwd, details);
   }
 
-  // Default handling strategies
+  // Dispatch to specialized handlers
   switch (reason) {
     case 'file_not_found':
-      // No baseline - first run, auto rebuild
-      if (!options?.rebuildHandler) {
-        return {
-          success: false,
-          failure: { reason, details: new Error('Rebuild handler not provided') },
-        };
-      }
-      // Silent rebuild - library does not output to console
-      try {
-        const graph = await options.rebuildHandler(cwd);
-        return {
-          success: true,
-          graph,
-          executedAction: 'rebuild',
-          migrated: false,
-        };
-      } catch (e) {
-        return {
-          success: false,
-          failure: { reason, details: e },
-        };
-      }
+      return handleFileNotFound(cwd, options);
 
     case 'parse_error':
-      // JSON parse error - return failure (CLI layer handles messaging)
-      return {
-        success: false,
-        failure: { reason, details },
-      };
+      return handleParseError(details);
 
     case 'invalid_structure':
-      // Structure validation failed
-      if (options?.strict) {
-        return {
-          success: false,
-          failure: { reason, details },
-        };
-      }
-      // Non-strict mode - auto rebuild
-      if (!options?.rebuildHandler) {
-        return {
-          success: false,
-          failure: { reason, details: new Error('Rebuild handler not provided') },
-        };
-      }
-      // Silent rebuild - library does not output to console
-      try {
-        const graph = await options.rebuildHandler(cwd);
-        return {
-          success: true,
-          graph,
-          executedAction: 'rebuild',
-          migrated: false,
-        };
-      } catch (e) {
-        return {
-          success: false,
-          failure: { reason, details: e },
-        };
-      }
+      return handleInvalidStructure(cwd, options, details);
 
     case 'corrupted_data':
-      // Integrity check failed - auto rebuild (silent)
-      if (!options?.rebuildHandler) {
-        return {
-          success: false,
-          failure: { reason, details: new Error('Rebuild handler not provided') },
-        };
-      }
-      try {
-        const graph = await options.rebuildHandler(cwd);
-        return {
-          success: true,
-          graph,
-          executedAction: 'rebuild',
-          migrated: false,
-        };
-      } catch (e) {
-        return {
-          success: false,
-          failure: { reason, details: e },
-        };
-      }
+      return handleCorruptedData(cwd, options, details);
 
     case 'schema_incompatible':
-      // Version incompatibility - let compatResult determine action
-      const compatResult = details as any;
-      if (options?.actionConfig?.forceAction) {
-        // Force action override
-        try {
-          const actionResult = await executeAction(
-            options.actionConfig.forceAction,
-            null,
-            cwd,
-            { ...options.actionConfig, rebuildHandler: options.rebuildHandler }
-          );
-          return {
-            success: true,
-            graph: actionResult.graph,
-            executedAction: actionResult.action,
-            migrated: actionResult.migrated,
-          };
-        } catch (e) {
-          return {
-            success: false,
-            failure: { reason, details: e },
-          };
-        }
-      }
-      return {
-        success: false,
-        failure: { reason, details: compatResult },
-      };
+      return handleSchemaIncompatible(cwd, options, details);
 
     case 'permission_error':
-      // Permission denied - return failure (CLI layer handles messaging)
-      return {
-        success: false,
-        failure: { reason, details },
-      };
+      return handlePermissionError(details);
 
     default:
       return {
@@ -347,52 +442,61 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-// ============================================================================
-// Main Loading Function
-// ============================================================================
-
 /**
- * Load baseline with full validation and compatibility checking
+ * Read and parse baseline JSON file
  *
- * WHY: Multi-step loading ensures baseline is valid and compatible:
- * 1. File existence check
- * 2. JSON parsing
- * 3. Structure validation
- * 4. Data integrity
- * 5. Schema compatibility
- * 6. Action execution
+ * WHY: Isolates file I/O and JSON parsing with proper error handling.
+ * Returns parsed data on success, or failure result for caller to return.
  *
- * @param cwd - Project working directory
- * @param options - Load options (rebuildHandler, strict, actionConfig)
- * @returns Load result with graph or failure info
+ * @param path - Absolute path to baseline file
+ * @param cwd - Project working directory (for failure handler)
+ * @param options - Load options (for failure handler)
+ * @returns Object with parsed data on success, or LoadBaselineResult on failure
  */
-export async function loadBaseline(
+async function readBaselineFile(
+  path: string,
   cwd: string,
   options?: LoadBaselineOptions
-): Promise<LoadBaselineResult> {
-  const baselinePath = getBaselinePath(cwd);
-
-  // Step 1: Check file exists
-  if (!await fileExists(baselinePath)) {
+): Promise<{ success: true; data: unknown } | LoadBaselineResult> {
+  // Check file exists
+  if (!await fileExists(path)) {
     return handleFailure('file_not_found', cwd, options);
   }
 
-  // Step 2: Read and parse JSON
+  // Read file content
   let rawContent: string;
   try {
-    rawContent = await readFile(baselinePath, 'utf-8');
+    rawContent = await readFile(path, 'utf-8');
   } catch (e) {
     return handleFailure('permission_error', cwd, options, e);
   }
 
-  let parsed: unknown;
+  // Parse JSON
   try {
-    parsed = JSON.parse(rawContent);
+    const parsed = JSON.parse(rawContent);
+    return { success: true, data: parsed };
   } catch (e) {
     return handleFailure('parse_error', cwd, options, e);
   }
+}
 
-  // Step 3: Structure validation
+/**
+ * Validate baseline structure and verify data integrity
+ *
+ * WHY: Combines two validation phases (structure + integrity) into one helper.
+ * Structure validation checks required fields; integrity checks semantic consistency.
+ *
+ * @param parsed - Parsed JSON data (unknown type for validation)
+ * @param cwd - Project working directory (for failure handler)
+ * @param options - Load options (for failure handler)
+ * @returns Object with validated baseline on success, or LoadBaselineResult on failure
+ */
+function validateAndCheckIntegrity(
+  parsed: unknown,
+  cwd: string,
+  options?: LoadBaselineOptions
+): { success: true; baseline: Baseline } | LoadBaselineResult {
+  // Step 1: Structure validation (required fields, types)
   const validationResult = validateBaselineStructure(parsed);
   if (!validationResult.valid) {
     return handleFailure('invalid_structure', cwd, options, validationResult);
@@ -400,21 +504,61 @@ export async function loadBaseline(
 
   const baseline = parsed as Baseline;
 
-  // Step 4: Data integrity verification
+  // Step 2: Data integrity verification (semantic checks)
   const integrityResult = verifyDataIntegrity(baseline);
   if (!integrityResult.valid) {
     return handleFailure('corrupted_data', cwd, options, integrityResult);
   }
 
-  // Step 5: Schema compatibility check
+  return { success: true, baseline };
+}
+
+/**
+ * Check schema compatibility and execute determined action
+ *
+ * WHY: Handles compatibility check, action determination, and execution
+ * including fallback when migration framework is not available.
+ *
+ * @param baseline - Validated baseline data
+ * @param cwd - Project working directory
+ * @param options - Load options (actionConfig, rebuildHandler)
+ * @returns LoadBaselineResult with graph and action metadata
+ */
+async function handleCompatibilityAndAction(
+  baseline: Baseline,
+  cwd: string,
+  options?: LoadBaselineOptions
+): Promise<LoadBaselineResult> {
+  // Check schema compatibility
   const compatResult = checkSchemaCompatibility(baseline, CURRENT_SCHEMA_VERSION);
 
-  // Step 6: Handle incompatibility
+  // Handle incompatibility
   if (!compatResult.compatible) {
     return handleFailure('schema_incompatible', cwd, options, compatResult);
   }
 
-  // Step 7: Determine and execute action
+  // Determine and execute action with fallback handling
+  return executeActionWithFallback(baseline, compatResult, cwd, options);
+}
+
+/**
+ * Execute action with migration fallback handling
+ *
+ * WHY: Isolates action execution logic including the fallback when
+ * migration framework is not yet implemented.
+ *
+ * @param baseline - Validated baseline data
+ * @param compatResult - Compatibility check result
+ * @param cwd - Project working directory
+ * @param options - Load options (actionConfig, rebuildHandler)
+ * @returns LoadBaselineResult with graph and action metadata
+ */
+async function executeActionWithFallback(
+  baseline: Baseline,
+  compatResult: CompatibilityResult,
+  cwd: string,
+  options?: LoadBaselineOptions
+): Promise<LoadBaselineResult> {
   const action = determineAction(compatResult, options?.actionConfig);
   try {
     const actionResult = await executeAction(action, baseline, cwd, {
@@ -431,23 +575,86 @@ export async function loadBaseline(
       migrated: actionResult.migrated,
     };
   } catch (e) {
+    // Migration framework not available - fall back to rebuild
     if (e instanceof Error && e.message.includes('Migration framework not yet implemented')) {
-      // Migration not available - fall back to rebuild (silent)
-      if (options?.rebuildHandler) {
-        const graph = await options.rebuildHandler(cwd);
-        return {
-          success: true,
-          graph,
-          baseline,
-          compatibility: compatResult,
-          executedAction: 'rebuild',
-          migrated: false,
-        };
-      }
+      return handleMigrationNotAvailable(baseline, compatResult, cwd, options);
     }
     return {
       success: false,
       failure: { reason: 'schema_incompatible', details: e },
     };
   }
+}
+
+/**
+ * Handle migration framework not available fallback
+ *
+ * WHY: When migration is required but framework is not implemented,
+ * fall back to full rebuild to maintain functionality.
+ *
+ * @param baseline - Validated baseline data
+ * @param compatResult - Compatibility check result
+ * @param cwd - Project working directory
+ * @param options - Load options with rebuildHandler
+ * @returns LoadBaselineResult with rebuilt graph
+ */
+async function handleMigrationNotAvailable(
+  baseline: Baseline,
+  compatResult: CompatibilityResult,
+  cwd: string,
+  options?: LoadBaselineOptions
+): Promise<LoadBaselineResult> {
+  if (options?.rebuildHandler) {
+    const graph = await options.rebuildHandler(cwd);
+    return {
+      success: true,
+      graph,
+      baseline,
+      compatibility: compatResult,
+      executedAction: 'rebuild',
+      migrated: false,
+    };
+  }
+  return {
+    success: false,
+    failure: { reason: 'schema_incompatible', details: new Error('Rebuild handler not provided') },
+  };
+}
+
+// ============================================================================
+// Main Loading Function
+// ============================================================================
+
+/**
+ * Load baseline with full validation and compatibility checking
+ *
+ * WHY: Multi-step loading ensures baseline is valid and compatible:
+ * 1. File reading and JSON parsing (readBaselineFile)
+ * 2. Structure + integrity validation (validateAndCheckIntegrity)
+ * 3. Compatibility check + action execution (handleCompatibilityAndAction)
+ *
+ * @param cwd - Project working directory
+ * @param options - Load options (rebuildHandler, strict, actionConfig)
+ * @returns Load result with graph or failure info
+ */
+export async function loadBaseline(
+  cwd: string,
+  options?: LoadBaselineOptions
+): Promise<LoadBaselineResult> {
+  const baselinePath = getBaselinePath(cwd);
+
+  // Step 1: Read and parse baseline file
+  const readResult = await readBaselineFile(baselinePath, cwd, options);
+  if (!readResult.success) {
+    return readResult;
+  }
+
+  // Step 2: Validate structure and verify integrity
+  const validationResult = validateAndCheckIntegrity(readResult.data, cwd, options);
+  if (!validationResult.success) {
+    return validationResult;
+  }
+
+  // Step 3: Check compatibility and execute action
+  return handleCompatibilityAndAction(validationResult.baseline, cwd, options);
 }
