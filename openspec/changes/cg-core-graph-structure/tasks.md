@@ -1,8 +1,8 @@
 ## 1. Package Setup
 
-- [ ] 1.1 Create `packages/codegraph/` directory structure
-- [ ] 1.2 Create `package.json` with TypeScript configuration
-- [ ] 1.3 Create `tsconfig.json` with strict mode and Node.js target
+- [x] 1.1 Create `packages/codegraph/` directory structure
+- [x] 1.2 Create `package.json` with TypeScript configuration
+- [x] 1.3 Create `tsconfig.json` with strict mode and Node.js target
 
 ## 2. Core Types (types.ts)
 
