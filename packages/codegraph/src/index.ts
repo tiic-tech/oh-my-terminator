@@ -7,9 +7,11 @@
 export {
   NodeType,
   EdgeType,
-  GraphNode,
-  GraphEdge,
-  ModuleMetadata,
-  EdgeMetadata,
-  SerializedCodeGraph,
+  type GraphNode,
+  type GraphEdge,
+  type ModuleMetadata,
+  type EdgeMetadata,
+  type SerializedCodeGraph,
 } from './types.js';
+
+export { CodeGraph } from './graph.js';

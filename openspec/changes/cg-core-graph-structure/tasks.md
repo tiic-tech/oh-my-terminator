@@ -15,25 +15,25 @@
 
 ## 3. CodeGraph Class (graph.ts)
 
-- [ ] 3.1 Implement `CodeGraph` constructor with empty data structures
-- [ ] 3.2 Implement `addNode(node: GraphNode)` - add to nodes Map, init edge indexes
-- [ ] 3.3 Implement `addEdge(edge: GraphEdge)` - add to edges array, update inEdges/outEdges
-- [ ] 3.4 Implement `removeNode(id: string)` - remove node, edges, cleanup indexes
-- [ ] 3.5 Implement `removeEdgesForFile(filePath: string)` - filter edges by file path
-- [ ] 3.6 Implement `toJSON()` - convert nodes Map to array format
-- [ ] 3.7 Implement `static fromJSON(data)` - reconstruct graph, rebuild indexes
-- [ ] 3.8 Export CodeGraph from `index.ts`
+- [x] 3.1 Implement `CodeGraph` constructor with empty data structures
+- [x] 3.2 Implement `addNode(node: GraphNode)` - add to nodes Map, init edge indexes
+- [x] 3.3 Implement `addEdge(edge: GraphEdge)` - add to edges array, update inEdges/outEdges
+- [x] 3.4 Implement `removeNode(id: string)` - remove node, edges, cleanup indexes
+- [x] 3.5 Implement `removeEdgesForFile(filePath: string)` - filter edges by file path
+- [x] 3.6 Implement `toJSON()` - convert nodes Map to array format
+- [x] 3.7 Implement `static fromJSON(data)` - reconstruct graph, rebuild indexes
+- [x] 3.8 Export CodeGraph from `index.ts`
 
 ## 4. Unit Tests
 
-- [ ] 4.1 Test `addNode` updates nodes Map and initializes edge indexes
-- [ ] 4.2 Test `addEdge` updates edges array and both direction indexes
-- [ ] 4.3 Test `removeNode` removes node, edges, and cleans up all indexes
-- [ ] 4.4 Test `removeEdgesForFile` removes FILE and MODULE edges correctly
-- [ ] 4.5 Test `toJSON` produces valid JSON-serializable output
-- [ ] 4.6 Test `fromJSON` restores graph with correct indexes
-- [ ] 4.7 Test round-trip: `fromJSON(toJSON(graph))` equals original
-- [ ] 4.8 Verify test coverage ≥ 80% for types.ts and graph.ts
+- [x] 4.1 Test `addNode` updates nodes Map and initializes edge indexes
+- [x] 4.2 Test `addEdge` updates edges array and both direction indexes
+- [x] 4.3 Test `removeNode` removes node, edges, and cleans up all indexes
+- [x] 4.4 Test `removeEdgesForFile` removes FILE and MODULE edges correctly
+- [x] 4.5 Test `toJSON` produces valid JSON-serializable output
+- [x] 4.6 Test `fromJSON` restores graph with correct indexes
+- [x] 4.7 Test round-trip: `fromJSON(toJSON(graph))` equals original
+- [x] 4.8 Verify test coverage ≥ 80% for types.ts and graph.ts
 
 ## 5. Documentation
 
