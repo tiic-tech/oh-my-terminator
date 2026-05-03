@@ -26,8 +26,11 @@ interface GetImpactOutput {
 
 **核心逻辑**: 使用反向索引 `inEdges` 沿 IMPORTS 边反向遍历，找出所有依赖目标节点的文件。
 
+> **C8-1决议**: 默认排除测试目录（tests/、__tests__/），可通过 `options.includeTests` 配置包含。
+> **C8-6决议**: 不处理 DYNAMIC_IMPORTS 边，与 C7 A2 决议保持一致。动态导入在运行时解析目标，无法静态反向追踪。
+
 ```typescript
-function getImpact(graph: CodeGraph, targets: string[]): GetImpactOutput {
+function getImpact(graph: CodeGraph, targets: string[], options?: { maxDepth?: number; includeTests?: boolean }): GetImpactOutput {
   const visited = new Set<string>();
   const directDependents = new Set<string>();
   const indirectDependents = new Set<string>();
@@ -50,8 +53,14 @@ function getImpact(graph: CodeGraph, targets: string[]): GetImpactOutput {
     const inEdges = graph.inEdges.get(target) || [];
     for (const edge of inEdges) {
       // 只处理 IMPORTS 边（MVP 阶段无 CALLS 边）
+      // C8-6决议: 不处理 DYNAMIC_IMPORTS 边（与 C7 A2 对齐）
       if (edge.type === EdgeType.IMPORTS || edge.type === EdgeType.RE_EXPORTS) {
         const dependent = edge.from;  // from 是依赖方
+        
+        // C8-1决议: 测试文件过滤（默认排除）
+        const includeTests = options?.includeTests ?? false;
+        if (!includeTests && isTestFile(dependent)) continue;
+        
         if (!visited.has(dependent)) {
           visited.add(dependent);
           directDependents.add(dependent);
@@ -94,13 +103,26 @@ function getImpact(graph: CodeGraph, targets: string[]): GetImpactOutput {
 
 **深度限制**: 默认最大深度 10 层，防止极端情况下的无限遍历。
 
+> **C8-2决议**: `maxDepth=0` 表示仅返回直接依赖者（第一层），不遍历间接依赖。
+>
+> | maxDepth值 | 遍历行为 |
+> |------------|---------|
+> | 0 | 仅直接依赖者（第一层） |
+> | 1 | 直接依赖者（同0） |
+> | 2-10 | 到指定深度层 |
+> | >10 | 默认截断于第10层 |
+
 ```typescript
 // BFS 带深度控制
 function getImpactWithDepthLimit(
   graph: CodeGraph, 
   targets: string[], 
-  maxDepth: number = 10
+  maxDepth: number = 10,
+  options?: { includeTests?: boolean }
 ): GetImpactOutput {
+  // C8-2决议: maxDepth=0 表示仅返回直接依赖者
+  // 实现中 depth=1 表示第一层（直接依赖），depth>=maxDepth 时停止继续遍历
+  // 因此 maxDepth=0 或 1 都仅返回直接依赖者
   const visited = new Set<string>();
   const layers: Set<string>[] = [new Set(), new Set()]; // [direct, indirect]
   
@@ -134,6 +156,8 @@ function getImpactWithDepthLimit(
 
 ### 1.4 输出格式模板
 
+> **C8-4决议**: `via` 字段在 API 层返回数组格式，支持多路径场景。文本输出简化显示为逗号分隔字符串。
+
 ```
 ## Impact Analysis
 
@@ -157,6 +181,16 @@ function getImpactWithDepthLimit(
 - Total affected: 8 files
 - Direct: 3, Indirect: 5
 - Estimated blast radius: medium
+```
+
+**API层via字段格式**:
+```typescript
+// C8-4决议: via为数组，支持多路径
+interface AffectedFile {
+  path: string;
+  distance: number;
+  via: string[];  // 如 ["src/services/auth.ts", "src/components/Modal.tsx"]
+}
 ```
 
 ---
@@ -310,7 +344,7 @@ function getGroupNameFromFile(fileId: string, sourceRoot: string): string {
 **判定原则**:
 - **被导入数多 = 底层**（基础设施，被广泛依赖）
 - **导入别人多 = 上层**（应用层，依赖基础设施）
-- **相互导入 = 同层或需要拆分警告**
+- **相互导入 = 同层或需要拆分警告**（C8-11决议: 同层互导不视为违规，可选输出警告）
 
 **算法步骤**:
 
@@ -351,6 +385,19 @@ function inferArchitectureLayers(
   // 步骤3: 分配层级
   // 策略: 相邻分数差距小于阈值(2)的归为同一层
   const LAYER_THRESHOLD = 2;
+  // C8-3决议: 阈值判定示例
+  // 阈值语义: 相邻组分数差距 <= 阈值时归为同层
+  //
+  // 示例计算:
+  // | 组名 | netScore | 与前组差值 | 层级判定 |
+  // |------|----------|-----------|---------|
+  // | utils | 45 | - | Layer 1 (起始) |
+  // | types | 32 | |45-32|=13 > 2 | Layer 2 (差值大) |
+  // | components | 30 | |32-30|=2 <= 2 | Layer 2 (同层) |
+  // | services | -10 | |30-(-10)|=40 > 2 | Layer 3 (差值大) |
+  // | pages | -30 | |-10-(-30)|=20 > 2 | Layer 4 (差值大) |
+  //
+  // 结果: Layer1={utils}, Layer2={types,components}, Layer3={services}, Layer4={pages}
   const layers: LayerAssignment[] = [];
   let currentLayer = 1;
   let currentLayerGroups: string[] = [];
@@ -395,19 +442,25 @@ function inferArchitectureLayers(
 
 **规则**: 低层不应导入高层。
 
+> **C8-10决议**: `expectedLayerGap` 字段重命名为 `layerGap`，表示实际层级差距（违规跨越的层级数）。
+> **C8-11决议**: 同层互导（fromLayer === toLayer）不视为违规，可选输出警告。
+
 ```typescript
 interface LayerViolation {
   fromGroup: string;   // 违规导入方（应为高层）
   toGroup: string;     // 被导入方（应为低层）
   count: number;       // 违规导入次数
-  expectedLayerGap: number; // 期望层级差（from层 - to层 应为正数）
+  // C8-10决议: 重命名为 layerGap，表示跨越的层级数
+  layerGap: number;    // toLayer - fromLayer（违规时为正值，表示跨越层级数）
 }
 
 function detectLayerViolations(
   groups: Map<string, DirectoryGroup>,
-  layers: LayerAssignment[]
+  layers: LayerAssignment[],
+  options?: { warnOnMutualImport?: boolean }
 ): LayerViolation[] {
   const violations: LayerViolation[] = [];
+  const mutualWarnings: string[] = [];  // C8-11: 同层互导警告
   
   // 构建组 → 层级映射
   const groupToLayer = new Map<string, number>();
@@ -424,15 +477,23 @@ function detectLayerViolations(
     for (const [targetGroup, count] of groupData.importStats.importsFrom) {
       const toLayer = groupToLayer.get(targetGroup) ?? 0;
       
+      // C8-11决议: 同层互导不视为违规，可选警告
+      if (fromLayer === toLayer) {
+        if (options?.warnOnMutualImport) {
+          mutualWarnings.push(`${groupName} and ${targetGroup} have mutual imports (same layer)`);
+        }
+        continue;
+      }
+      
       // 违规判定: 高层号导入低层号（号大=上层）
       // 正常: 上层导入底层 (fromLayer > toLayer)
-      // 违规: 低层导入高层 (fromLayer < toLayer) 或 同层互导
+      // 违规: 低层导入高层 (fromLayer < toLayer)
       if (fromLayer < toLayer) {
         violations.push({
           fromGroup: groupName,
           toGroup: targetGroup,
           count,
-          expectedLayerGap: toLayer - fromLayer
+          layerGap: toLayer - fromLayer  // C8-10: 跨越层级数
         });
       }
     }
@@ -443,6 +504,16 @@ function detectLayerViolations(
 ```
 
 ### 2.5 输出格式模板
+
+> **C8-5决议**: healthScore 计算公式明确如下:
+> ```
+> 基础分 = 100
+> 扣分规则:
+> - minor violation: -5 points (layerGap = 1)
+> - moderate violation: -10 points (layerGap = 2)
+> - critical violation: -15 points (layerGap >= 3)
+> 最低分 = 0
+> ```
 
 ```
 ## Architecture Layers
@@ -746,7 +817,8 @@ export interface LayerViolation {
   toGroup: string;
   count: number;
   affectedFiles: string[];  // 具体违规文件对
-  expectedLayerGap: number;
+  // C8-10决议: 重命名为 layerGap，表示跨越的层级数
+  layerGap: number;         // toLayer - fromLayer（违规时为正值）
 }
 ```
 
@@ -761,7 +833,8 @@ export interface LayerViolation {
 | 无 src 目录 | 支持自定义 sourceRoot 参数，默认 'src' |
 | 根目录文件 | 录入 `__root__` 特殊组，单独分层 |
 | 外部依赖 | 跳过 EXTERNAL 节点，不计入分组 |
-| 测试目录 | 默认排除 `tests/`、`__tests__/`，可选计入 |
+| 测试目录 | C8-1决议: 默认排除 `tests/`、`__tests__/`，可通过 `includeTests` 配置计入 |
+| DYNAMIC_IMPORTS | C8-6决议: 不计入影响范围遍历（与 C7 A2 对齐），动态导入目标无法静态反向追踪 |
 | 空组 | 无文件的组不参与分层 |
 | 无导入关系 | 单文件项目返回单层结构 |
 
@@ -985,7 +1058,7 @@ const CLIErrorCodes = {
 
 **验证要点**:
 - 多目标的依赖者合并去重
-- distance 取最小值（如有多个路径）
+- C8-12决议: distance取最小值，via取对应最短路径
 
 **场景 3: impact命令无依赖者**
 
@@ -1144,7 +1217,7 @@ const CLIErrorCodes = {
 
 **验证要点**:
 - violations 按严重程度排序 (critical > moderate > minor)
-- `severity` 根据 expectedLayerGap 计算:
+- `severity` 根据 layerGap 计算（C8-10决议: 使用 layerGap）:
   - minor: gap = 1
   - moderate: gap = 2
   - critical: gap ≥ 3
@@ -1265,14 +1338,15 @@ function mapImpactToCLI(
   durationMs: number
 ): ImpactResult {
   // 计算 blastRadius
+  // C8-8决议: 边界值归属确认: 3=low, 10=medium
   const total = api.affectedFiles.length;
   let blastRadius: 'low' | 'medium' | 'high' | 'unknown';
   if (total === 0) {
     blastRadius = 'unknown';
   } else if (total <= 3) {
-    blastRadius = 'low';
+    blastRadius = 'low';      // 3 归属于 low
   } else if (total <= 10) {
-    blastRadius = 'medium';
+    blastRadius = 'medium';   // 10 归属于 medium
   } else {
     blastRadius = 'high';
   }
@@ -1295,7 +1369,8 @@ function mapImpactToCLI(
   // 生成 nextSuggested
   const nextSuggested: string[] = [];
   if (api.affectedFiles.length > 0) {
-    // 建议查看直接依赖者
+    // C8-9决议: 建议查看最近的直接依赖者（第一个依赖者）
+    // topDependent 代表"最近的直接依赖者"，按 BFS 顺序排列
     const topDependent = api.affectedFiles[0];
     nextSuggested.push(`codegraph scope FILE:${topDependent}`);
   }
@@ -1356,6 +1431,7 @@ function mapLayersToCLI(
   }));
 
   // 映射 violations 并计算 severity
+  // C8-10决议: 使用 layerGap（而非 expectedLayerGap）
   const violations: CLILayerViolation[] = api.violations.map(v => ({
     fromGroup: v.fromGroup,
     toGroup: v.toGroup,
@@ -1364,7 +1440,7 @@ function mapLayersToCLI(
       from: pair.split(' → ')[0],
       to: pair.split(' → ')[1]
     })),
-    severity: calculateSeverity(v.expectedLayerGap),
+    severity: calculateSeverity(v.layerGap),  // C8-10: 使用 layerGap
     suggestion: generateViolationSuggestion(v)
   }));
 
@@ -1417,10 +1493,11 @@ function generateViolationSuggestion(v: LayerViolation): string {
   const fromLayer = v.fromGroup;
   const toLayer = v.toGroup;
   
-  if (v.expectedLayerGap >= 3) {
+  // C8-10: 使用 layerGap（而非 expectedLayerGap）
+  if (v.layerGap >= 3) {
     return `Critical violation: ${fromLayer} (lower layer) imports from ${toLayer} (higher layer). Consider restructuring architecture`;
   }
-  if (v.expectedLayerGap === 2) {
+  if (v.layerGap === 2) {
     return `Move shared logic from ${toLayer} to ${fromLayer}, or create a shared middle layer`;
   }
   return `Consider moving the importing file to ${toLayer} directory`;
@@ -1478,6 +1555,24 @@ function mapLayersErrorToCLI(
 
 ### 9.4 Exit Codes
 
+> **C8-7决议**: 错误码体系与 C6 附录 A 对齐，扩展 E003-E005。
+
+**错误码扩展定义** (与 C6 对齐):
+```typescript
+const CLIErrorCodes = {
+  // C6基础错误码（继承）
+  E001_TARGET_NOT_FOUND: 'Target node not found in graph',
+  E002_PARSE_ERROR: 'Failed to parse baseline data',
+  
+  // C8扩展错误码
+  E003_NO_IMPACT: 'No dependents found for target',
+  E004_NO_LAYERS: 'No architecture layers could be inferred',
+  E005_EMPTY_GRAPH: 'Graph contains no FILE nodes',
+};
+```
+
+**Exit Codes**:
+
 | Exit Code | 含义 | 触发场景 |
 |-----------|------|---------|
 | 0 | 成功 | 命令正常执行完成 |
@@ -1486,7 +1581,8 @@ function mapLayersErrorToCLI(
 
 ---
 
-**文档版本**: v1.1  
+**文档版本**: v1.2  
 **创建日期**: 2026-05-02  
 **更新日期**: 2026-05-03  
+**更新说明**: 消除12个开发歧义（详见c8_ambiguity_resolution.md）
 **用途**: Change 8 (`cg-api-impact-layers`) 实现参考 + Change 10 CLI 输出映射参考
