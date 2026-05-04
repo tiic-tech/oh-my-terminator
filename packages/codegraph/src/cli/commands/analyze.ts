@@ -6,7 +6,7 @@
  * subsequent incremental updates.
  *
  * Flow:
- * 1. Git validation (must be in git repo)
+ * 1. Validate project (path existence + git repo + commits)
  * 2. Run full analysis (scan + parse)
  * 3. Save baseline.json
  * 4. Save lastCommit.txt
@@ -26,12 +26,9 @@ import {
   CURRENT_SCHEMA_VERSION,
   GENERATOR_VERSION,
 } from '../../version.js';
+import { getHeadCommit } from '../../git/index.js';
+import { validateProject } from '../validation.js';
 import {
-  getHeadCommit,
-  isGitRepo,
-} from '../../git/index.js';
-import {
-  CliErrorCode,
   type AnalyzeResult,
   type CliError,
   type CliResultStats,
@@ -71,24 +68,33 @@ export async function analyzeCommand(
   const startTime = Date.now();
 
   // ========================================
-  // Step 1: Git Validation
+  // Step 1: Validate Project (Path + Git)
   // ========================================
-  const isGit = await isGitRepo(cwd);
-  if (!isGit) {
+  const validation = await validateProject(cwd);
+
+  if (!validation.path.isValid) {
     return {
       success: false,
-      error: {
-        code: CliErrorCode.E_NO_GIT_REPO,
-        message: 'Not a git repository. CodeGraph requires a git repository for baseline tracking.',
-      },
+      error: validation.path.error!,
       durationMs: Date.now() - startTime,
     };
   }
 
+  if (!validation.git?.isValid) {
+    return {
+      success: false,
+      error: validation.git!.error!,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // Use validated absolute path
+  const projectRoot = validation.path.absolutePath;
+
   // ========================================
   // Step 2: Run Full Analysis
   // ========================================
-  const analysis = await analyzeFull(cwd);
+  const analysis = await analyzeFull(projectRoot);
 
   // ========================================
   // Step 3: Calculate Statistics
@@ -98,7 +104,7 @@ export async function analyzeCommand(
   // ========================================
   // Step 4: Prepare Baseline
   // ========================================
-  const headCommit = await getHeadCommit(cwd);
+  const headCommit = await getHeadCommit(projectRoot);
   const timestamp = Date.now();
 
   const baseline: Baseline = {
@@ -120,13 +126,13 @@ export async function analyzeCommand(
   // ========================================
   // Step 5: Save Baseline
   // ========================================
-  await ensureCodegraphDir(cwd);
-  await saveBaseline(baseline, cwd);
+  await ensureCodegraphDir(projectRoot);
+  await saveBaseline(baseline, projectRoot);
 
   // ========================================
   // Step 6: Save HEAD Commit
   // ========================================
-  const lastCommitPath = getLastCommitPath(cwd);
+  const lastCommitPath = getLastCommitPath(projectRoot);
   await writeFile(lastCommitPath, headCommit, 'utf-8');
 
   // ========================================

@@ -10,6 +10,8 @@
  * 3. Compare trees to detect ADD/MODIFY/DELETE changes
  * 4. Return structured change result for incremental update
  *
+ * FALLBACK: If tree comparison fails, uses commit-walker for per-commit analysis.
+ *
  * @see 09_c9_isomorphic_git_spec.md
  */
 
@@ -19,6 +21,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fs } from './fs-adapter.js';
 import { getLastCommitPath } from '../persistence/paths.js';
+import { getFileChangesByWalkingCommits } from './commit-walker.js';
 
 // ============================================================================
 // Types
@@ -128,7 +131,7 @@ export async function detectGitChanges(cwd: string): Promise<GitChangeResult> {
 }
 
 // ============================================================================
-// Tree Comparison Functions
+// Tree Comparison Function
 // ============================================================================
 
 /**
@@ -214,74 +217,4 @@ export async function getFileChangesBetweenCommits(
   }
 
   return changes;
-}
-
-// ============================================================================
-// Fallback: Commit-by-Commit Walk
-// ============================================================================
-
-/**
- * Get file changes by walking through individual commits
- *
- * Fallback strategy when git.walk tree comparison fails.
- * Walks commit history from sinceCommit to HEAD, collecting changes.
- *
- * Deduplication logic:
- * - Same file modified multiple times → final state only
- * - File added then deleted → not included
- * - File deleted then re-added → MODIFY (content changed)
- *
- * @param cwd - Project root directory
- * @param sinceCommit - Starting commit hash
- * @returns Array of FileChange objects (deduplicated)
- */
-export async function getFileChangesByWalkingCommits(
-  cwd: string,
-  sinceCommit: string
-): Promise<FileChange[]> {
-  const changeMap = new Map<string, FileChange>();
-
-  // Get commit history
-  const commits = await git.log({
-    fs,
-    dir: cwd,
-    ref: 'HEAD',
-  });
-
-  // Find the index of sinceCommit
-  const startIndex = commits.findIndex((c) => c.oid === sinceCommit);
-  const relevantCommits = startIndex > 0 ? commits.slice(0, startIndex) : commits;
-
-  // Walk through each commit
-  for (const commit of relevantCommits) {
-    const parentOid = commit.commit.parent?.[0];
-
-    if (!parentOid) continue; // Initial commit has no parent
-
-    // Get changes for this commit vs its parent
-    const commitChanges = await getFileChangesBetweenCommits(cwd, parentOid, commit.oid);
-
-    // Merge changes with deduplication logic
-    for (const change of commitChanges) {
-      const existing = changeMap.get(change.path);
-
-      if (existing) {
-        // Apply deduplication rules based on change sequence
-        if (existing.type === 'ADD' && change.type === 'DELETE') {
-          // Added then deleted → file doesn't exist, remove from map
-          changeMap.delete(change.path);
-        } else if (existing.type === 'DELETE' && change.type === 'ADD') {
-          // Deleted then re-added → treat as MODIFY
-          changeMap.set(change.path, { path: change.path, type: 'MODIFY' });
-        } else {
-          // Otherwise keep the latest state
-          changeMap.set(change.path, change);
-        }
-      } else {
-        changeMap.set(change.path, change);
-      }
-    }
-  }
-
-  return Array.from(changeMap.values());
 }

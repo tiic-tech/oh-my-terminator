@@ -30,9 +30,13 @@ describe('CliErrorCode enum', () => {
     assert.strictEqual(CliErrorCode.E_INVALID_PATH, 'E_INVALID_PATH');
   });
 
-  it('should have exactly 5 values', () => {
+  it('should contain E_EMPTY_REPO value', () => {
+    assert.strictEqual(CliErrorCode.E_EMPTY_REPO, 'E_EMPTY_REPO');
+  });
+
+  it('should have exactly 6 values', () => {
     const values = Object.values(CliErrorCode);
-    assert.strictEqual(values.length, 5);
+    assert.strictEqual(values.length, 6);
   });
 });
 
@@ -196,6 +200,7 @@ describe('CliError interface', () => {
       CliErrorCode.E_PARSE_FAILED,
       CliErrorCode.E_WALK_API_FAILED,
       CliErrorCode.E_INVALID_PATH,
+      CliErrorCode.E_EMPTY_REPO,
     ];
 
     for (const code of errorCodes) {

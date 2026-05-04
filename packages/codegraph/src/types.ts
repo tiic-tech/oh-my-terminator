@@ -370,6 +370,8 @@ export enum CliErrorCode {
   E_WALK_API_FAILED = 'E_WALK_API_FAILED',
   /** Invalid path provided - path does not exist or is not accessible */
   E_INVALID_PATH = 'E_INVALID_PATH',
+  /** Empty git repository - .git exists but no commits made */
+  E_EMPTY_REPO = 'E_EMPTY_REPO',
 }
 
 /**

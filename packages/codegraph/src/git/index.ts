@@ -14,15 +14,17 @@
 // fs adapter for isomorphic-git
 export { fs } from './fs-adapter.js';
 
-// Change detection
+// Change detection (main API)
 export {
   detectGitChanges,
   getFileChangesBetweenCommits,
-  getFileChangesByWalkingCommits,
   isSupportedFile,
   type FileChange,
   type GitChangeResult,
 } from './change-detector.js';
+
+// Fallback commit walker (used when tree comparison fails)
+export { getFileChangesByWalkingCommits } from './commit-walker.js';
 
 // HEAD commit resolution
 export {
