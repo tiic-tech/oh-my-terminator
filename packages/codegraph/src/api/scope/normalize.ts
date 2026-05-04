@@ -4,8 +4,8 @@
  * D1 Resolution: normalizeTarget handles 4 input types in single entry point.
  */
 
-import { CodeGraph, NodeType, type GraphNode } from '../../types.js';
-import { type NormalizedTarget, type TargetType } from '../types/index.js';
+import type { CodeGraph } from '../../graph.js';
+import { type NormalizedTarget } from '../types/index.js';
 
 /**
  * Normalize target input to a valid query target
@@ -19,8 +19,14 @@ import { type NormalizedTarget, type TargetType } from '../types/index.js';
  * @param graph - CodeGraph instance
  * @param target - Target string
  * @returns Normalized target with node references
+ * @throws Error if target is empty or not a string
  */
 export function normalizeTarget(graph: CodeGraph, target: string): NormalizedTarget {
+  // WHY: "Validate at system boundaries" principle.
+  // Empty target would cause cryptic errors downstream (e.g., "FILE:" node lookup).
+  if (!target || typeof target !== 'string' || target.trim() === '') {
+    throw new Error('[normalizeTarget] target must be a non-empty string');
+  }
   // Case 1: FILE node
   if (target.startsWith('FILE:')) {
     const fileNode = graph.getNode(target);

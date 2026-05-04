@@ -4,6 +4,7 @@
  * A1 Resolution: Special handling for EXTERNAL packages.
  */
 
+import type { CodeGraph } from '../../graph.js';
 import { type GraphNode } from '../../types.js';
 import { type ScopeResult, type ImportedByInfo } from '../types/index.js';
 import { extractImportedBy } from './extract.js';
@@ -13,7 +14,7 @@ import { formatScopeOutput } from './format/index.js';
  * Generate Scope result for EXTERNAL nodes
  */
 export function getScopeForExternal(
-  graph: import('../../types.js').CodeGraph,
+  graph: CodeGraph,
   node: GraphNode,
   startTime: number
 ): ScopeResult {

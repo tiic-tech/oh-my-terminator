@@ -87,17 +87,27 @@ export class CodeGraph {
    * Add an edge to the graph
    *
    * Updates both outEdges (source) and inEdges (target) indexes.
-   * Assumes source and target nodes already exist.
+   *
+   * ERROR HANDLING STRATEGY:
+   * - Missing nodes create orphan edges (edges without valid endpoints)
+   * - This is intentional for incremental graph building scenarios:
+   *   - Module nodes may be added before FILE nodes during parsing
+   *   - Edges are accumulated then validated during finalize phase
+   * - No error thrown to enable flexible build order
+   *
+   * WHY not throw: CodeGraph supports incremental construction where edges
+   * may reference nodes not yet added. Final validation happens at serialization.
    *
    * @param edge - The edge to add
    */
   addEdge(edge: GraphEdge): void {
-    // Validate nodes exist (development warning)
+    // Track missing nodes for debugging (no throw - intentional design)
+    // WHY: Incremental graph building may add edges before nodes
     if (!this.nodes.has(edge.from)) {
-      console.warn(`Source node not found: ${edge.from}`);
+      console.warn(`[CodeGraph] Edge source not yet added: ${edge.from} (edge will be orphan until node added)`);
     }
     if (!this.nodes.has(edge.to)) {
-      console.warn(`Target node not found: ${edge.to}`);
+      console.warn(`[CodeGraph] Edge target not yet added: ${edge.to} (edge will be orphan until node added)`);
     }
 
     this.edges.push(edge);

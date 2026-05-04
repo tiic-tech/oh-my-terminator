@@ -1,8 +1,14 @@
 /**
  * Default ignore rules for file system scanning
  *
- * These patterns are matched using prefix matching on relative paths.
- * Patterns ending with `/` match directories and their contents.
+ * CROSS-PLATFORM PATH HANDLING:
+ * - Rules use Unix-style forward slashes (/) as separators
+ * - Input relativePath may contain forward or backslashes (Windows)
+ * - shouldIgnore() normalizes input via regex split: /[/\\]/ to handle both
+ * - This ensures rules work consistently across macOS/Linux/Windows
+ *
+ * WHY Unix-style rules: Git and npm use forward slashes in their ignore patterns.
+ * Matching this convention ensures compatibility with existing tooling.
  */
 export const DEFAULT_IGNORE_RULES: string[] = [
   '.git/',

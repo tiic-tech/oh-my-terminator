@@ -4,7 +4,8 @@
  * Get complete context for FILE, MODULE, or EXTERNAL nodes.
  */
 
-import { CodeGraph, NodeType, type GraphNode } from '../../types.js';
+import type { CodeGraph } from '../../graph.js';
+import { NodeType } from '../../types.js';
 import {
   type ScopeResult,
   type ScopeError,

@@ -32,7 +32,15 @@ export function collectExportInfo(
   }
 
   if (!node.exportClause) {
-    // export * from './file' - wildcard, skip
+    // WILDCARD EXPORT SEMANTICS: export * from './file'
+    // WHY: This creates a re-export that depends on the source file's exports.
+    // We skip processing here because:
+    // 1. The actual exported names are determined by the source file, not this declaration
+    // 2. Edge generation (RE_EXPORTS edge) handles this in edge-generator.ts
+    // 3. Including placeholder entries would corrupt the export info map
+    //
+    // MATCHING BOUNDARY: This condition matches ONLY `export * from './file'` cases.
+    // It does NOT match `export * as namespace from './file'` (has exportClause).
     return;
   }
 

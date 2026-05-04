@@ -79,8 +79,30 @@ export interface Baseline {
   healthScore: number;
   /** Skill demand estimates for different agent types */
   skillDemand: SkillDemand;
-  /** History of migrations applied to this baseline */
+
+  /**
+   * History of migrations applied to this baseline
+   *
+   * OPTIONAL SEMANTICS:
+   * - PRESENT: Baseline has been migrated from older schema versions
+   * - ABSENT: Baseline was created at current schema version (no migrations needed)
+   *
+   * WHY optional: New baselines don't need migration history.
+   * Only added when upgrade-path requires recording transformation steps.
+   */
   migrationHistory?: MigrationRecord[];
-  /** Mark as deprecated to trigger automatic rebuild */
+
+  /**
+   * Mark as deprecated to trigger automatic rebuild
+   *
+   * OPTIONAL SEMANTICS:
+   * - PRESENT (true): Baseline is outdated, force rebuild on next load
+   * - ABSENT: Baseline is valid and can be used normally
+   *
+   * WHY optional: Most baselines are valid. Only set when:
+   * - Manual deprecation by user/admin
+   * - Automatic deprecation after migration failure
+   * - Schema version too old to migrate
+   */
   deprecated?: boolean;
 }

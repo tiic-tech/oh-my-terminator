@@ -45,8 +45,15 @@ export class TypeScriptParserAdapter implements Parser {
    * Create adapter with project context
    *
    * @param projectRoot - Project root directory (required for TypeScriptParser)
+   * @throws Error if projectRoot is empty or not a string
    */
   constructor(projectRoot: string) {
+    // WHY: "Validate at system boundaries" principle - TypeScript Compiler API
+    // requires valid project root for Program creation. Empty paths cause cryptic
+    // TypeScript errors during parsing that are hard to debug.
+    if (!projectRoot || typeof projectRoot !== 'string' || projectRoot.trim() === '') {
+      throw new Error('[TypeScriptParserAdapter] projectRoot must be a non-empty string');
+    }
     this.projectRoot = projectRoot;
   }
 

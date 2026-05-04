@@ -61,21 +61,30 @@ export class SchemaVersionImpl implements SchemaVersion {
   /**
    * Create a schema version
    *
-   * Validates that all parts are non-negative integers.
+   * Validates that all parts are non-negative integers using shared validator.
    */
   constructor(major: number, minor: number, patch: number) {
-    if (!Number.isInteger(major) || major < 0) {
-      throw new Error(`Invalid major version: ${major} (must be non-negative integer)`);
+    this.major = SchemaVersionImpl.validateVersionPart(major, 'major');
+    this.minor = SchemaVersionImpl.validateVersionPart(minor, 'minor');
+    this.patch = SchemaVersionImpl.validateVersionPart(patch, 'patch');
+  }
+
+  /**
+   * Validate a single version part (static utility)
+   *
+   * WHY: Constructor validation logic was duplicated across constructor and parse.
+   * Centralized validation ensures consistent error messages and reduces code duplication.
+   *
+   * @param value - Version part value to validate
+   * @param name - Name of the part for error messages
+   * @returns Validated non-negative integer
+   * @throws Error if value is not a non-negative integer
+   */
+  private static validateVersionPart(value: number, name: 'major' | 'minor' | 'patch'): number {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error(`Invalid ${name} version: ${value} (must be non-negative integer)`);
     }
-    if (!Number.isInteger(minor) || minor < 0) {
-      throw new Error(`Invalid minor version: ${minor} (must be non-negative integer)`);
-    }
-    if (!Number.isInteger(patch) || patch < 0) {
-      throw new Error(`Invalid patch version: ${patch} (must be non-negative integer)`);
-    }
-    this.major = major;
-    this.minor = minor;
-    this.patch = patch;
+    return value;
   }
 
   /**

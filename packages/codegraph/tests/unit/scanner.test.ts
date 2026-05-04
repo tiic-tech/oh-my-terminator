@@ -214,12 +214,17 @@ describe('scanDirectory', () => {
   });
 
   describe('empty directories', () => {
-    it('should skip empty directories', async () => {
+    it('should create nodes for empty directories (graph structure completeness)', async () => {
+      // WHY: Empty directories are valid nodes representing logical grouping.
+      // Creating nodes ensures graph structure completeness for downstream tools.
       const testDir = path.join(fixturesDir, 'with-empty-dir');
       const result = await scanDirectory(testDir);
 
+      // Empty directory should have a DIRECTORY node
       const emptyDirNode = result.nodes.find(n => n.path.includes('empty'));
-      assert.strictEqual(emptyDirNode, undefined);
+      assert.notStrictEqual(emptyDirNode, undefined);
+      assert.strictEqual(emptyDirNode?.type, NodeType.DIRECTORY);
+      assert.strictEqual(emptyDirNode?.name, 'empty');
     });
   });
 

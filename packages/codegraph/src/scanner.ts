@@ -13,7 +13,18 @@ export interface ScanResult {
   /** All CONTAINS edges generated */
   edges: GraphEdge[];
 
-  /** Relative paths of files matching extensions */
+  /**
+   * Relative paths of files matching extensions
+   *
+   * FILE PATH FORMAT:
+   * - Paths are relative to project root (e.g., "src/utils/helper.ts")
+   * - Always use forward slashes (/) as separators (normalized from filesystem)
+   * - Suitable for use with path.extname() to get extension
+   * - Suitable for use with path.join(root, filePath) to get absolute path
+   *
+   * WHY: Normalized format ensures consistent path handling across platforms.
+   * path.extname() works correctly with forward slashes on all platforms.
+   */
   filesToParse: string[];
 
   /** Statistics about the scan */
@@ -156,23 +167,28 @@ async function scanRecursive(
     return;
   }
 
-  // Empty directory - skip
-  if (entries.length === 0) {
-    result.stats.skipped++;
-    return;
+  // WHY: Empty directories are valid nodes in the graph structure.
+  // They may represent logical grouping (e.g., src/components/ that will be populated later)
+  // or intentional empty folders for future content.
+  // We create DIRECTORY node even if empty, but skip adding CONTAINS edges.
+  // This ensures graph structure completeness for downstream tools like architecture analysis.
+
+  // Create directory node using helper (DRY - single source of truth for node format)
+  // WHY: createDirectoryNode helper ensures consistent node ID format across all creation paths.
+  // Special case: root directory uses actual folder name from filesystem, not '.' from relativePath.
+  const dirRelativePath = relativePath || '.';
+  const dirNode = createDirectoryNode(dirRelativePath);
+
+  // Override name for root to use actual folder name (not '.')
+  // WHY: User expects to see 'project-name' not '.' as the root directory name in CLI output.
+  if (depth === 0) {
+    dirNode.name = path.basename(currentDir);
   }
 
-  // Create directory node
-  // Use currentDir basename for root to get actual directory name (not '.')
-  const currentNodeId = depth === 0 ? 'DIRECTORY:.' : `DIRECTORY:${relativePath}`;
-  const dirName = depth === 0 ? path.basename(currentDir) : path.basename(relativePath);
-  result.nodes.push({
-    id: currentNodeId,
-    type: NodeType.DIRECTORY,
-    path: relativePath || '.',
-    name: dirName || '.',
-  });
+  result.nodes.push(dirNode);
   result.stats.directories++;
+
+  const currentNodeId = dirNode.id;
 
   // Create CONTAINS edge from parent
   if (parentNodeId) {

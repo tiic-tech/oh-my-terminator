@@ -94,9 +94,37 @@ export class DefaultParserRegistry implements ParserRegistry {
    * If an extension was previously registered, the new parser takes precedence.
    * Debug mode captures/sends warnings when extensions are re-registered.
    *
+   * INPUT VALIDATION:
+   * - parser.name must be non-empty string
+   * - parser.extensions must be non-empty array of valid extensions
+   * - Extensions must start with '.' and contain only valid characters
+   *
+   * WHY: "Validate at system boundaries" principle - prevent malformed parsers
+   * from corrupting the registry and causing downstream parse failures.
+   *
    * @param parser - Parser instance to register
+   * @throws Error if parser validation fails
    */
   register(parser: Parser): void {
+    // Validate parser.name
+    if (!parser.name || typeof parser.name !== 'string' || parser.name.trim() === '') {
+      throw new Error('[ParserRegistry] Invalid parser: name must be a non-empty string');
+    }
+
+    // Validate parser.extensions
+    if (!Array.isArray(parser.extensions) || parser.extensions.length === 0) {
+      throw new Error(`[ParserRegistry] Invalid parser "${parser.name}": extensions must be a non-empty array`);
+    }
+
+    // Validate each extension format
+    for (const ext of parser.extensions) {
+      if (typeof ext !== 'string' || !ext.startsWith('.') || ext.length < 2) {
+        throw new Error(
+          `[ParserRegistry] Invalid parser "${parser.name}": extension "${ext}" must start with '.' and have at least 2 characters (e.g., '.ts')`
+        );
+      }
+    }
+
     // Store by name
     this.parsers.set(parser.name, parser);
 
