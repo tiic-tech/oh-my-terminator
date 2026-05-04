@@ -13,7 +13,7 @@
 | Skill | Purpose | Load Command |
 |-------|---------|--------------|
 | **coding-taste** | 代码品味标准、模块化、简洁性 | `/coding-taste` |
-| **tdd-workflow** | 测试驱动开发流程 | `/tdd-workflow` |
+| **tdd-workflow** | 测试驱动开发流程 (RED→GREEN→REFACTOR) | `/tdd-workflow` |
 
 ### Enforcement Rules (执行规则)
 
@@ -47,18 +47,22 @@
 ```markdown
 ## Task: [任务描述]
 
-**MANDATORY: Load coding-taste SKILL before implementation**
+**MANDATORY: Load skills before implementation**
 
 Steps:
-1. Invoke Skill tool: `Skill({ skill: "coding-taste" })`
-2. Read and understand SKILL content
-3. Confirm: "Loaded coding-taste. Proceeding."
-4. Implement following SKILL principles:
+1. Load coding-taste: `Skill({ skill: "coding-taste" })`
+2. Load tdd-workflow: `Skill({ skill: "tdd-workflow" })`
+3. Confirm: "Loaded coding-taste + tdd-workflow. Proceeding."
+4. TDD Cycle:
+   - RED: Write test first → Run → Confirm failure
+   - GREEN: Minimal implementation → Run → Confirm pass
+   - REFACTOR: Clean up → Confirm tests still pass
+5. Follow coding-taste principles:
    - Files born modular (max 150 lines)
    - Single responsibility per file
    - No code duplication
    - Comments explain WHY, not WHAT
-5. Return summary with confirmation of SKILL adherence
+6. Return: "Implementation complete. Tests passing. SKILL principles followed."
 
 Do NOT skip skill loading. Do NOT commit.
 ```
