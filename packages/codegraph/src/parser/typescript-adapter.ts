@@ -4,9 +4,13 @@
  * Adapter that wraps C3 (import extraction) and C4 (module extraction)
  * to implement the unified Parser interface for C5 analyzer.
  *
- * NOTE: TypeScriptParser uses TypeScript Compiler API which reads from filesystem.
- * The content parameter is not directly used - the file must exist on disk.
- * This is a TypeScript Compiler API limitation for MVP.
+ * DESIGN NOTE: TypeScriptParser is created once with projectRoot and reused
+ * across all files. This is important because TypeScript Compiler API's
+ * Program creation is expensive (reads tsconfig, resolves modules).
+ *
+ * WARNING: TypeScriptParser uses TypeScript Compiler API which reads from
+ * filesystem. The content parameter is IGNORED - file must exist on disk.
+ * This is a TypeScript Compiler API limitation.
  */
 
 import path from 'path';
@@ -17,41 +21,62 @@ import { TypeScriptParser } from './ts-parser/class.js';
  * TypeScript Parser Adapter
  *
  * Implements Parser interface by wrapping existing TypeScriptParser.
- * Supports .ts, .tsx, .js, .jsx, .mjs extensions.
+ * Parser instance is cached for reuse across multiple file parses.
+ *
+ * Supported extensions: .ts, .tsx, .js, .jsx, .mjs, .cjs, .mts, .cts
  */
 export class TypeScriptParserAdapter implements Parser {
   /** Parser name */
   name = 'typescript';
 
-  /** Supported file extensions */
-  extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs'];
+  /** Supported file extensions (TypeScript and JavaScript variants) */
+  extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
+
+  /** Indicates file must exist on disk (TypeScript Compiler API requirement) */
+  requiresFileOnDisk = true;
+
+  /** Project root directory for TypeScriptParser */
+  private projectRoot: string;
+
+  /** Cached TypeScriptParser instance (created once, reused) */
+  private tsParser: TypeScriptParser | null = null;
+
+  /**
+   * Create adapter with project context
+   *
+   * @param projectRoot - Project root directory (required for TypeScriptParser)
+   */
+  constructor(projectRoot: string) {
+    this.projectRoot = projectRoot;
+  }
 
   /**
    * Parse a single TypeScript/JavaScript file
    *
-   * Uses TypeScriptParser which reads from filesystem via Compiler API.
-   * The content parameter is provided for interface compliance but the file
-   * must exist on disk at filePath relative to projectRoot.
+   * Uses cached TypeScriptParser which reads from filesystem via Compiler API.
+   * The content parameter is IGNORED - file must exist on disk.
    *
    * @param filePath - Relative file path (file must exist on disk)
-   * @param content - File content (for interface, actual read from disk)
-   * @param projectRoot - Project root directory
+   * @param content - File content (IGNORED - TypeScript reads from disk)
+   * @param projectRoot - Project root directory (uses cached parser's root)
    * @returns ParserResult with nodes, edges, warnings
    */
   async parse(
     filePath: string,
-    content: string,
+    content: string, // eslint-disable-line @typescript-eslint/no-unused-vars
     projectRoot: string
   ): Promise<ParserResult> {
-    // TypeScriptParser requires absolute path
-    const absolutePath = path.resolve(projectRoot, filePath);
+    // Initialize cached parser on first call
+    if (!this.tsParser) {
+      this.tsParser = new TypeScriptParser(this.projectRoot);
+    }
 
-    // Create parser instance for this project
-    const tsParser = new TypeScriptParser(projectRoot);
+    // TypeScriptParser requires absolute path
+    const absolutePath = path.resolve(this.projectRoot, filePath);
 
     // Use parseFile which handles both imports and modules
     // Note: TypeScriptParser reads from filesystem, not from content param
-    const result = tsParser.parseFile(absolutePath);
+    const result = this.tsParser.parseFile(absolutePath);
 
     // Convert to ParserResult (remove filesParsed if present)
     return {

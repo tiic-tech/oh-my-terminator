@@ -25,6 +25,7 @@ export class DefaultParserRegistry implements ParserRegistry {
    *
    * Registers all extensions declared by the parser.
    * If an extension was previously registered, the new parser takes precedence.
+   * A warning is logged when an extension is re-registered.
    *
    * @param parser - Parser instance to register
    */
@@ -32,8 +33,15 @@ export class DefaultParserRegistry implements ParserRegistry {
     // Store by name
     this.parsers.set(parser.name, parser);
 
-    // Map each extension to this parser
+    // Map each extension to this parser (warn on collision)
     for (const ext of parser.extensions) {
+      if (this.extensionMap.has(ext)) {
+        const existing = this.extensionMap.get(ext);
+        // Log warning for debugging registration order issues
+        console.warn(
+          `[ParserRegistry] Extension ${ext} re-registered: ${existing?.name} → ${parser.name}`
+        );
+      }
       this.extensionMap.set(ext, parser);
     }
   }

@@ -8,7 +8,6 @@
  */
 
 import path from 'path';
-import fs from 'fs';
 import { performance } from 'perf_hooks';
 import {
   type FullAnalysisResult,
@@ -45,8 +44,9 @@ export async function analyzeFull(
   const graph = new CodeGraph();
   const registry = new DefaultParserRegistry();
 
-  // Register TypeScript parser (built-in)
-  const tsParser = new TypeScriptParserAdapter();
+  // Register TypeScript parser (built-in) with project context
+  // Note: Parser is created once and reused across all files
+  const tsParser = new TypeScriptParserAdapter(cwd);
   registry.register(tsParser);
 
   // Determine extensions to parse
@@ -153,12 +153,8 @@ export async function analyzeFull(
     }
 
     try {
-      // Read file content
-      const absolutePath = path.resolve(cwd, filePath);
-      const content = fs.readFileSync(absolutePath, 'utf-8');
-
-      // Parse file
-      const parseResult = await parser.parse(filePath, content, cwd);
+      // Parse file (TypeScriptParserAdapter ignores content, reads from disk)
+      const parseResult = await parser.parse(filePath, '', cwd);
 
       // Merge parse result into graph
       mergeParserResult(graph, parseResult);
@@ -166,8 +162,10 @@ export async function analyzeFull(
       // Track successful parse
       stats.filesParsed++;
     } catch (error) {
-      // Continue-on-error: record warning and continue
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      // Continue-on-error: record warning with stack trace and continue
+      const errorMsg = error instanceof Error
+        ? `${error.message}${error.stack ? ` (${error.stack.split('\n')[1]?.trim()})` : ''}`
+        : String(error);
       warnings.push(`Parse failed: ${filePath} - ${errorMsg}`);
       stats.parseErrors++;
     }
@@ -180,7 +178,10 @@ export async function analyzeFull(
   // ========================================
 
   // Count final graph elements
-  stats.modules = graph.getNodes().filter(n => n.type === 'MODULE').length;
+  stats.modules = graph.getNodes().reduce(
+    (count, n) => n.type === 'MODULE' ? count + 1 : count,
+    0
+  );
   stats.edges = graph.getEdges().length;
   stats.totalTimeMs = performance.now() - startTime;
 

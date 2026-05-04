@@ -259,7 +259,10 @@ export interface ParserResult {
 /**
  * Parser interface for language-specific file parsing
  *
- * All language parsers must implement this interface
+ * All language parsers must implement this interface.
+ *
+ * NOTE: Some parsers (like TypeScript Compiler API) require files to exist on disk.
+ * Callers should check `requiresFileOnDisk` before passing synthetic content.
  */
 export interface Parser {
   /** Unique parser name (e.g., 'typescript', 'python') */
@@ -267,9 +270,15 @@ export interface Parser {
   /** Supported file extensions (e.g., ['.ts', '.tsx']) */
   extensions: string[];
   /**
+   * Whether this parser requires the file to exist on disk.
+   * TypeScript Compiler API reads from filesystem, ignoring content parameter.
+   * Default: false (content-based parsers)
+   */
+  requiresFileOnDisk?: boolean;
+  /**
    * Parse a single file
    * @param filePath - Relative file path
-   * @param content - File content
+   * @param content - File content (ignored if requiresFileOnDisk=true)
    * @param projectRoot - Project root directory
    * @returns ParserResult with nodes, edges, warnings
    */

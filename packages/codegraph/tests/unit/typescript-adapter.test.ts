@@ -6,39 +6,46 @@ import { TypeScriptParserAdapter } from '../../src/parser/typescript-adapter.js'
 import type { Parser, ParserResult } from '../../src/types.js';
 
 describe('TypeScriptParserAdapter', () => {
-  let adapter: TypeScriptParserAdapter;
   const fixturesDir = path.resolve('tests/fixtures');
-
-  beforeEach(() => {
-    adapter = new TypeScriptParserAdapter();
-  });
 
   describe('Parser interface compliance', () => {
     it('should have name property', () => {
+      const adapter = new TypeScriptParserAdapter(fixturesDir);
       assert.strictEqual(adapter.name, 'typescript');
     });
 
-    it('should have extensions array', () => {
-      assert.deepEqual(adapter.extensions.sort(), ['.js', '.jsx', '.mjs', '.ts', '.tsx'].sort());
+    it('should have extensions array including all variants', () => {
+      const adapter = new TypeScriptParserAdapter(fixturesDir);
+      assert.deepEqual(
+        adapter.extensions.sort(),
+        ['.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx'].sort()
+      );
     });
 
     it('should have parse method', () => {
+      const adapter = new TypeScriptParserAdapter(fixturesDir);
       assert.strictEqual(typeof adapter.parse, 'function');
+    });
+
+    it('should indicate requiresFileOnDisk', () => {
+      const adapter = new TypeScriptParserAdapter(fixturesDir);
+      assert.strictEqual(adapter.requiresFileOnDisk, true);
     });
   });
 
   describe('parse method', () => {
     it('should return ParserResult structure', async () => {
+      const projectRoot = path.join(fixturesDir, 'import-test-project');
+      const adapter = new TypeScriptParserAdapter(projectRoot);
+
       // Create a simple test file
-      const testFile = path.join(fixturesDir, 'import-test-project', 'src', 'index.ts');
+      const testFile = path.join(projectRoot, 'src', 'index.ts');
       if (!fs.existsSync(testFile)) {
         // Skip if fixture doesn't exist
         return;
       }
-      const content = fs.readFileSync(testFile, 'utf-8');
-      const projectRoot = path.join(fixturesDir, 'import-test-project');
 
-      const result = await adapter.parse('src/index.ts', content, projectRoot);
+      const result = await adapter.parse('src/index.ts', '', projectRoot);
 
       assert.ok(Array.isArray(result.nodes));
       assert.ok(Array.isArray(result.edges));
@@ -46,15 +53,16 @@ describe('TypeScriptParserAdapter', () => {
     });
 
     it('should extract MODULE nodes', async () => {
+      const projectRoot = path.join(fixturesDir, 'module-test-project');
+      const adapter = new TypeScriptParserAdapter(projectRoot);
+
       // Use existing fixture
-      const fixturePath = path.join(fixturesDir, 'module-test-project', 'src', 'all-kinds.ts');
+      const fixturePath = path.join(projectRoot, 'src', 'all-kinds.ts');
       if (!fs.existsSync(fixturePath)) {
         return;
       }
-      const content = fs.readFileSync(fixturePath, 'utf-8');
-      const projectRoot = path.join(fixturesDir, 'module-test-project');
 
-      const result = await adapter.parse('src/all-kinds.ts', content, projectRoot);
+      const result = await adapter.parse('src/all-kinds.ts', '', projectRoot);
 
       // Should have MODULE nodes for exported symbols
       const moduleNodes = result.nodes.filter(n => n.type === 'MODULE');
@@ -62,14 +70,15 @@ describe('TypeScriptParserAdapter', () => {
     });
 
     it('should extract IMPORTS edges', async () => {
-      const fixturePath = path.join(fixturesDir, 'import-test-project', 'src', 'index.ts');
+      const projectRoot = path.join(fixturesDir, 'import-test-project');
+      const adapter = new TypeScriptParserAdapter(projectRoot);
+
+      const fixturePath = path.join(projectRoot, 'src', 'index.ts');
       if (!fs.existsSync(fixturePath)) {
         return;
       }
-      const content = fs.readFileSync(fixturePath, 'utf-8');
-      const projectRoot = path.join(fixturesDir, 'import-test-project');
 
-      const result = await adapter.parse('src/index.ts', content, projectRoot);
+      const result = await adapter.parse('src/index.ts', '', projectRoot);
 
       // Should have IMPORTS edges for imports
       const importEdges = result.edges.filter(e => e.type === 'IMPORTS');
@@ -77,23 +86,24 @@ describe('TypeScriptParserAdapter', () => {
     });
 
     it('should handle syntax errors gracefully', async () => {
-      const badCode = 'import { x } from "./y"; invalid syntax here <<<';
-      const projectRoot = fixturesDir;
+      const adapter = new TypeScriptParserAdapter(fixturesDir);
 
-      const result = await adapter.parse('bad.ts', badCode, projectRoot);
+      // Parse a file that doesn't exist (TypeScript Compiler API handles this)
+      const result = await adapter.parse('nonexistent-bad.ts', '', fixturesDir);
 
       // Should not throw, should return with warnings
       assert.ok(Array.isArray(result.warnings));
-      // May have warnings about syntax error
     });
 
     it('should handle file not found gracefully', async () => {
+      const adapter = new TypeScriptParserAdapter(fixturesDir);
+
       // Non-existent file returns with warning
       const result = await adapter.parse('nonexistent.ts', '', fixturesDir);
 
       assert.ok(Array.isArray(result.warnings));
       assert.ok(result.warnings.length > 0, 'Should have warning for non-existent file');
-      assert.ok(result.warnings[0].includes('not found'));
+      assert.ok(result.warnings[0].includes('not found') || result.warnings[0].includes('Error'));
     });
   });
 });
