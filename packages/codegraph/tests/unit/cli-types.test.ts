@@ -34,9 +34,22 @@ describe('CliErrorCode enum', () => {
     assert.strictEqual(CliErrorCode.E_EMPTY_REPO, 'E_EMPTY_REPO');
   });
 
-  it('should have exactly 6 values', () => {
+  // C10: Compression-related error codes
+  it('should contain E_INVALID_CONFIG value', () => {
+    assert.strictEqual(CliErrorCode.E_INVALID_CONFIG, 'E_INVALID_CONFIG');
+  });
+
+  it('should contain E_INDEX_OUT_OF_BOUNDS value', () => {
+    assert.strictEqual(CliErrorCode.E_INDEX_OUT_OF_BOUNDS, 'E_INDEX_OUT_OF_BOUNDS');
+  });
+
+  it('should contain E_CORRUPTED_BASELINE value', () => {
+    assert.strictEqual(CliErrorCode.E_CORRUPTED_BASELINE, 'E_CORRUPTED_BASELINE');
+  });
+
+  it('should have exactly 9 values', () => {
     const values = Object.values(CliErrorCode);
-    assert.strictEqual(values.length, 6);
+    assert.strictEqual(values.length, 9);
   });
 });
 
@@ -201,6 +214,9 @@ describe('CliError interface', () => {
       CliErrorCode.E_WALK_API_FAILED,
       CliErrorCode.E_INVALID_PATH,
       CliErrorCode.E_EMPTY_REPO,
+      CliErrorCode.E_INVALID_CONFIG,
+      CliErrorCode.E_INDEX_OUT_OF_BOUNDS,
+      CliErrorCode.E_CORRUPTED_BASELINE,
     ];
 
     for (const code of errorCodes) {

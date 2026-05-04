@@ -75,10 +75,14 @@ export interface ModuleMetadata {
   isExported?: boolean;
 
   // --- Documentation ---
-  /** First 200 characters of JSDoc comment */
+  /** First 200 characters of JSDoc comment (or truncated based on config) */
   jsDoc?: string;
   /** Whether marked as @deprecated */
   deprecated?: boolean;
+  /** Whether JSDoc was truncated from original length */
+  jsDocTruncated?: boolean;
+  /** Whether this module has JSDoc documentation (true if any JSDoc exists) */
+  hasJSDoc?: boolean;
 
   // --- Code metrics ---
   /** Cyclomatic complexity */
@@ -372,6 +376,12 @@ export enum CliErrorCode {
   E_INVALID_PATH = 'E_INVALID_PATH',
   /** Empty git repository - .git exists but no commits made */
   E_EMPTY_REPO = 'E_EMPTY_REPO',
+  /** Invalid configuration - config file has invalid schema or values */
+  E_INVALID_CONFIG = 'E_INVALID_CONFIG',
+  /** Path table index exceeds bounds - corrupted baseline or invalid reference */
+  E_INDEX_OUT_OF_BOUNDS = 'E_INDEX_OUT_OF_BOUNDS',
+  /** Baseline file corrupted - invalid JSON or missing required fields */
+  E_CORRUPTED_BASELINE = 'E_CORRUPTED_BASELINE',
 }
 
 /**
@@ -483,4 +493,156 @@ export interface FileChange {
   path: string;
   /** Change type classification */
   type: 'ADD' | 'MODIFY' | 'DELETE';
+}
+
+// ============================================================================
+// C10: Compression Types (Baseline Size Optimization)
+// ============================================================================
+
+/**
+ * Compression options for baseline serialization
+ *
+ * WHY: Configurable compression enables trade-off between size and information retention.
+ * Default values optimized for Agent token budgets while preserving essential context.
+ *
+ * @see design.md D1-D4 decisions
+ */
+export interface CompressionOptions {
+  /** Whether compression is enabled (default: true) */
+  enabled: boolean;
+  /** Maximum JSDoc length before truncation (default: 100) */
+  jsDocMaxLength?: number;
+}
+
+/**
+ * Full compression configuration
+ *
+ * WHY: Separated from CompressionOptions to allow future extensions
+ * (e.g., compression levels, feature-specific toggles).
+ */
+export interface CompressionConfig {
+  /** Compression options */
+  compression: CompressionOptions;
+}
+
+/**
+ * Path table for string interning (deduplication)
+ *
+ * WHY: External dependency paths repeat frequently (50+ times for popular packages).
+ * Path table reduces repetition to single entry, referenced by index.
+ *
+ * @see design.md D3: Path Table decision
+ */
+export type PathTable = string[];
+
+/**
+ * Metadata for MODULE nodes in compressed format
+ *
+ * Subset of ModuleMetadata with compression-specific fields.
+ * Inherits JSDoc truncation fields from ModuleMetadata.
+ */
+export interface CompressedModuleMetadata {
+  /** Symbol kind */
+  kind?: 'function' | 'class' | 'variable' | 'interface' | 'type' | 'component' | 'unknown';
+  /** Whether the symbol is exported */
+  isExported?: boolean;
+  /** Truncated JSDoc comment */
+  jsDoc?: string;
+  /** Whether JSDoc was truncated */
+  jsDocTruncated?: boolean;
+  /** Whether this module has JSDoc documentation */
+  hasJSDoc?: boolean;
+  /** Whether marked as @deprecated */
+  deprecated?: boolean;
+  /** Cyclomatic complexity */
+  complexity?: number;
+  /** Lines of code */
+  loc?: number;
+}
+
+/**
+ * Compressed graph node (no id field)
+ *
+ * WHY: ID is redundant - can be reconstructed from type + pathIndex + name.
+ * Removal yields 15-20% size reduction.
+ *
+ * ID reconstruction rules:
+ * - FILE/DIRECTORY/EXTERNAL: `${type}:${pathTable[pathIndex]}`
+ * - MODULE: `MODULE:${pathTable[pathIndex]}#${name}`
+ *
+ * @see design.md D1: ID Field Removal decision
+ */
+export interface CompressedNode {
+  /** Node type */
+  type: NodeType;
+  /** Index in pathTable for path string */
+  pathIndex: number;
+  /** Display name (required for MODULE, optional for others) */
+  name?: string;
+  /** Optional metadata (primarily for MODULE nodes) */
+  metadata?: CompressedModuleMetadata;
+}
+
+/**
+ * Compressed graph edge (no id field)
+ *
+ * WHY: ID is redundant - can be reconstructed from type + fromIndex + toIndex.
+ * Uses pathTable indexes instead of full path strings.
+ *
+ * @see design.md D1: ID Field Removal decision
+ */
+export interface CompressedEdge {
+  /** Edge type */
+  type: EdgeType;
+  /** Source node path index in pathTable */
+  fromIndex: number;
+  /** Target node path index in pathTable */
+  toIndex: number;
+  /** Optional metadata */
+  metadata?: EdgeMetadata;
+}
+
+/**
+ * IMPORTS_BATCH edge type for batched import relationships
+ *
+ * WHY: IMPORTS edges dominate (70-80% of edges). Grouping reduces key repetition.
+ * One IMPORTS_BATCH replaces multiple IMPORTS edges from same source.
+ *
+ * @see design.md D4: Edge Batch Compression decision
+ */
+export interface IMPORTS_BATCH {
+  /** Literal type identifier */
+  type: 'IMPORTS_BATCH';
+  /** Source node path index */
+  fromIndex: number;
+  /** Target node path indexes (one per import target) */
+  targetIndexes: number[];
+}
+
+/**
+ * Compressed baseline format (schema version 1.1)
+ *
+ * WHY: Reduces baseline size by 20-60% through:
+ * - ID field removal (D1)
+ * - JSDoc truncation (D2)
+ * - Path table interning (D3)
+ * - Edge batching (D4)
+ *
+ * Backward compatible via migration (1.0 → 1.1).
+ *
+ * @see design.md for full compression strategy
+ */
+export interface CompressedBaseline {
+  /** Schema version for compatibility tracking */
+  schemaVersion?: SchemaVersion;
+  /** String interning table for paths */
+  pathTable: PathTable;
+  /** Compressed nodes (no id, pathIndex references) */
+  nodes: CompressedNode[];
+  /** Compressed edges (regular or IMPORTS_BATCH) */
+  edges: (CompressedEdge | IMPORTS_BATCH)[];
+  /** Git commit hash this baseline represents */
+  commitHash: string;
+  /** Timestamp when baseline was generated */
+  timestamp: number;
 }
