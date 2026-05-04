@@ -1,10 +1,45 @@
 /**
  * JSDoc Extractor
  *
- * Extract JSDoc comments from AST nodes
+ * Extract JSDoc comments from AST nodes and detect @deprecated markers
  */
 
 import ts from 'typescript';
+
+/**
+ * Check if JSDoc contains @deprecated marker
+ *
+ * @param node - AST node
+ * @param sourceFile - Optional source file (needed when node.getSourceFile() is undefined)
+ * @returns True if JSDoc contains @deprecated tag
+ */
+export function isDeprecated(node: ts.Node, sourceFile?: ts.SourceFile): boolean {
+  const sf = sourceFile ?? node.getSourceFile();
+  if (!sf) {
+    return false;
+  }
+
+  const nodeFullStart = node.getFullStart();
+  const comments = ts.getLeadingCommentRanges(sf.text, nodeFullStart);
+
+  if (!comments || comments.length === 0) {
+    return false;
+  }
+
+  for (const comment of comments) {
+    const text = sf.text.substring(comment.pos, comment.end);
+
+    if (text.startsWith('/**') && text.endsWith('*/')) {
+      // Check for @deprecated tag (case-insensitive, allows whitespace)
+      const deprecatedPattern = /@deprecated/i;
+      if (deprecatedPattern.test(text)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
 
 /**
  * Extract JSDoc comment from node

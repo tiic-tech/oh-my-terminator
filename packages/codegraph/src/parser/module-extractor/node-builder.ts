@@ -8,9 +8,10 @@ import ts from 'typescript';
 import { GraphNode, NodeType, EdgeType } from '../../types.js';
 import { ModuleKind, ModuleMetadata, ModuleExtractResult, ExportInfoMap } from './types.js';
 import { generateModuleId } from './module-id.js';
-import { extractJSDoc } from './jsdoc-extractor.js';
+import { extractJSDoc, isDeprecated } from './jsdoc-extractor.js';
 import { calculateComplexity } from './complexity.js';
 import { countLOC } from './loc-counter.js';
+import { isExported } from './export-info.js';
 
 /**
  * Options for creating a MODULE node
@@ -130,9 +131,19 @@ export function buildMetadata(
   exportName?: string,
   allExportTypes?: string[]
 ): ModuleMetadata {
-  const metadata: ModuleMetadata = { kind };
+  const metadata: ModuleMetadata = {
+    kind,
+    // All MODULE nodes are exported by definition
+    // (MODULE nodes are only created for exported symbols)
+    isExported: true,
+  };
 
-  // JSDoc
+  // Check for @deprecated in JSDoc
+  if (isDeprecated(node, sourceFile)) {
+    metadata.deprecated = true;
+  }
+
+  // JSDoc (text content)
   const jsdoc = extractJSDoc(node, sourceFile);
   if (jsdoc) {
     metadata.jsDoc = jsdoc;
@@ -170,6 +181,10 @@ export function buildMetadata(
 /**
  * Create a simple MODULE node for re-exports or unknown types
  *
+ * NOTE: For re-exports, we cannot detect @deprecated because
+ * the original declaration is in another file. The deprecated
+ * status should be checked from the original symbol's file.
+ *
  * @param relativePath - Relative file path
  * @param fileId - Parent FILE node ID
  * @param exportedName - Exported name
@@ -197,7 +212,11 @@ export function createSimpleModuleNode(
 
   const moduleId = generateModuleId(relativePath, finalName);
 
-  const metadata: ModuleMetadata = { kind };
+  const metadata: ModuleMetadata = {
+    kind,
+    // Re-exports are exported by definition
+    isExported: true,
+  };
   if (originalName && originalName !== exportedName) {
     metadata.originalName = originalName;
   }

@@ -13,20 +13,33 @@ export type ModuleKind = 'function' | 'class' | 'interface' | 'type' | 'componen
 
 /**
  * Extended metadata for MODULE nodes
+ *
+ * NOTE: This interface mirrors the ModuleMetadata in ../../types.ts
+ * for internal parser use. The two should stay synchronized.
  */
 export interface ModuleMetadata {
+  // --- Core identity ---
   /** Kind classification */
   kind: ModuleKind;
 
+  /** Whether the symbol is exported (mirror of types.ts isExported) */
+  isExported?: boolean;
+
+  // --- Documentation ---
   /** JSDoc comment (first 200 chars) */
   jsDoc?: string;
 
+  /** Whether marked as @deprecated (mirror of types.ts deprecated) */
+  deprecated?: boolean;
+
+  // --- Code metrics ---
   /** McCabe cyclomatic complexity */
   complexity?: number;
 
   /** Effective lines of code */
   loc?: number;
 
+  // --- Export details ---
   /** For named default exports */
   namedDefault?: boolean;
 
