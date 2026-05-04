@@ -1,10 +1,10 @@
 /**
- * C7: API Module Entry Point
+ * C7/C8: API Module Entry Point
  *
- * Exports Scope Query and QuickBrief APIs for Agent-friendly graph queries.
+ * Exports Scope Query, QuickBrief, Impact Analysis, and Architecture Layers APIs.
  */
 
-// Types
+// C7: Scope Query Types
 export type {
   ComplexityLevel,
   ComplexityInfo,
@@ -20,12 +20,30 @@ export type {
   NormalizedTarget,
 } from './types.js';
 
+// C8: Impact Analysis Types
+export type {
+  AffectedFile,
+  ImpactResult,
+  ImpactError,
+  ImpactOptions,
+  LayerRole,
+  GroupStats,
+  LayerAssignment,
+  ViolationSeverity,
+  ViolationFilePair,
+  LayerViolation,
+  GroupSummary,
+  LayersResult,
+  LayersError,
+  LayersOptions,
+} from './types.js';
+
 export { ErrorCode } from './types.js';
 
-// Functions
+// C7: Scope Query Functions
 export { getScope, getQuickBrief } from './scope/index.js';
 
-// Internal helpers (exported for testing)
+// C7: Scope Internal helpers (exported for testing)
 export {
   normalizeTarget,
   extractExports,
@@ -39,3 +57,38 @@ export {
   formatScopeOutput,
   formatQuickBriefOutput,
 } from './scope/index.js';
+
+// C8: Impact Analysis Functions
+export { getImpact } from './impact/index.js';
+
+// C8: Impact Internal helpers (exported for testing)
+export {
+  normalizeTargetsToFile,
+  bfsDependents,
+  mergeBFSResults,
+  isTestFile,
+  formatImpactOutput,
+  calculateBlastRadius,
+  generateNextSuggested,
+  generateWarnings,
+} from './impact/index.js';
+
+// C8: Architecture Layers Functions
+export { getArchitectureLayers } from './layers/index.js';
+
+// C8: Layers Internal helpers (exported for testing)
+export {
+  groupFilesByFirstLevelDirectory,
+  computeImportDirectionStats,
+  getGroupNameFromFile,
+  inferArchitectureLayers,
+  detectLayerViolations,
+  calculateLayerHealthScore,
+  calculateSeverity,
+  generateViolationSuggestion,
+  buildGroupSummaries,
+  buildGroupToLayerMap,
+  formatLayersOutput,
+  generateLayersWarnings,
+  generateLayersNextSuggested,
+} from './layers/index.js';

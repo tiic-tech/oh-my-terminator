@@ -459,3 +459,172 @@ import {
   countImportedBy,    // Imported-by edge count
 } from '@oh-my-terminator/codegraph';
 ```
+
+## Impact Analysis API (C8)
+
+### Overview
+
+Impact analysis provides BFS traversal on IMPORTS edges to find all files affected by changes to target files.
+
+### getImpact(graph, targets, options?)
+
+Find all dependents of target files.
+
+```typescript
+import { getImpact } from '@oh-my-terminator/codegraph';
+
+// Single target
+const result = getImpact(graph, ['FILE:src/utils/format.ts']);
+if (result.success) {
+  console.log(result.summary.total);     // Total affected files
+  console.log(result.summary.direct);    // Direct dependents
+  console.log(result.summary.indirect);  // Indirect dependents
+  console.log(result.blastRadius);       // low/medium/high/unknown
+  console.log(result.content);           // Agent-friendly Markdown
+}
+
+// Multi-target merge
+const multiResult = getImpact(graph, [
+  'FILE:src/utils/format.ts',
+  'FILE:src/types/api.ts'
+]);
+
+// MODULE target (resolves to parent FILE)
+const moduleResult = getImpact(graph, ['MODULE:src/utils.ts#formatDate']);
+
+// Options
+const limitedResult = getImpact(graph, ['FILE:src/utils/format.ts'], {
+  maxDepth: 0,       // C8-2: Only direct dependents
+  includeTests: true // C8-1: Include test files
+});
+```
+
+### ImpactResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| success | boolean | Operation status |
+| targets | string[] | Query target IDs |
+| affectedFiles | AffectedFile[] | Affected files with distance/via |
+| summary | object | total, direct, indirect counts |
+| blastRadius | string | low (≤3), medium (4-10), high (>10), unknown |
+| content | string | Agent-friendly Markdown output |
+| durationMs | number | Query execution time |
+
+### AffectedFile
+
+| Field | Type | Description |
+|-------|------|-------------|
+| path | string | File path (without FILE: prefix) |
+| distance | number | 1=direct, 2+=indirect |
+| via | string[] | C8-4: Intermediate dependency paths (array format) |
+
+### Key Resolutions
+
+- **C8-1**: Test files excluded by default (`includeTests` option)
+- **C8-2**: `maxDepth=0` returns only direct dependents
+- **C8-4**: `via` field uses array format (supports multi-path)
+- **C8-6**: DYNAMIC_IMPORTS edges excluded from traversal
+- **C8-8**: Blast radius: 3=low boundary, 10=medium boundary
+- **C8-12**: Multi-target: distance=min, via=merged
+
+### Internal Helpers (for testing)
+
+```typescript
+import {
+  normalizeTargetsToFile,  // Target → FILE conversion
+  bfsDependents,           // BFS traversal core
+  mergeBFSResults,         // Multi-target merge
+  isTestFile,              // Test file detection
+  calculateBlastRadius,    // Blast radius classification
+} from '@oh-my-terminator/codegraph';
+```
+
+## Architecture Layers API (C8)
+
+### Overview
+
+Architecture layers inference groups files by first-level directory and determines layer hierarchy from import direction statistics.
+
+### getArchitectureLayers(graph, options?)
+
+Infer architecture layers from import relationships.
+
+```typescript
+import { getArchitectureLayers } from '@oh-my-terminator/codegraph';
+
+const result = getArchitectureLayers(graph);
+if (result.success) {
+  console.log(result.layers);       // Layer assignments
+  console.log(result.violations);   // Layer violations detected
+  console.log(result.healthScore);  // 0-100 score
+  console.log(result.content);      // Agent-friendly Markdown
+}
+
+// Options
+const customResult = getArchitectureLayers(graph, {
+  sourceRoot: 'lib',           // Custom source root
+  warnOnMutualImport: true     // C8-11: Warn on same-layer mutual imports
+});
+```
+
+### LayersResult
+
+| Field | Type | Description |
+|-------|------|-------------|
+| success | boolean | Operation status |
+| layers | LayerAssignment[] | Inferred layer structure |
+| violations | LayerViolation[] | Detected violations |
+| healthScore | number | 0-100 (100=perfect) |
+| groups | GroupSummary[] | Group summaries with netScore |
+| content | string | Agent-friendly Markdown output |
+
+### LayerAssignment
+
+| Field | Type | Description |
+|-------|------|-------------|
+| layer | number | Layer number (1=bottom/Foundation) |
+| role | string | Foundation/Core/Application/Presentation |
+| groups | GroupStats[] | Groups in this layer |
+
+### LayerViolation
+
+| Field | Type | Description |
+|-------|------|-------------|
+| fromGroup | string | Violating group (low layer) |
+| toGroup | string | Target group (high layer) |
+| count | number | Violation count |
+| layerGap | number | C8-10: Layer distance (positive) |
+| severity | string | minor/moderate/critical |
+| suggestion | string | Remediation suggestion |
+
+### Health Score Calculation (C8-5)
+
+```
+Base score: 100
+Penalties:
+- minor violation (layerGap=1): -5
+- moderate violation (layerGap=2): -10
+- critical violation (layerGap≥3): -15
+Minimum: 0
+```
+
+### Key Resolutions
+
+- **C8-3**: LAYER_THRESHOLD=2 for adjacent score merging
+- **C8-5**: Health score with severity weights
+- **C8-7**: E005 error for empty graph
+- **C8-10**: `layerGap` (renamed from expectedLayerGap)
+- **C8-11**: Same-layer mutual imports NOT violations
+
+### Internal Helpers (for testing)
+
+```typescript
+import {
+  groupFilesByFirstLevelDirectory,  // File grouping
+  computeImportDirectionStats,      // Import statistics
+  inferArchitectureLayers,          // Layer inference
+  detectLayerViolations,            // Violation detection
+  calculateLayerHealthScore,        // Health score
+  calculateSeverity,                // Severity (minor/moderate/critical)
+} from '@oh-my-terminator/codegraph';

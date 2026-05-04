@@ -128,9 +128,9 @@ export {
   clearMigrationRegistry,
 } from './persistence/index.js';
 
-// C7: API Module (Scope Query and QuickBrief)
+// C7/C8: API Module (Scope Query, QuickBrief, Impact Analysis, Architecture Layers)
 export {
-  // Types
+  // C7 Types
   type ComplexityLevel,
   type ComplexityInfo,
   type ModifiedInfo,
@@ -143,11 +143,26 @@ export {
   type QuickBriefError,
   type TargetType,
   type NormalizedTarget,
+  // C8 Types
+  type AffectedFile,
+  type ImpactResult,
+  type ImpactError,
+  type ImpactOptions,
+  type LayerRole,
+  type GroupStats,
+  type LayerAssignment,
+  type ViolationSeverity,
+  type ViolationFilePair,
+  type LayerViolation,
+  type GroupSummary,
+  type LayersResult,
+  type LayersError,
+  type LayersOptions,
   ErrorCode,
-  // Functions
+  // C7 Functions
   getScope,
   getQuickBrief,
-  // Internal helpers (exported for testing)
+  // C7 Internal helpers (testing)
   normalizeTarget,
   extractExports,
   extractImports,
@@ -159,4 +174,29 @@ export {
   countImportedBy,
   formatScopeOutput,
   formatQuickBriefOutput,
+  // C8 Functions
+  getImpact,
+  getArchitectureLayers,
+  // C8 Internal helpers (testing)
+  normalizeTargetsToFile,
+  bfsDependents,
+  mergeBFSResults,
+  isTestFile,
+  formatImpactOutput,
+  calculateBlastRadius,
+  generateNextSuggested,
+  generateWarnings,
+  groupFilesByFirstLevelDirectory,
+  computeImportDirectionStats,
+  getGroupNameFromFile,
+  inferArchitectureLayers,
+  detectLayerViolations,
+  calculateLayerHealthScore,
+  calculateSeverity,
+  generateViolationSuggestion,
+  buildGroupSummaries,
+  buildGroupToLayerMap,
+  formatLayersOutput,
+  generateLayersWarnings,
+  generateLayersNextSuggested,
 } from './api/index.js';
