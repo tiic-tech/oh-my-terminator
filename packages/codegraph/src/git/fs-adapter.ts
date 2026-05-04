@@ -54,8 +54,10 @@ export const fs = {
   },
 
   /** Async wrapper for readdirSync */
-  readdirSync: async (path: string, options?: { encoding?: BufferEncoding; withFileTypes?: boolean }): Promise<string[]> => {
-    return realReaddirSync(path, options as BufferEncoding) as string[];
+  readdirSync: async (path: string, options?: BufferEncoding | object): Promise<string[]> => {
+    // Simplified to handle both string encoding and object options
+    const opts = options || {};
+    return realReaddirSync(path, opts as BufferEncoding) as string[];
   },
 
   /** Async wrapper for unlinkSync */

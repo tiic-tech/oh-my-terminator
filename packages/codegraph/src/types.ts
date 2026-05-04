@@ -345,3 +345,137 @@ export interface ParserRegistry {
    */
   getAllParsers(): Parser[];
 }
+
+// ============================================================================
+// C9: CLI Types (Analyze/Update Commands)
+// ============================================================================
+
+/**
+ * Error codes for CLI operations
+ *
+ * WHY: Structured error codes enable programmatic error handling and user-friendly messages.
+ * Each code maps to a specific failure scenario with actionable guidance.
+ */
+export enum CliErrorCode {
+  /** Not in a git repository - git commands will fail */
+  E_NO_GIT_REPO = 'E_NO_GIT_REPO',
+  /** Baseline file not found - need to run analyze first */
+  E_BASELINE_NOT_FOUND = 'E_BASELINE_NOT_FOUND',
+  /** Source file parsing failed - check file syntax */
+  E_PARSE_FAILED = 'E_PARSE_FAILED',
+  /** CodeGraph API walk failed - graph traversal error */
+  E_WALK_API_FAILED = 'E_WALK_API_FAILED',
+  /** Invalid path provided - path does not exist or is not accessible */
+  E_INVALID_PATH = 'E_INVALID_PATH',
+}
+
+/**
+ * Statistics from CLI analyze/update operations
+ *
+ * Tracks processing metrics for performance monitoring and user feedback.
+ */
+export interface CliResultStats {
+  /** Number of files scanned for analysis */
+  filesScanned: number;
+  /** Number of MODULE nodes extracted from parsed files */
+  modulesExtracted: number;
+  /** Edge counts by type for dependency tracking */
+  edgesCreated: {
+    /** Import relationships (FILE → MODULE, MODULE → MODULE) */
+    imports: number;
+    /** Export relationships (MODULE → FILE) */
+    exports: number;
+    /** Structural containment (DIRECTORY → FILE, FILE → MODULE) */
+    contains: number;
+  };
+}
+
+/**
+ * Result of CLI analyze command
+ *
+ * WHY: Structured result enables both programmatic consumption and CLI output formatting.
+ * success discriminates between happy path and error cases for type narrowing.
+ */
+export interface AnalyzeResult {
+  /** true for successful analysis, false for errors (literal type for narrowing) */
+  success: boolean;
+  /** Processing statistics */
+  stats: CliResultStats;
+  /** Baseline metadata (only present on success) */
+  baseline?: {
+    /** Path to baseline.json file */
+    path: string;
+    /** Git commit hash captured during analysis */
+    commitHash: string;
+    /** Unix timestamp when baseline was created */
+    timestamp: number;
+  };
+  /** Total processing time in milliseconds */
+  durationMs: number;
+  /** Non-fatal issues that didn't block analysis */
+  warnings: string[];
+  /** Hints for next actions (e.g., "Run 'cg update' after changes") */
+  nextSuggested: string[];
+}
+
+/**
+ * Result of CLI update command
+ *
+ * Captures delta between baseline and current state after incremental update.
+ */
+export interface UpdateResult {
+  /** true for successful update, false for errors */
+  success: boolean;
+  /** File changes detected by git diff */
+  changes: {
+    /** New files added to the codebase */
+    added: string[];
+    /** Files removed from the codebase */
+    removed: string[];
+    /** Files with content modifications */
+    modified: string[];
+  };
+  /** Node delta statistics */
+  delta: {
+    /** New nodes added to the graph */
+    newNodes: number;
+    /** Nodes removed from the graph */
+    removedNodes: number;
+  };
+  /** Total processing time in milliseconds */
+  durationMs: number;
+  /** Non-fatal issues during update */
+  warnings: string[];
+}
+
+/**
+ * CLI error result
+ *
+ * WHY: success: false is a literal type enabling discriminated union narrowing.
+ * When success is false, this interface is guaranteed; when true, AnalyzeResult/UpdateResult.
+ */
+export interface CliError {
+  /** Always false - enables type narrowing via discriminated union */
+  success: false;
+  /** Structured error information */
+  error: {
+    /** Error code for programmatic handling */
+    code: CliErrorCode;
+    /** Human-readable error message */
+    message: string;
+  };
+  /** Time elapsed before error occurred */
+  durationMs: number;
+}
+
+/**
+ * File change record for update operations
+ *
+ * Represents a single file modification detected by git diff.
+ */
+export interface FileChange {
+  /** Relative file path from project root */
+  path: string;
+  /** Change type classification */
+  type: 'ADD' | 'MODIFY' | 'DELETE';
+}

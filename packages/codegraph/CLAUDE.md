@@ -4,6 +4,67 @@
 
 ---
 
+## ⚠️ MANDATORY: Coding Standards for All Agents
+
+**无论是主Agent还是Subagent，在任何代码开发前必须加载以下SKILL**:
+
+### Required Skills (强制加载)
+
+| Skill | Purpose | Load Command |
+|-------|---------|--------------|
+| **coding-taste** | 代码品味标准、模块化、简洁性 | `/coding-taste` |
+| **tdd-workflow** | 测试驱动开发流程 | `/tdd-workflow` |
+
+### Enforcement Rules (执行规则)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  MANDATORY: All code development MUST start with skill loading   │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Main Agent (Orchestrator):                                     │
+│  ├─ Before dispatching any code-related subagent                │
+│  ├─ In subagent prompt, include EXPLICIT instruction:           │
+│  │  "Load coding-taste SKILL first (/coding-taste)"            │
+│  │  "Load tdd-workflow SKILL (/tdd-workflow)"                   │
+│  └─ Subagent must confirm: "Loaded coding-taste. Proceeding."  │
+│                                                                 │
+│  Subagent (Executor):                                           │
+│  ├─ Receive prompt with skill loading instruction               │
+│  ├─ Invoke Skill tool to load coding-taste                      │
+│  ├─ Read and understand SKILL content                           │
+│  ├─ Confirm: "Loaded coding-taste. Proceeding with implementation" │
+│  ├─ Follow SKILL principles throughout implementation           │
+│  └─ Return: "Implementation complete per coding-taste principles" │
+│                                                                 │
+│  NO CODE DEVELOPMENT WITHOUT SKILL LOADING                      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Subagent Prompt Template (Subagent提示模板)
+
+```markdown
+## Task: [任务描述]
+
+**MANDATORY: Load coding-taste SKILL before implementation**
+
+Steps:
+1. Invoke Skill tool: `Skill({ skill: "coding-taste" })`
+2. Read and understand SKILL content
+3. Confirm: "Loaded coding-taste. Proceeding."
+4. Implement following SKILL principles:
+   - Files born modular (max 150 lines)
+   - Single responsibility per file
+   - No code duplication
+   - Comments explain WHY, not WHAT
+5. Return summary with confirmation of SKILL adherence
+
+Do NOT skip skill loading. Do NOT commit.
+```
+
+---
+
 ## 核心原则
 
 ### 0. Coding Taste SKILL (代码品味)
