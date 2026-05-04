@@ -24,6 +24,13 @@ export {
   safeMigrateBaseline,
 } from './execution.js';
 
+// Re-export from 1.0-to-1.1 migration module
+export {
+  migrate1_0To1_1,
+  detectBaselineFormat,
+} from './1.0-to-1.1.js';
+export type { BaselineFormat, BaselineData_1_0 } from './1.0-to-1.1.js';
+
 // ============================================================================
 // Built-in Migration Scripts
 // ============================================================================

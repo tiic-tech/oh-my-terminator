@@ -54,11 +54,11 @@
 
 ## 4. Migration Module
 
-- [ ] 4.1 Create `src/persistence/migrations/1.0-to-1.1.ts`
-- [ ] 4.2 Implement `migrate1_0To1_1(data: BaselineData_1_0): CompressedBaseline`
-- [ ] 4.3 Implement migration edge case handling (empty baseline, no imports)
-- [ ] 4.4 Add migration detection to `loadBaseline()`
-- [ ] 4.5 Write unit tests for 1.0→1.1 migration
+- [x] 4.1 Create `src/persistence/migrations/1.0-to-1.1.ts`
+- [x] 4.2 Implement `migrate1_0To1_1(data: BaselineData_1_0): CompressedBaseline`
+- [x] 4.3 Implement migration edge case handling (empty baseline, no imports)
+- [x] 4.4 Add migration detection to `loadBaseline()`
+- [x] 4.5 Write unit tests for 1.0→1.1 migration
 
 ## 5. Persistence Integration
 

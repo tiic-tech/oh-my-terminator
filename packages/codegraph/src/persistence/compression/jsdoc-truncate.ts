@@ -31,7 +31,7 @@ export interface TruncatedJSDocResult {
  * WHY: 100 characters balances readability with size reduction.
  * Agents typically consume first 50-80 chars for context.
  */
-const DEFAULT_JSDOC_MAX_LENGTH = 100;
+export const DEFAULT_JSDOC_MAX_LENGTH = 100;
 
 /**
  * Truncate JSDoc to specified maximum length
