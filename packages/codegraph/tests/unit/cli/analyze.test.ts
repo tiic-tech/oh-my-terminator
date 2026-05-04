@@ -57,22 +57,23 @@ function createMockAnalysisResult(filesParsed: number = 5, warnings: string[] = 
   graph.addEdge({
     from: 'FILE:src/index.ts',
     to: 'MODULE:src/index.ts#main',
-    type: EdgeType.CONTAINS,
+    type: EdgeType.EXPORTS,
   });
   graph.addEdge({
     from: 'FILE:src/utils.ts',
     to: 'MODULE:src/utils.ts#helper',
-    type: EdgeType.CONTAINS,
+    type: EdgeType.EXPORTS,
   });
   graph.addEdge({
     from: 'MODULE:src/index.ts#main',
     to: 'MODULE:src/utils.ts#helper',
     type: EdgeType.IMPORTS,
   });
+  // DIRECTORY → FILE uses CONTAINS
   graph.addEdge({
-    from: 'MODULE:src/utils.ts#helper',
-    to: 'FILE:src/utils.ts',
-    type: EdgeType.EXPORTS,
+    from: 'DIRECTORY:src',
+    to: 'FILE:src/index.ts',
+    type: EdgeType.CONTAINS,
   });
 
   return {
@@ -145,8 +146,8 @@ describe('analyzeCommand', () => {
         modulesExtracted: mockResult.stats.modules,
         edgesCreated: {
           imports: 1,
-          exports: 1,
-          contains: 2,
+          exports: 2, // FILE → MODULE edges
+          contains: 1, // DIRECTORY → FILE edges
         },
       },
       baseline: {

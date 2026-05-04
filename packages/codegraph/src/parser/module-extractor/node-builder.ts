@@ -98,11 +98,14 @@ export function createModuleNode(options: CreateModuleNodeOptions): void {
 
   result.nodes.push(moduleNode);
 
-  // Create CONTAINS edge
+  // Create EXPORTS edge (FILE -> MODULE)
+  // WHY: EXPORTS edge represents the semantic relationship that FILE exports MODULE.
+  // This is different from CONTAINS which is for structural containment (DIRECTORY -> FILE).
+  // EXPORTS edges enable proper counting of export relationships in CLI stats.
   result.edges.push({
     from: fileId,
     to: moduleId,
-    type: EdgeType.CONTAINS,
+    type: EdgeType.EXPORTS,
   });
 }
 
@@ -227,9 +230,12 @@ export function createSimpleModuleNode(
     metadata,
   });
 
+  // Create EXPORTS edge (FILE -> MODULE)
+  // WHY: EXPORTS edge represents the semantic relationship that FILE exports MODULE.
+  // This is different from CONTAINS which is for structural containment (DIRECTORY -> FILE).
   result.edges.push({
     from: fileId,
     to: moduleId,
-    type: EdgeType.CONTAINS,
+    type: EdgeType.EXPORTS,
   });
 }

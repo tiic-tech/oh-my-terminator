@@ -55,7 +55,7 @@ function createImpactError(
  *
  * @param graph - CodeGraph instance
  * @param targets - Target IDs (FILE:xxx or MODULE:xxx#yyy)
- * @param options - Analysis options
+ * @param options - Analysis options (maxFiles defaults to 20 for Agent token budgets)
  * @returns ImpactResult or ImpactError
  */
 export function getImpact(
@@ -64,6 +64,8 @@ export function getImpact(
   options?: ImpactOptions
 ): ImpactResult | ImpactError {
   const startTime = Date.now();
+  // WHY 20: Agent token budgets limited; 83 files = 2000+ tokens too verbose
+  const maxFiles = options?.maxFiles ?? 20;
 
   // Normalize targets to FILE nodes
   const fileTargets = normalizeTargetsToFile(targets);
@@ -94,15 +96,24 @@ export function getImpact(
   // Merge results for multi-target queries
   const mergedResult = mergeBFSResults(bfsResults);
 
-  // Calculate blast radius
-  const blastRadius = calculateBlastRadius(mergedResult.affectedFiles.length);
+  // Apply maxFiles pagination for Agent token budgets
+  const totalCount = mergedResult.affectedFiles.length;
+  const truncated = totalCount > maxFiles;
+  const limitedFiles = truncated
+    ? mergedResult.affectedFiles.slice(0, maxFiles)
+    : mergedResult.affectedFiles;
 
-  // Generate output
+  // Calculate blast radius using full count
+  const blastRadius = calculateBlastRadius(totalCount);
+
+  // Generate output with truncation info
   const content = formatImpactOutput(
     targets,
-    mergedResult.affectedFiles,
+    limitedFiles,
     mergedResult.directCount,
-    mergedResult.indirectCount
+    mergedResult.indirectCount,
+    truncated,
+    totalCount
   );
 
   const warnings = generateWarnings(mergedResult.affectedFiles);
@@ -111,12 +122,13 @@ export function getImpact(
   return {
     success: true,
     targets,
-    affectedFiles: mergedResult.affectedFiles,
+    affectedFiles: limitedFiles,
     summary: {
-      total: mergedResult.affectedFiles.length,
+      total: totalCount, // Full count, not limited by maxFiles
       direct: mergedResult.directCount,
       indirect: mergedResult.indirectCount,
     },
+    truncated,
     blastRadius,
     durationMs: Date.now() - startTime,
     warnings,

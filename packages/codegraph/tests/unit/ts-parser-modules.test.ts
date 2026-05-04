@@ -24,17 +24,17 @@ describe('TypeScriptParser MODULE integration', () => {
       assert.strictEqual(funcNode?.path, 'src/all-kinds.ts');
     });
 
-    it('should create CONTAINS edges from FILE to MODULE', () => {
+    it('should create EXPORTS edges from FILE to MODULE', () => {
       const parser = new TypeScriptParser(moduleTestProject);
       const filePath = path.join(moduleTestProject, 'src', 'all-kinds.ts');
       const result = parser.parseFile(filePath);
 
-      // Should have CONTAINS edges
-      const containsEdges = result.edges.filter(e => e.type === EdgeType.CONTAINS);
-      assert.ok(containsEdges.length > 0, 'Should have CONTAINS edges');
+      // Should have EXPORTS edges
+      const exportsEdges = result.edges.filter(e => e.type === EdgeType.EXPORTS);
+      assert.ok(exportsEdges.length > 0, 'Should have EXPORTS edges');
 
       // Should be from FILE to MODULE
-      for (const edge of containsEdges) {
+      for (const edge of exportsEdges) {
         assert.ok(edge.from.startsWith('FILE:'), 'Edge source should be FILE');
         assert.ok(edge.to.startsWith('MODULE:'), 'Edge target should be MODULE');
       }

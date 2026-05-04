@@ -36,17 +36,19 @@ export interface ImpactResult {
   success: boolean;
   /** Query target IDs */
   targets: string[];
-  /** Affected files with distance and via information */
+  /** Affected files with distance and via information (limited by maxFiles) */
   affectedFiles: AffectedFile[];
   /** Summary statistics */
   summary: {
-    /** Total affected file count */
+    /** Total affected file count (full count, not limited by maxFiles) */
     total: number;
     /** Direct dependents count */
     direct: number;
     /** Indirect dependents count */
     indirect: number;
   };
+  /** Whether affectedFiles was truncated due to maxFiles limit */
+  truncated?: boolean;
   /** Blast radius classification (C8-8: 3=low, 10=medium boundaries) */
   blastRadius: 'low' | 'medium' | 'high' | 'unknown';
   /** Query execution time in milliseconds */
@@ -86,4 +88,10 @@ export interface ImpactOptions {
   maxDepth?: number;
   /** Include test files in results (default: false, C8-1) */
   includeTests?: boolean;
+  /**
+   * Maximum files to include in affectedFiles list (default: 20)
+   * WHY 20: Agent token budgets are limited; 83 files = 2000+ tokens is too verbose.
+   * Full count preserved in summary.total; truncated flag indicates pagination needed.
+   */
+  maxFiles?: number;
 }

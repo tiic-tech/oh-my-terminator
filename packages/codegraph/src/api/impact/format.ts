@@ -8,12 +8,17 @@ import type { AffectedFile } from '../types/index.js';
 
 /**
  * Format impact output as Markdown
+ *
+ * @param truncated - Whether results were limited by maxFiles
+ * @param totalCount - Full count before truncation (undefined if not truncated)
  */
 export function formatImpactOutput(
   targets: string[],
   affectedFiles: AffectedFile[],
   directCount: number,
-  indirectCount: number
+  indirectCount: number,
+  truncated?: boolean,
+  totalCount?: number
 ): string {
   const lines: string[] = [];
 
@@ -60,6 +65,13 @@ export function formatImpactOutput(
   lines.push(`- Total affected: ${total} files`);
   lines.push(`- Direct: ${directCount}, Indirect: ${indirectCount}`);
   lines.push('');
+
+  // Truncation indicator
+  if (truncated && totalCount !== undefined) {
+    const shownCount = affectedFiles.length;
+    lines.push(`> Showing ${shownCount} of ${totalCount} affected files (use \`maxFiles: ${totalCount}\` to see all)`);
+    lines.push('');
+  }
 
   return lines.join('\n');
 }

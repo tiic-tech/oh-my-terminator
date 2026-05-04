@@ -198,7 +198,7 @@ describe('ModuleExtractor', () => {
       assert.ok(funcNode.id.startsWith('MODULE:'));
     });
 
-    it('should create CONTAINS edges from FILE to MODULE', async () => {
+    it('should create EXPORTS edges from FILE to MODULE', async () => {
       const files = [path.join(moduleTestProject, 'src', 'all-kinds.ts')];
       const program = ts.createProgram(files, {
         allowJs: true,
@@ -209,8 +209,8 @@ describe('ModuleExtractor', () => {
       const result = extractor.extractModules(sourceFile);
 
       assert.ok(result.edges.length > 0);
-      const containsEdges = result.edges.filter(e => e.type === EdgeType.CONTAINS);
-      assert.ok(containsEdges.length > 0);
+      const exportsEdges = result.edges.filter(e => e.type === EdgeType.EXPORTS);
+      assert.ok(exportsEdges.length > 0);
     });
 
     it('should skip non-exported declarations', async () => {
