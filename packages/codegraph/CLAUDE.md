@@ -1,476 +1,74 @@
-# CodeGraph Development Guidelines
+# CodeGraph Development Constraints
 
-> 开发原则与流程规范 — 所有代码开发必须遵循
-
----
-
-## ⚠️ MANDATORY: Coding Standards for All Agents
-
-**无论是主Agent还是Subagent，在任何代码开发前必须加载以下SKILL**:
-
-### Required Skills (强制加载)
-
-| Skill | Purpose | Load Command |
-|-------|---------|--------------|
-| **coding-taste** | 代码品味标准、模块化、简洁性 | `/coding-taste` |
-| **tdd-workflow** | 测试驱动开发流程 (RED→GREEN→REFACTOR) | `/tdd-workflow` |
-
-### Enforcement Rules (执行规则)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  MANDATORY: All code development MUST start with skill loading   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Main Agent (Orchestrator):                                     │
-│  ├─ Before dispatching any code-related subagent                │
-│  ├─ In subagent prompt, include EXPLICIT instruction:           │
-│  │  "Load coding-taste SKILL first (/coding-taste)"            │
-│  │  "Load tdd-workflow SKILL (/tdd-workflow)"                   │
-│  └─ Subagent must confirm: "Loaded coding-taste. Proceeding."  │
-│                                                                 │
-│  Subagent (Executor):                                           │
-│  ├─ Receive prompt with skill loading instruction               │
-│  ├─ Invoke Skill tool to load coding-taste                      │
-│  ├─ Read and understand SKILL content                           │
-│  ├─ Confirm: "Loaded coding-taste. Proceeding with implementation" │
-│  ├─ Follow SKILL principles throughout implementation           │
-│  └─ Return: "Implementation complete per coding-taste principles" │
-│                                                                 │
-│  NO CODE DEVELOPMENT WITHOUT SKILL LOADING                      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Subagent Prompt Template (Subagent提示模板)
-
-```markdown
-## Task: [任务描述]
-
-**MANDATORY: Load skills before implementation**
-
-Steps:
-1. Load coding-taste: `Skill({ skill: "coding-taste" })`
-2. Load tdd-workflow: `Skill({ skill: "tdd-workflow" })`
-3. Confirm: "Loaded coding-taste + tdd-workflow. Proceeding."
-4. TDD Cycle:
-   - RED: Write test first → Run → Confirm failure
-   - GREEN: Minimal implementation → Run → Confirm pass
-   - REFACTOR: Clean up → Confirm tests still pass
-5. Follow coding-taste principles:
-   - Files born modular (max 150 lines)
-   - Single responsibility per file
-   - No code duplication
-   - Comments explain WHY, not WHAT
-6. Return: "Implementation complete. Tests passing. SKILL principles followed."
-
-Do NOT skip skill loading. Do NOT commit.
-```
+> 核心行为约束 — 所有开发必须遵循
 
 ---
 
-## 核心原则
+## 1. SKILL Loading (强制加载)
 
-### 0. Coding Taste SKILL (代码品味)
-
-**所有编程任务开始前必须加载 coding-taste SKILL**:
+**任何代码开发前必须加载 SKILL**:
 
 ```bash
-# 在任何代码编写之前，必须执行
-/coding-taste
+/coding-taste   # 代码品味标准
+/tdd-workflow   # 测试驱动开发流程
 ```
 
-**目的**:
-- 确保代码符合最佳实践
-- 保持代码简洁、可读、可维护
-- 遵循"代码品味"标准
-
-**执行时机**:
-- 进入开发阶段前
-- 开始编写任何代码前
-- 与 TDD Workflow 配合使用
-
-**注意**: coding-taste SKILL 与 tdd-workflow 是互补的开发范式，必须同时遵循。
+**Subagent Prompt 必须包含**:
+```
+Load coding-taste SKILL first. Then implement following TDD workflow.
+```
 
 ---
 
-### 1. TDD Workflow (测试驱动开发)
-
-**所有代码开发必须遵循 TDD 流程**:
+## 2. TDD Workflow (测试驱动)
 
 ```
 RED → GREEN → REFACTOR
-  │      │        │
-  │      │        └─ 优化代码结构，保持测试通过
-  │      └────────── 写最小实现，让测试通过
-  │  ────────────── 先写测试，测试必须失败
 ```
 
-**执行顺序**:
-1. **RED**: 先写测试，运行测试确认失败
-2. **GREEN**: 写最小实现代码，让测试通过
-3. **REFACTOR**: 优化代码，确保测试仍然通过
-4. **验证覆盖率**: 每个模块测试覆盖率 ≥ 80%
+1. **RED**: 先写测试，运行确认失败
+2. **GREEN**: 最小实现，运行确认通过
+3. **REFACTOR**: 优化代码，确保测试仍通过
 
-**禁止**: 先写实现再补测试 — 这不是 TDD
+**禁止**: 先实现后补测试
 
 ---
 
-### 2. Code Review (代码审查)
+## 3. Subagent Parallelism (并行限制)
 
-**所有实现完成后必须执行 code-reviewer 审查**:
+**MAX_PARALLEL_SUBAGENTS = 3**
 
-```bash
-# 完成一个任务组后，触发审查
-/code-review
-```
+禁止一次性并行超过3个subagent（会导致API禁止访问）
 
-**审查要点**:
-- [ ] 代码符合 TDD 产出（测试先行）
-- [ ] 测试覆盖率 ≥ 80%
-- [ ] 无明显性能问题
-- [ ] 无安全隐患
-- [ ] 符合项目编码规范
-
-**审查结果处理**:
-- CRITICAL/HIGH 问题 → 立即修复
-- MEDIUM 问题 → 尽量修复
-- LOW 问题 → 记录，后续处理
+**依赖分析前置**:
+- 并行分配前必须分析任务依赖关系
+- 按拓扑顺序分发，下游任务等待上游完成
+- 同一文件不可分配给多个subagent
 
 ---
 
-### 3. Branch Strategy (分支策略)
+## 4. Checkpoint Commit (节点提交)
 
-**进入正式开发必须创建 feat 分支**:
+**批次完成 → 立即 commit**
 
-```bash
-# 从 main 创建功能分支
-git checkout main
-git checkout -b feat/cg-core-graph-structure
-
-# 所有开发在 feat 分支进行
-# 完成后不直接 merge，等待审查
-```
-
-**分支命名规则**:
-- 功能开发: `feat/<change-name>` (如 `feat/cg-core-graph-structure`)
-- Bug修复: `fix/<issue-name>`
-- 重构: `refactor/<refactor-name>`
-
-**Merge 规则**:
-- 完成所有 tasks → 不直接 merge
-- 执行 code-reviewer 审查
-- 审查通过 → 创建 PR 或 merge
-- 审查不通过 → 修复后重新审查
+- 每个批次完成后必须git commit
+- 禁止跨多个批次一次性commit
+- 禁止积累大量修改后才commit
 
 ---
 
-### 4. Batched Development Strategy (分批次开发策略)
+## 5. OpenSpec Artifacts (用户触发)
 
-**执行 Change tasks 前必须评估复杂度，决定是否分批次开发**:
+**Agent 禁止创建 OpenSpec artifacts**
 
-```
-Tasks 复杂度评估:
-┌─────────────────────────────────────────────────────────────┐
-│  Tasks Group 复杂度判断                                      │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  总 Tasks 数量:                                              │
-│  ├─ < 30 tasks  → 单批次开发                                 │
-│  ├─ 30-60 tasks → 分 2-3 批次                                │
-│  ├─ 60-100 tasks → 分 3-5 批次                               │
-│  └─ > 100 tasks → 分 5+ 批次，每批次 20-30 tasks              │
-│                                                             │
-│  其他复杂度因素:                                              │
-│  ├─ 跨文件依赖数量                                            │
-│  ├─ 新增类型/接口数量                                         │
-│  ├─ 需要新建 fixture 数量                                     │
-│  └─ 技术栈复杂度                                              │
-│                                                             │
-│  分批次原则:                                                  │
-│  ├─ 优先保证每批次质量，而非速度                              │
-│  ├─ 每批次完成后进行中期汇报                                   │
-│  ├─ 每批次必须严格遵循 coding-taste + tdd-workflow            │
-│  └─ 批次间进行 checkpoint commit                             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+只有在用户手动输入 `/opsx:COMMAND` 时，才执行对应COMMAND创建artifacts。
 
-**分批次执行流程**:
-1. **评估**: 阅读 tasks.md，统计总任务数，评估复杂度
-2. **规划**: 确定批次划分，每批次 20-70 tasks
-3. **执行**: 每批次严格遵循 coding-taste + tdd-workflow
-4. **汇报**: 批次完成后进行中期汇报，确认方向正确
-5. **提交**: 每批次完成后 checkpoint commit
-6. **继续**: 下一批次开始前确认前一批次无遗留问题
-
-**禁止**:
-- ❌ 激进的开发方式（追求速度牺牲质量）
-- ❌ 跳过 coding-taste SKILL 加载
-- ❌ 跳过 TDD RED→GREEN→REFACTOR 循环
-- ❌ 批次间不进行汇报和确认
-
-**用户反馈示例** (来自实际开发):
-> "不能进行激进的开发方式。一定要遵循tdd-workflow，宁愿分批次开发，比如先开发60-70个tasks，进行中期汇报。要保障质量，不要追求速度"
+**禁止行为**:
+- ❌ 未经用户输入 `/opsx:*` 命令，擅自创建任何 openspec artifacts
+- ❌ 在 package 目录创建 openspec/（必须在 repo 根目录 `/openspec/changes/<change>/`）
 
 ---
 
-### 5. Checkpoint Commits (节点提交)
-
-**每完成一个任务组判断是否需要 git commit**:
-
-```
-tasks.md 任务组结构：
-## 1. Package Setup       ← 完成后判断是否 commit
-## 2. Core Types          ← 完成后判断是否 commit
-## 3. CodeGraph Class     ← 完成后判断是否 commit
-...
-```
-
-**判断标准**:
-| 任务组类型 | 是否提交 | 理由 |
-|-----------|---------|------|
-| Setup/配置 | ✓ 提交 | 独立可验证的基础设施 |
-| 类型定义 | ✓ 提交 | 无运行时依赖，可独立测试 |
-| 核心实现 | ✓ 提交 | 功能完整，测试通过 |
-| 测试补充 | 可选 | 通常跟随实现一起提交 |
-| 文档 | 可选 | 可单独提交或合并 |
-
-**Checkpoint 提交格式**:
-```
-feat(<change>): Complete task group N - <group-name>
-
-Tasks completed:
-- N.1 <task description>
-- N.2 <task description>
-...
-
-All tests passing. Coverage: X%
-```
-
----
-
-## 开发流程图
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    CodeGraph 开发流程                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  0. 前置检查 (NEW!)                                              │
-│     ├─ 加载 coding-taste SKILL: /coding-taste                   │
-│     └─ 确认理解代码品味标准                                       │
-│                                                                 │
-│  1. 准备阶段                                                     │
-│     ├─ 确认 change artifacts 已完成               │
-│     ├─ 创建 feat 分支: git checkout -b feat/<change>            │
-│     ├─ 阅读 tasks.md，理解任务分组                                │
-│     └─ 评估复杂度，决定分批次策略 (NEW!)                          │
-│        ├─ 统计总任务数                                            │
-│        ├─ 划分批次 (20-70 tasks/批次)                            │
-│        └─ 确认批次规划                                            │
-│                                                                 │
-│  2. 开发阶段 (每个批次)                                           │
-│     ├─ ──────────────────────────────────────────────────────── │
-│     │  批次开始前:                                               │
-│     │    ├─ 加载 coding-taste SKILL                             │
-│     │    └─ 确认批次任务范围                                      │
-│     ├─ ──────────────────────────────────────────────────────── │
-│     │  TDD 循环 (每个 task):                                    │
-│     │    ├─ RED:   写测试 → 运行 → 确认失败                       │
-│     │    ├─ GREEN: 写实现 → 运行 → 确认通过                       │
-│     │    ├─ REFACTOR: 优化代码 → 确认测试仍通过                   │
-│     │    └─ 覆盖率: 验证 ≥ 80%                                   │
-│     ├─ ──────────────────────────────────────────────────────── │
-│     │  批次完成:                                                 │
-│     │    ├─ 执行中期汇报 (NEW!)                                  │
-│     │    ├─ checkpoint commit                                   │
-│     │    └─ 确认无遗留问题                                       │
-│     ├─ ──────────────────────────────────────────────────────── │
-│                                                                 │
-│  3. 完成阶段                                                     │
-│     ├─ 所有批次完成                                              │
-│     ├─ 执行 code-reviewer 审查                                  │
-│     ├─ 处理审查问题                                              │
-│     ├─ 审查通过                                                 │
-│     ├─ 可选: 创建 PR                                            │
-│     └─ Merge 或等待进一步处理                                    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 6. Subagent Orchestration Rules (Subagent调度规则)
-
-**并行调度限制与依赖分析 — 基于实际开发教训**:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  ⚠️ CRITICAL: Subagent 并行调度限制                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. 并行数量限制:                                             │
-│     ├─ MAX_PARALLEL_SUBAGENTS = 3                          │
-│     ├─ 超过3个会导致 API 访问峰值过高                         │
-│     ├─ API 可能被禁止访问                                    │
-│     └─ 必须分批次调度，避免并发过载                           │
-│                                                             │
-│  2. 依赖分析前置:                                             │
-│     ├─ 并行分配前必须分析任务依赖关系                          │
-│     ├─ 按依赖拓扑顺序分发任务                                 │
-│     ├─ 避免并发冲突 (同一文件被多个subagent修改)               │
-│     ├─ 避免依赖混乱 (B依赖A，但B先于A完成)                     │
-│     └─ 使用 DAG 分析工具或手动绘制依赖图                       │
-│                                                             │
-│  3. 调度流程:                                                 │
-│     Step 1: 分析 tasks.md，识别任务依赖                       │
-│     Step 2: 构建依赖图 (DAG)                                 │
-│     Step 3: 按拓扑顺序分组 (无依赖的节点可并行)                │
-│     Step 4: 每组最多3个subagent并行                          │
-│     Step 5: 等待组内所有subagent完成                          │
-│     Step 6: 进行下一组调度                                   │
-│                                                             │
-│  4. 禁止行为:                                                 │
-│     ❌ 一次性并行6-7个subagent                                │
-│     ❌ 不分析依赖直接并行                                     │
-│     ❌ 同一文件分配给多个subagent                             │
-│     ❌ 下游任务先于上游任务执行                               │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**用户反馈 (实际教训)**:
-> "一次性并行了6-7个subagent，导致API访问峰值过高，API被禁止访问"
-> "在并行分配subagent之前，必须进行任务批次规划以及开发依赖关系分析"
-
----
-
-### 7. Checkpoint Commit Protocol (节点提交协议)
-
-**每个批次完成后必须执行 git commit**:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  ⚠️ CRITICAL: 批次完成 → 立即 Commit                          │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  执行时机:                                                   │
-│     ├─ 每个批次完成时 (不是整个Change完成时)                   │
-│     ├─ 任务组完成时 (如 Section 1, Section 2)                │
-│     ├─ 测试通过时                                            │
-│     └─ 功能里程碑时                                          │
-│                                                             │
-│  禁止行为:                                                   │
-│     ❌ 所有批次完成后才commit                                │
-│     ❌ 跨多个批次一次性commit                                │
-│     ❌ 忘记commit，积累大量修改                               │
-│                                                             │
-│  Checkpoint Commit 格式:                                     │
-│     feat(<change>): Complete batch N - <scope>              │
-│                                                             │
-│     Tasks: N.1, N.2, N.3...                                 │
-│     Tests: X passing                                        │
-│                                                             │
-│  用户反馈 (实际教训):                                         │
-│     > "没有恰当的执行git commit。应该要在每个批次完成时进行commit"│
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 8. OpenSpec Artifacts Protocol (OpenSpec文档协议)
-
-**OpenSpec artifacts 必须由用户手动触发，Agent 禁止擅自创建**:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  ⚠️ CRITICAL: OpenSpec Artifacts 创建规则                     │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  1. Agent 禁止创建的 artifacts:                               │
-│     ❌ archive.md                                           │
-│     ❌ proposal.md                                          │
-│     ❌ design.md                                            │
-│     ❌ spec.md                                              │
-│     ❌ tasks.md                                             │
-│     ❌ 任何 openspec/ 目录下的文档                            │
-│                                                             │
-│  2. 用户触发方式:                                             │
-│     ├─ /opsx:plan <change> - 创建 planning artifacts         │
-│     ├─ /opsx:spec <change> - 创建 spec artifacts            │
-│     ├─ /opsx:task <change> - 创建 tasks.md                  │
-│     ├─ /opsx:archive <change> - 创建 archive.md             │
-│     └─ 其他用户明确指令                                       │
-│                                                             │
-│  3. OpenSpec 位置:                                           │
-│     ├─ 必须在 repo 根目录: /openspec/changes/<change>/       │
-│     ❌ 禁止在 package 目录创建 openspec/                     │
-│     ❌ packages/<name>/openspec/ → 错误位置                  │
-│                                                             │
-│  4. 用户反馈 (实际教训):                                      │
-│     > "你错误的创建了archive.md文件。所有openspec的artifacts   │
-│     > 必须由我手动输入命令触发，你不能擅自创建"                │
-│     > "openspec的artifacts默认都应该保存在repo的根目录中"      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 快速检查清单
-
-**开发前 (NEW!)**:
-- [ ] 加载 coding-taste SKILL
-- [ ] feat 分支已创建
-- [ ] tasks.md 已阅读
-- [ ] 复杂度已评估
-- [ ] 批次规划已确定
-- [ ] 依赖关系已分析 (NEW!)
-- [ ] subagent并行数 ≤ 3 (NEW!)
-
-**每个批次开始前**:
-- [ ] 重新加载 coding-taste SKILL
-- [ ] 确认批次任务范围
-- [ ] 确认依赖顺序 (NEW!)
-
-**每个 Task**:
-- [ ] 测试先写 (RED)
-- [ ] 测试失败确认
-- [ ] 实现最小代码 (GREEN)
-- [ ] 测试通过确认
-- [ ] 代码优化 (REFACTOR)
-- [ ] 覆盖率 ≥ 80%
-- [ ] 符合 coding-taste 标准
-
-**批次完成**:
-- [ ] 进行中期汇报
-- [ ] checkpoint commit (MANDATORY!)
-- [ ] 确认无遗留问题
-
-**Change 完成**:
-- [ ] 所有 tasks 完成
-- [ ] code-reviewer 审查执行
-- [ ] 审查问题处理完毕
-- [ ] 不直接 merge (等待审查结果)
-- [ ] 不创建 archive.md (等待用户触发) (NEW!)
-
----
-
-## 相关文档
-
-- [01_origin_blueprint.md](../docs/design-codegraph/01_origin_blueprint.md) — 技术规格
-- [develop_changes_plan.md](../docs/design-codegraph/develop_changes_plan.md) — Change 拆分规划
-- [openspec/changes/](../../openspec/changes/) — Change artifacts 目录 (repo根目录)
-
----
-
-**版本**: v2.1
+**版本**: v3.0
 **更新**: 2026-05-04
-**适用**: CodeGraph MVP 开发 (C1-C12)
-
-**v2.1 新增约束**:
-- 6. Subagent Orchestration Rules - 并行≤3，依赖分析前置
-- 7. Checkpoint Commit Protocol - 批次完成立即commit
-- 8. OpenSpec Artifacts Protocol - 禁止擅自创建，repo根目录
+**精简**: 保留核心行为约束，去除冗余描述
