@@ -13,6 +13,6 @@ export { normalizeTarget } from './normalize.js';
 export { extractExports, extractImports, extractImportedBy } from './extract.js';
 export { findTestFile, aggregateComplexity, checkDeprecated } from './metadata.js';
 export { countImports, countImportedBy } from './count.js';
-export { formatScopeOutput, formatQuickBriefOutput } from './format.js';
+export { formatScopeOutput, formatQuickBriefOutput } from './format/index.js';
 export { createScopeError, createBriefError } from './errors.js';
 export { getScopeForExternal } from './external.js';

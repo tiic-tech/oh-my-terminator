@@ -5,7 +5,7 @@
  */
 
 import { CodeGraph, NodeType, type GraphNode } from '../../types.js';
-import { type ComplexityInfo, type ModifiedInfo } from '../types.js';
+import { type ComplexityInfo, type ModifiedInfo } from '../types/index.js';
 
 /** Complexity thresholds for level classification */
 const COMPLEXITY_THRESHOLDS = {

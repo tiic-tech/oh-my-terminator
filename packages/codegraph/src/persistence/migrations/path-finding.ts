@@ -5,7 +5,7 @@
  * that transforms baseline from source to target. BFS ensures shortest path.
  */
 
-import type { MigrationScript } from '../types.js';
+import type { MigrationScript } from '../types/index.js';
 import { SchemaVersionImpl } from '../../version.js';
 import { getMigrationRegistryForTesting } from './registry.js';
 

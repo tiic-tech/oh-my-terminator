@@ -18,7 +18,7 @@ export type {
   QuickBriefError,
   TargetType,
   NormalizedTarget,
-} from './types.js';
+} from './types/index.js';
 
 // C8: Impact Analysis Types
 export type {
@@ -36,9 +36,9 @@ export type {
   LayersResult,
   LayersError,
   LayersOptions,
-} from './types.js';
+} from './types/index.js';
 
-export { ErrorCode } from './types.js';
+export { ErrorCode } from './types/index.js';
 
 // C7: Scope Query Functions
 export { getScope, getQuickBrief } from './scope/index.js';

@@ -11,7 +11,7 @@
  * @see 06_c6_baseline_version_spec.md Section 3.3
  */
 
-import type { Baseline, MigrationScript } from '../types.js';
+import type { Baseline, MigrationScript } from '../types/index.js';
 
 /**
  * Legacy to 1.0.0 migration script

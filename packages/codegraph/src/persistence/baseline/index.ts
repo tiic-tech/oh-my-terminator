@@ -24,7 +24,7 @@ export {
 import { getBaselinePath } from '../paths.js';
 import { readBaselineFile } from './file-helpers.js';
 import { validateAndCheckIntegrity, handleCompatibilityAndAction } from './action-execution.js';
-import type { LoadBaselineOptions, LoadBaselineResult } from '../types.js';
+import type { LoadBaselineOptions, LoadBaselineResult } from '../types/index.js';
 
 // ============================================================================
 // Main Loading Function
@@ -54,12 +54,18 @@ export async function loadBaseline(
     return readResult;
   }
 
+  // TypeScript narrowing: readResult.success is true, so readResult has 'data' property
+  const parsedData = (readResult as { success: true; data: unknown }).data;
+
   // Step 2: Validate structure and verify integrity
-  const validationResult = validateAndCheckIntegrity(readResult.data, cwd, options);
+  const validationResult = await validateAndCheckIntegrity(parsedData, cwd, options);
   if (!validationResult.success) {
     return validationResult;
   }
 
+  // TypeScript narrowing: validationResult.success is true, so validationResult has 'baseline' property
+  const baseline = (validationResult as { success: true; baseline: import('../types/index.js').Baseline }).baseline;
+
   // Step 3: Check compatibility and execute action
-  return handleCompatibilityAndAction(validationResult.baseline, cwd, options);
+  return handleCompatibilityAndAction(baseline, cwd, options);
 }

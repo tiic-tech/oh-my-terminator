@@ -4,7 +4,7 @@
  * Generates Agent-friendly Markdown output.
  */
 
-import type { LayerAssignment, LayerViolation } from '../types.js';
+import type { LayerAssignment, LayerViolation } from '../types/index.js';
 
 /**
  * Format layers output as Markdown

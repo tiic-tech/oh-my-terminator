@@ -7,7 +7,7 @@
  * - Reusable validation logic for load/save operations
  */
 
-import type { Baseline, ValidationResult, IntegrityResult } from '../types.js';
+import type { Baseline, ValidationResult, IntegrityResult } from '../types/index.js';
 
 // ============================================================================
 // Structure Validation Helpers

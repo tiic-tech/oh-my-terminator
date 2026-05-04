@@ -5,7 +5,7 @@
  * without explicit imports. Scripts register themselves on import.
  */
 
-import type { MigrationScript } from '../types.js';
+import type { MigrationScript } from '../types/index.js';
 
 // ============================================================================
 // Migration Registry

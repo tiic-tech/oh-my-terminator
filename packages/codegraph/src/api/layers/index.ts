@@ -8,12 +8,12 @@ import { CodeGraph } from '../../graph.js';
 import { NodeType } from '../../types.js';
 import {
   ErrorCode,
-} from '../types.js';
+} from '../types/index.js';
 import type {
   LayersResult,
   LayersError,
   LayersOptions,
-} from '../types.js';
+} from '../types/index.js';
 import {
   groupFilesByFirstLevelDirectory,
   computeImportDirectionStats,
@@ -24,7 +24,7 @@ import {
   calculateLayerHealthScore,
   buildGroupSummaries,
   buildGroupToLayerMap,
-} from './inference.js';
+} from './inference/index.js';
 import {
   formatLayersOutput,
   generateLayersWarnings,
@@ -45,7 +45,7 @@ export {
   generateViolationSuggestion,
   buildGroupSummaries,
   buildGroupToLayerMap,
-} from './inference.js';
+} from './inference/index.js';
 export {
   formatLayersOutput,
   generateLayersWarnings,

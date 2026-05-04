@@ -4,10 +4,10 @@ import {
   checkSchemaCompatibility,
   determineAction,
   executeAction,
-} from '../../src/persistence/compatibility.js';
+} from '../../src/persistence/compatibility/index.js';
 import { SchemaVersionImpl, CURRENT_SCHEMA_VERSION, LEGACY_VERSION } from '../../src/version.js';
-import type { Baseline, CompatibilityResult, ActionConfig } from '../../src/persistence/types.js';
-import { IncompatibleBaselineError } from '../../src/persistence/types.js';
+import type { Baseline, CompatibilityResult, ActionConfig } from '../../src/persistence/types/index.js';
+import { IncompatibleBaselineError } from '../../src/persistence/types/index.js';
 
 // Helper to create mock baseline
 function createMockBaseline(options: {

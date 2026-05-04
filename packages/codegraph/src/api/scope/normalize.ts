@@ -5,7 +5,7 @@
  */
 
 import { CodeGraph, NodeType, type GraphNode } from '../../types.js';
-import { type NormalizedTarget, type TargetType } from '../types.js';
+import { type NormalizedTarget, type TargetType } from '../types/index.js';
 
 /**
  * Normalize target input to a valid query target

@@ -10,8 +10,8 @@ import type {
   LoadBaselineOptions,
   LoadBaselineResult,
   CompatibilityResult,
-} from '../types.js';
-import { checkSchemaCompatibility, determineAction, executeAction } from '../compatibility.js';
+} from '../types/index.js';
+import { checkSchemaCompatibility, determineAction, executeAction } from '../compatibility/index.js';
 import { CURRENT_SCHEMA_VERSION } from '../../version.js';
 import { handleFailure } from './failure-handlers.js';
 import { validateBaselineStructure, verifyDataIntegrity } from './validation.js';
@@ -31,11 +31,11 @@ import { validateBaselineStructure, verifyDataIntegrity } from './validation.js'
  * @param options - Load options (for failure handler)
  * @returns Object with validated baseline on success, or LoadBaselineResult on failure
  */
-export function validateAndCheckIntegrity(
+export async function validateAndCheckIntegrity(
   parsed: unknown,
   cwd: string,
   options?: LoadBaselineOptions
-): { success: true; baseline: Baseline } | LoadBaselineResult {
+): Promise<{ success: true; baseline: Baseline } | LoadBaselineResult> {
   // Step 1: Structure validation (required fields, types)
   const validationResult = validateBaselineStructure(parsed);
   if (!validationResult.valid) {

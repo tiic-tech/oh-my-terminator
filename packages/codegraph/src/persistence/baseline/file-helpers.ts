@@ -8,7 +8,7 @@
  */
 
 import { readFile, stat } from 'node:fs/promises';
-import type { LoadBaselineOptions, LoadBaselineResult } from '../types.js';
+import type { LoadBaselineOptions, LoadBaselineResult } from '../types/index.js';
 import { handleFailure } from './failure-handlers.js';
 
 // ============================================================================
@@ -45,7 +45,7 @@ export async function readBaselineFile(
 ): Promise<{ success: true; data: unknown } | LoadBaselineResult> {
   // Check file exists
   if (!await fileExists(path)) {
-    return handleFailure('file_not_found', cwd, options);
+    return await handleFailure('file_not_found', cwd, options);
   }
 
   // Read file content
@@ -53,7 +53,7 @@ export async function readBaselineFile(
   try {
     rawContent = await readFile(path, 'utf-8');
   } catch (e) {
-    return handleFailure('permission_error', cwd, options, e);
+    return await handleFailure('permission_error', cwd, options, e);
   }
 
   // Parse JSON
@@ -61,6 +61,6 @@ export async function readBaselineFile(
     const parsed = JSON.parse(rawContent);
     return { success: true, data: parsed };
   } catch (e) {
-    return handleFailure('parse_error', cwd, options, e);
+    return await handleFailure('parse_error', cwd, options, e);
   }
 }

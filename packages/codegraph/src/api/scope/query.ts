@@ -12,11 +12,11 @@ import {
   type ImportInfo,
   type ImportedByInfo,
   ErrorCode,
-} from '../types.js';
+} from '../types/index.js';
 import { normalizeTarget } from './normalize.js';
 import { extractExports, extractImports, extractImportedBy } from './extract.js';
 import { findTestFile, aggregateComplexity, checkDeprecated, getLastModified } from './metadata.js';
-import { formatScopeOutput } from './format.js';
+import { formatScopeOutput } from './format/index.js';
 import { createScopeError } from './errors.js';
 import { getScopeForExternal } from './external.js';
 

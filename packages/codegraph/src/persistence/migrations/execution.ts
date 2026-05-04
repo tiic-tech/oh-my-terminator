@@ -5,7 +5,7 @@
  * and recording migration history after each step.
  */
 
-import type { Baseline, MigrationScript, MigrationRecord, RebuildHandler } from '../types.js';
+import type { Baseline, MigrationScript, MigrationRecord, RebuildHandler } from '../types/index.js';
 import { SchemaVersionImpl, CURRENT_SCHEMA_VERSION } from '../../version.js';
 import { findMigrationPath } from './path-finding.js';
 

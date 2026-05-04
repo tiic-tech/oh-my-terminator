@@ -14,7 +14,7 @@ import type {
   LoadBaselineOptions,
   LoadBaselineResult,
   LoadFailureReason,
-} from '../types.js';
+} from '../types/index.js';
 
 // ============================================================================
 // Strategy Definitions
@@ -105,7 +105,7 @@ async function executeForcedAction(
 ): Promise<LoadBaselineResult> {
   try {
     // Import executeAction dynamically to avoid circular dependency
-    const { executeAction } = await import('../compatibility.js');
+    const { executeAction } = await import('../compatibility/index.js');
     const actionResult = await executeAction(
       options.actionConfig!.forceAction!,
       null,

@@ -5,10 +5,10 @@
  */
 
 import { CodeGraph } from '../../types.js';
-import { type QuickBriefResult, type QuickBriefError, ErrorCode } from '../types.js';
+import { type QuickBriefResult, type QuickBriefError, ErrorCode } from '../types/index.js';
 import { findTestFile, aggregateComplexity, checkDeprecated } from './metadata.js';
 import { countImports, countImportedBy } from './count.js';
-import { formatQuickBriefOutput } from './format.js';
+import { formatQuickBriefOutput } from './format/index.js';
 import { createBriefError } from './errors.js';
 
 /**

@@ -6,9 +6,9 @@
  * are imported and re-exported here.
  */
 
-// Re-export types
+// Re-export types (SchemaVersion from core types, others from persistence types)
+export type { SchemaVersion } from '../types.js';
 export type {
-  SchemaVersion,
   SkillDemand,
   MigrationRecord,
   Baseline,
@@ -27,14 +27,14 @@ export type {
   ValidationResult,
   IntegrityResult,
   MigrationScript,
-} from './types.js';
+} from './types/index.js';
 
 // Re-export error classes
 export {
   BaselineErrorCode,
   IncompatibleBaselineError,
   BaselineError,
-} from './types.js';
+} from './types/index.js';
 
 // Version constants and SchemaVersionImpl class
 export {
@@ -61,12 +61,12 @@ export {
   getTempPath,
 } from './paths.js';
 
-// Compatibility functions
+// Compatibility functions (split into compatibility/ module)
 export {
   checkSchemaCompatibility,
   determineAction,
   executeAction,
-} from './compatibility.js';
+} from './compatibility/index.js';
 
 // Baseline load/save functions (from split baseline module)
 export {

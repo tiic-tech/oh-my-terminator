@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import type {
   Baseline,
   SaveBaselineOptions,
-} from './types.js';
+} from './types/index.js';
 import {
   getBaselinePath,
   getBackupPath,

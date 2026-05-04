@@ -4,7 +4,7 @@
  * Generates Agent-friendly Markdown output.
  */
 
-import type { AffectedFile } from '../types.js';
+import type { AffectedFile } from '../types/index.js';
 
 /**
  * Format impact output as Markdown

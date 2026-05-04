@@ -10,12 +10,12 @@ import {
   type ImpactError,
   type ImpactOptions,
   ErrorCode,
-} from '../types.js';
+} from '../types/index.js';
 import {
   normalizeTargetsToFile,
   bfsDependents,
   mergeBFSResults,
-} from './traverse.js';
+} from './traverse/index.js';
 import {
   formatImpactOutput,
   calculateBlastRadius,
@@ -24,7 +24,7 @@ import {
 } from './format.js';
 
 // Re-export sub-modules for testing
-export { normalizeTargetsToFile, bfsDependents, mergeBFSResults, isTestFile } from './traverse.js';
+export { normalizeTargetsToFile, bfsDependents, mergeBFSResults, isTestFile } from './traverse/index.js';
 export {
   formatImpactOutput,
   calculateBlastRadius,

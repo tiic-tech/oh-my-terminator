@@ -4,7 +4,7 @@
  * Creates structured error results for Scope and QuickBrief APIs.
  */
 
-import { type ScopeError, type QuickBriefError, ErrorCode } from '../types.js';
+import { type ScopeError, type QuickBriefError, ErrorCode } from '../types/index.js';
 
 /**
  * Create Scope error result
