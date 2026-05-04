@@ -196,4 +196,16 @@ export class DefaultParserRegistry implements ParserRegistry {
   getAllExtensions(): string[] {
     return Array.from(this.extensionMap.keys());
   }
+
+  /**
+   * Get all registered parser instances
+   *
+   * Useful for batch operations like parseBatch() that need to iterate
+   * over all parsers.
+   *
+   * @returns Array of all registered Parser instances
+   */
+  getAllParsers(): Parser[] {
+    return Array.from(this.parsers.values());
+  }
 }

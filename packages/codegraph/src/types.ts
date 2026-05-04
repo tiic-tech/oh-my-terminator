@@ -339,4 +339,9 @@ export interface ParserRegistry {
    * @returns Array of extensions
    */
   getAllExtensions(): string[];
+  /**
+   * Get all registered parser instances
+   * @returns Array of Parser instances
+   */
+  getAllParsers(): Parser[];
 }

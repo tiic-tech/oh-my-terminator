@@ -15,6 +15,8 @@ export {
   generateDynamicImportEdge,
   extractPackageName,
   isBuiltinModule,
+  isNodeModulesPath,
+  extractPackageFromNodeModules,
   type ParserResult,
   type ParsedImportInfo,
   type ParserOptions,

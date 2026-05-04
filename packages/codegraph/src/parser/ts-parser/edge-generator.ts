@@ -6,21 +6,35 @@
 
 import { GraphEdge, EdgeType } from '../../types.js';
 import { ParsedImportInfo } from './types.js';
-import { extractPackageName } from './module-resolution.js';
+import { extractPackageName, isNodeModulesPath, extractPackageFromNodeModules } from './module-resolution.js';
 
 /**
  * Compute target ID for an import edge
  *
  * Single source of truth for target ID computation.
- * Resolved imports target FILE nodes, unresolved imports target EXTERNAL nodes.
+ * - Resolved imports to project files → FILE nodes
+ * - Resolved imports to node_modules → EXTERNAL nodes (npm packages)
+ * - Unresolved imports → EXTERNAL nodes
  *
  * @param info - Parsed import information
  * @returns Target node ID string
  */
 function getTargetId(info: ParsedImportInfo): string {
-  return info.resolvedPath
-    ? `FILE:${info.resolvedPath}`
-    : `EXTERNAL:${extractPackageName(info.specifier)}`;
+  // No resolved path → external package from specifier
+  if (!info.resolvedPath) {
+    return `EXTERNAL:${extractPackageName(info.specifier)}`;
+  }
+
+  // Resolved to node_modules → treat as EXTERNAL (npm package)
+  // TypeScript resolves npm packages to actual .d.ts files in node_modules,
+  // but these should be represented as EXTERNAL nodes in the graph.
+  if (isNodeModulesPath(info.resolvedPath)) {
+    const packageName = extractPackageFromNodeModules(info.resolvedPath);
+    return `EXTERNAL:${packageName}`;
+  }
+
+  // Resolved to project file → FILE node
+  return `FILE:${info.resolvedPath}`;
 }
 
 /**

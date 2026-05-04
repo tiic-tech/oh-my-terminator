@@ -8,7 +8,7 @@ import ts from 'typescript';
 import { NodeType, GraphNode, ParserResult } from '../../types.js';
 import { ParserOptions } from './types.js';
 import { createParserProgram } from './program.js';
-import { extractPackageName } from './module-resolution.js';
+import { extractPackageName, isNodeModulesPath, extractPackageFromNodeModules } from './module-resolution.js';
 import { createExternalNode } from './external-node.js';
 import { generateImportEdge, generateReExportEdge, generateDynamicImportEdge } from './edge-generator.js';
 import { extractImports } from './import-extractor.js';
@@ -151,9 +151,23 @@ export class TypeScriptParser {
         }
 
         // Create EXTERNAL node if needed
-        if (!info.resolvedPath && info.specifier && info.specifier !== '__dynamic__') {
-          const packageName = extractPackageName(info.specifier);
-          result.nodes.push(createExternalNode(packageName));
+        // Two cases require EXTERNAL nodes:
+        // 1. Unresolved specifier (resolvedPath is null)
+        // 2. Resolved to node_modules (npm package, not project source file)
+        if (info.specifier && info.specifier !== '__dynamic__') {
+          let packageName: string | null = null;
+
+          if (!info.resolvedPath) {
+            // Unresolved → extract from specifier
+            packageName = extractPackageName(info.specifier);
+          } else if (isNodeModulesPath(info.resolvedPath)) {
+            // Resolved to node_modules → extract from path
+            packageName = extractPackageFromNodeModules(info.resolvedPath);
+          }
+
+          if (packageName) {
+            result.nodes.push(createExternalNode(packageName));
+          }
         }
       }
     }

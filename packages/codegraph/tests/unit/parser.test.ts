@@ -9,6 +9,8 @@ import {
   createExternalNode,
   extractPackageName,
   isBuiltinModule,
+  isNodeModulesPath,
+  extractPackageFromNodeModules,
   generateImportEdge,
   generateReExportEdge,
   generateDynamicImportEdge,
@@ -245,6 +247,50 @@ describe('extractPackageName', () => {
   });
 });
 
+describe('isNodeModulesPath', () => {
+  it('should detect node_modules in relative path', () => {
+    assert.strictEqual(isNodeModulesPath('../node_modules/typescript/lib/typescript.d.ts'), true);
+    assert.strictEqual(isNodeModulesPath('node_modules/lodash/index.js'), true);
+  });
+
+  it('should detect node_modules in absolute path', () => {
+    assert.strictEqual(isNodeModulesPath('/full/path/node_modules/lodash/debounce.js'), true);
+  });
+
+  it('should return false for project paths', () => {
+    assert.strictEqual(isNodeModulesPath('src/utils/helper.ts'), false);
+    assert.strictEqual(isNodeModulesPath('../src/index.ts'), false);
+  });
+});
+
+describe('extractPackageFromNodeModules', () => {
+  it('should extract regular package name', () => {
+    assert.strictEqual(
+      extractPackageFromNodeModules('../node_modules/typescript/lib/typescript.d.ts'),
+      'typescript'
+    );
+    assert.strictEqual(
+      extractPackageFromNodeModules('node_modules/lodash/index.js'),
+      'lodash'
+    );
+  });
+
+  it('should extract scoped package name', () => {
+    assert.strictEqual(
+      extractPackageFromNodeModules('node_modules/@types/node/index.d.ts'),
+      '@types/node'
+    );
+    assert.strictEqual(
+      extractPackageFromNodeModules('/path/node_modules/@utils/format/dist/index.js'),
+      '@utils/format'
+    );
+  });
+
+  it('should return unknown for malformed paths', () => {
+    assert.strictEqual(extractPackageFromNodeModules('no-node_modules-here'), 'unknown');
+  });
+});
+
 describe('createExternalNode', () => {
   it('should create EXTERNAL node with correct properties', () => {
     const node = createExternalNode('lodash');
@@ -307,6 +353,37 @@ describe('edge generation', () => {
     const edge = generateImportEdge(externalInfo);
 
     assert.strictEqual(edge.to, 'EXTERNAL:lodash');
+  });
+
+  it('should generate edge to EXTERNAL node for node_modules resolved paths', () => {
+    // TypeScript resolves npm packages to actual .d.ts files in node_modules,
+    // but these should be represented as EXTERNAL nodes, not FILE nodes.
+    const nodeModulesInfo: ParsedImportInfo = {
+      sourceFile: 'src/parser.ts',
+      specifier: 'typescript',
+      resolvedPath: '../node_modules/typescript/lib/typescript.d.ts',
+      line: 1,
+      importType: 'import',
+      importSpecifier: 'namespace',
+    };
+    const edge = generateImportEdge(nodeModulesInfo);
+
+    assert.strictEqual(edge.to, 'EXTERNAL:typescript');
+    assert.strictEqual(edge.from, 'FILE:src/parser.ts');
+  });
+
+  it('should generate edge to EXTERNAL for scoped packages in node_modules', () => {
+    const scopedInfo: ParsedImportInfo = {
+      sourceFile: 'src/types.ts',
+      specifier: '@types/node',
+      resolvedPath: 'node_modules/@types/node/index.d.ts',
+      line: 2,
+      importType: 'import',
+      importSpecifier: 'named:Process',
+    };
+    const edge = generateImportEdge(scopedInfo);
+
+    assert.strictEqual(edge.to, 'EXTERNAL:@types/node');
   });
 });
 

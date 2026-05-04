@@ -1,7 +1,8 @@
 /**
  * Module Resolution Utilities
  *
- * Helpers for identifying built-in modules and extracting package names.
+ * Helpers for identifying built-in modules, detecting node_modules paths,
+ * and extracting package names from various specifier formats.
  */
 
 /**
@@ -17,6 +18,41 @@ const BUILTIN_MODULES = new Set([
   'dgram', 'tls', 'v8', 'worker_threads', 'perf_hooks', 'async_hooks',
   'inspector', 'http2', 'trace_events', 'diagnostics_channel',
 ]);
+
+/**
+ * Check if a resolved path points to node_modules
+ *
+ * TypeScript's module resolution returns actual file paths for npm packages
+ * (e.g., '../node_modules/typescript/lib/typescript.d.ts'). These should be
+ * treated as EXTERNAL nodes, not FILE nodes, since they are not project source files.
+ *
+ * @param resolvedPath - Resolved file path (relative or absolute)
+ * @returns True if the path contains node_modules segment
+ */
+export function isNodeModulesPath(resolvedPath: string): boolean {
+  // Check for node_modules in path (handles both absolute and relative paths)
+  return resolvedPath.includes('node_modules');
+}
+
+/**
+ * Extract package name from a node_modules file path
+ *
+ * Handles various path formats:
+ * - '../node_modules/typescript/lib/typescript.d.ts' → 'typescript'
+ * - 'node_modules/@types/node/index.d.ts' → '@types/node'
+ * - '/full/path/node_modules/lodash/debounce.js' → 'lodash'
+ *
+ * @param resolvedPath - Path containing node_modules segment
+ * @returns Package name or 'unknown' if extraction fails
+ */
+export function extractPackageFromNodeModules(resolvedPath: string): string {
+  // Match node_modules/<package> or node_modules/@scope/<package>
+  // The regex captures:
+  // - node_modules/typescript → 'typescript'
+  // - node_modules/@types/node → '@types/node'
+  const match = resolvedPath.match(/node_modules\/(@[^/]+\/[^/]+|[^/]+)/);
+  return match ? match[1] : 'unknown';
+}
 
 /**
  * Check if a specifier is a built-in Node.js module

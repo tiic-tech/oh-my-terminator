@@ -22,6 +22,8 @@ export {
 export {
   isBuiltinModule,
   extractPackageName,
+  isNodeModulesPath,
+  extractPackageFromNodeModules,
 } from './module-resolution.js';
 
 // External Node Creation

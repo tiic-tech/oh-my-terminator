@@ -144,7 +144,35 @@ export async function analyzeFull(
     };
   }
 
-  // Sequential parsing
+  // ========================================
+  // Batch Parse Setup (Architecture Fix)
+  // ========================================
+
+  // WHY: TypeScript Compiler API requires Program with all files for correct
+  // module resolution. Parsing files one-by-one fails to resolve relative imports
+  // because TypeScript doesn't know about other project files.
+  //
+  // Solution: Call parseBatch() on TypeScript adapters before individual parse() calls.
+  // This creates a Program containing all files, enabling correct import resolution.
+  //
+  // @see TypeScriptParserAdapter.parseBatch(): Creates Program with all files
+  // @see coding-taste skill: "Dependencies Are Invisible Chains" - explicit setup
+
+  // Find TypeScript adapters and call parseBatch
+  for (const parser of registry.getAllParsers()) {
+    // Check if parser has parseBatch method (TypeScriptParserAdapter)
+    if ('parseBatch' in parser && typeof parser.parseBatch === 'function') {
+      // Filter files for this parser's extensions
+      const parserFiles = filesToParse.filter(f =>
+        parser.extensions.includes(path.extname(f))
+      );
+      if (parserFiles.length > 0) {
+        await parser.parseBatch(parserFiles);
+      }
+    }
+  }
+
+  // Sequential parsing (now uses cached results from batch parse)
   const totalFiles = filesToParse.length;
 
   for (let i = 0; i < totalFiles; i++) {

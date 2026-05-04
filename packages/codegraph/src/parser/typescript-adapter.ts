@@ -8,6 +8,13 @@
  * across all files. This is important because TypeScript Compiler API's
  * Program creation is expensive (reads tsconfig, resolves modules).
  *
+ * ARCHITECTURE FIX: Program must contain all project files for proper module
+ * resolution. When parsing files one-by-one, TypeScript cannot resolve relative
+ * imports correctly because it doesn't know about other project files.
+ *
+ * Solution: Use parseAll() with all project files to create a complete Program,
+ * then cache results by file path for subsequent parse() calls.
+ *
  * WARNING: TypeScriptParser uses TypeScript Compiler API which reads from
  * filesystem. Pass null for content parameter - file must exist on disk.
  * This is a TypeScript Compiler API limitation.
@@ -21,7 +28,8 @@ import { TypeScriptParser } from './ts-parser/class.js';
  * TypeScript Parser Adapter
  *
  * Implements Parser interface by wrapping existing TypeScriptParser.
- * Parser instance is cached for reuse across multiple file parses.
+ * Uses batch parsing to ensure TypeScript Program contains all project files
+ * for correct module resolution.
  *
  * Supported extensions: .ts, .tsx, .js, .jsx, .mjs, .cjs, .mts, .cts
  */
@@ -41,6 +49,12 @@ export class TypeScriptParserAdapter implements Parser {
   /** Cached TypeScriptParser instance (created once, reused) */
   private tsParser: TypeScriptParser | null = null;
 
+  /** Cached parse results by file path (populated after batch parse) */
+  private cachedResults: Map<string, ParserResult> = new Map();
+
+  /** Flag indicating if batch parse has been performed */
+  private batchParsed = false;
+
   /**
    * Create adapter with project context
    *
@@ -58,10 +72,78 @@ export class TypeScriptParserAdapter implements Parser {
   }
 
   /**
+   * Perform batch parsing of all files
+   *
+   * Creates TypeScript Program with all files for correct module resolution.
+   * Results are cached for subsequent individual parse() calls.
+   *
+   * @param filePaths - Array of relative file paths to parse
+   */
+  async parseBatch(filePaths: string[]): Promise<void> {
+    if (this.batchParsed) {
+      return; // Already parsed
+    }
+
+    // Initialize cached parser
+    if (!this.tsParser) {
+      this.tsParser = new TypeScriptParser(this.projectRoot);
+    }
+
+    // Convert to absolute paths
+    const absolutePaths = filePaths.map(p => path.resolve(this.projectRoot, p));
+
+    // Parse all files at once (creates Program with all files)
+    const batchResult = this.tsParser.parseAll(absolutePaths);
+
+    // Cache results by source file path
+    // TypeScriptParser returns edges with sourceFile as relative path
+    // We need to map each file's nodes and edges
+    for (const filePath of filePaths) {
+      const absolutePath = path.resolve(this.projectRoot, filePath);
+
+      // Find all edges originating from this file
+      const fileEdges = batchResult.edges.filter(e =>
+        e.from === `FILE:${filePath}`
+      );
+
+      // Find EXTERNAL nodes created by this file's imports
+      const externalNodeIds = new Set(
+        fileEdges
+          .filter(e => e.to.startsWith('EXTERNAL:'))
+          .map(e => e.to)
+      );
+      const fileExternalNodes = batchResult.nodes.filter(n =>
+        n.type === 'EXTERNAL' && externalNodeIds.has(n.id)
+      );
+
+      // Find MODULE nodes from this file (they have file path in their ID)
+      // MODULE IDs format: MODULE:filePath#name (see module-id.ts)
+      const fileModuleNodes = batchResult.nodes.filter(n =>
+        n.type === 'MODULE' && n.id.startsWith(`MODULE:${filePath}#`)
+      );
+
+      // Collect warnings for this file
+      const fileWarnings = batchResult.warnings.filter(w =>
+        w.includes(filePath) || w.includes(absolutePath)
+      );
+
+      this.cachedResults.set(filePath, {
+        nodes: [...fileExternalNodes, ...fileModuleNodes],
+        edges: fileEdges,
+        warnings: fileWarnings,
+      });
+    }
+
+    this.batchParsed = true;
+  }
+
+  /**
    * Parse a single TypeScript/JavaScript file
    *
-   * Uses cached TypeScriptParser which reads from filesystem via Compiler API.
-   * Content parameter is null (disk-based parser reads file from disk).
+   * Returns cached result from batch parse. Call parseBatch() first with
+   * all project files for correct module resolution.
+   *
+   * If file not in cache, performs standalone parse (limited module resolution).
    *
    * @param filePath - Relative file path (file must exist on disk)
    * @param _content - Ignored (underscore prefix indicates intentionally unused)
@@ -73,23 +155,29 @@ export class TypeScriptParserAdapter implements Parser {
     _content: string | null,
     _projectRoot: string
   ): Promise<ParserResult> {
-    // Initialize cached parser on first call
+    // Return cached result if available
+    const cached = this.cachedResults.get(filePath);
+    if (cached) {
+      return cached;
+    }
+
+    // Fallback: standalone parse (limited module resolution)
+    // This happens if parseBatch wasn't called first
     if (!this.tsParser) {
       this.tsParser = new TypeScriptParser(this.projectRoot);
     }
 
-    // TypeScriptParser requires absolute path
     const absolutePath = path.resolve(this.projectRoot, filePath);
-
-    // Use parseFile which handles both imports and modules
-    // Note: TypeScriptParser reads from filesystem, not from content param
     const result = this.tsParser.parseFile(absolutePath);
 
-    // Convert to ParserResult (remove filesParsed if present)
     return {
       nodes: result.nodes,
       edges: result.edges,
-      warnings: result.warnings,
+      warnings: [
+        ...result.warnings,
+        // WHY: Warn about fallback mode - relative imports may not resolve correctly
+        'Standalone parse mode: relative imports may not resolve correctly. Call parseBatch() first for full resolution.',
+      ],
     };
   }
 }
