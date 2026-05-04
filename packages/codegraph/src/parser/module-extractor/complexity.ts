@@ -28,8 +28,8 @@ export function calculateComplexity(node: ts.Node): number {
     // if statement
     if (ts.isIfStatement(n)) {
       complexity++;
-      // else clause
-      if (n.elseStatement) {
+      // Only count else if it's NOT another if (else-if chain)
+      if (n.elseStatement && !ts.isIfStatement(n.elseStatement)) {
         complexity++;
       }
     }
@@ -49,19 +49,14 @@ export function calculateComplexity(node: ts.Node): number {
       complexity++;
     }
 
-    // Binary expressions with logical operators
+    // Binary expressions with logical operators (including ??)
     if (ts.isBinaryExpression(n)) {
       const op = n.operatorToken.kind;
       if (op === ts.SyntaxKind.AmpersandAmpersandToken ||
-          op === ts.SyntaxKind.BarBarToken) {
+          op === ts.SyntaxKind.BarBarToken ||
+          op === ts.SyntaxKind.QuestionQuestionToken) {
         complexity++;
       }
-    }
-
-    // Nullish coalescing
-    if (ts.isBinaryExpression(n) &&
-        n.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken) {
-      complexity++;
     }
 
     // Ternary conditional

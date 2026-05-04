@@ -91,6 +91,14 @@ export class CodeGraph {
    * @param edge - The edge to add
    */
   addEdge(edge: GraphEdge): void {
+    // Validate nodes exist (development warning)
+    if (!this.nodes.has(edge.from)) {
+      console.warn(`Source node not found: ${edge.from}`);
+    }
+    if (!this.nodes.has(edge.to)) {
+      console.warn(`Target node not found: ${edge.to}`);
+    }
+
     this.edges.push(edge);
 
     // Update forward index (source → outgoing edges)

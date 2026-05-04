@@ -43,6 +43,12 @@ export function createParserProgram(
         ts.sys,
         projectRoot
       );
+
+      // Log parsing errors but continue with defaults
+      if (parsedConfig.errors && parsedConfig.errors.length > 0) {
+        console.warn('tsconfig.json parsing errors:', parsedConfig.errors);
+      }
+
       compilerOptions = { ...compilerOptions, ...parsedConfig.options };
     }
   }

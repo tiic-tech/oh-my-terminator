@@ -34,13 +34,19 @@ export function countLOC(sourceFile: ts.SourceFile, node: ts.Node): number {
       continue;
     }
 
-    // Multi-line comment start
-    if (trimmed.startsWith('/*') || trimmed.startsWith('/**')) {
-      inCommentBlock = true;
-      // Check if it ends on same line
-      if (trimmed.endsWith('*/')) {
-        inCommentBlock = false;
+    // Handle inline block comments: /* comment */ code
+    if (trimmed.includes('/*') && trimmed.includes('*/')) {
+      // Extract code outside comment
+      const withoutComment = trimmed.replace(/\/\*.*?\*\//g, '').trim();
+      if (withoutComment.length > 0) {
+        loc++;
       }
+      continue;
+    }
+
+    // Multi-line comment start (/** also matches /*)
+    if (trimmed.startsWith('/*')) {
+      inCommentBlock = true;
       continue;
     }
 

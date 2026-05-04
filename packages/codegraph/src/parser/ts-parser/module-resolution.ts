@@ -8,10 +8,14 @@
  * Set of built-in Node.js module names
  */
 const BUILTIN_MODULES = new Set([
+  // Core modules
   'fs', 'path', 'os', 'crypto', 'util', 'stream', 'events', 'buffer',
   'http', 'https', 'url', 'net', 'dns', 'child_process', 'cluster',
-  ' readline', 'repl', 'vm', 'module', 'assert', 'console', 'process',
+  'readline', 'repl', 'vm', 'module', 'assert', 'console', 'process',
   'timers', 'zlib', 'punycode', 'string_decoder', 'querystring',
+  // Additional built-ins
+  'dgram', 'tls', 'v8', 'worker_threads', 'perf_hooks', 'async_hooks',
+  'inspector', 'http2', 'trace_events', 'diagnostics_channel',
 ]);
 
 /**

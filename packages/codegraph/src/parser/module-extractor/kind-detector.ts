@@ -69,6 +69,21 @@ export function detectKind(node: ts.Node, sourceFile?: ts.SourceFile): ModuleKin
     return 'variable';
   }
 
+  // MethodDeclaration (class methods exported via namespace)
+  if (ts.isMethodDeclaration(node)) {
+    return 'function';
+  }
+
+  // GetAccessor/SetAccessor
+  if (ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) {
+    return 'function';
+  }
+
+  // PropertyDeclaration
+  if (ts.isPropertyDeclaration(node)) {
+    return 'variable';
+  }
+
   return 'variable';
 }
 
@@ -90,18 +105,9 @@ function isComponentFunction(func: ts.FunctionDeclaration, sourceFile: ts.Source
     }
   }
 
-  // Check body for JSX elements
+  // Check body for JSX elements with early exit
   if (func.body) {
-    let hasJsx = false;
-    const visit = (node: ts.Node) => {
-      if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-        hasJsx = true;
-        return;
-      }
-      ts.forEachChild(node, visit);
-    };
-    ts.forEachChild(func.body, visit);
-    return hasJsx;
+    return hasJsxElements(func.body);
   }
 
   return false;
@@ -132,18 +138,25 @@ function isComponent(func: ts.ArrowFunction | ts.FunctionExpression, sourceFile:
     }
   }
 
-  // Check body for JSX elements
-  let hasJsx = false;
-  const visit = (node: ts.Node) => {
-    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-      hasJsx = true;
-      return;
-    }
-    ts.forEachChild(node, visit);
-  };
-  ts.forEachChild(func.body, visit);
+  // Check body for JSX elements with early exit
+  return hasJsxElements(func.body);
+}
 
-  return hasJsx;
+/**
+ * Check function body for JSX elements with early exit
+ */
+function hasJsxElements(node: ts.Node): boolean {
+  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
+    return true;
+  }
+
+  let found = false;
+  ts.forEachChild(node, (child) => {
+    if (!found) {
+      found = hasJsxElements(child);
+    }
+  });
+  return found;
 }
 
 /**

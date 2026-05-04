@@ -92,6 +92,13 @@ export async function scanDirectory(
     return result;
   }
 
+  // Check if root is a directory
+  const rootStat = fs.statSync(root);
+  if (!rootStat.isDirectory()) {
+    result.warnings.push(`Root path is not a directory: ${root}`);
+    return result;
+  }
+
   // Start recursive scan
   await scanRecursive(root, root, opts, 0, result, '');
 
