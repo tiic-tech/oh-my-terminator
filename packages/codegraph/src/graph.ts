@@ -306,6 +306,39 @@ export class CodeGraph {
   }
 
   /**
+   * Remove a single edge from the graph
+   *
+   * Removes edge from edges array and updates both indexes.
+   *
+   * @param edge - The edge to remove
+   */
+  removeEdge(edge: GraphEdge): void {
+    // Remove from edges array
+    const idx = this.edges.indexOf(edge);
+    if (idx >= 0) {
+      this.edges.splice(idx, 1);
+    }
+
+    // Remove from outEdges index
+    const outList = this.outEdges.get(edge.from);
+    if (outList) {
+      const outIdx = outList.indexOf(edge);
+      if (outIdx >= 0) {
+        outList.splice(outIdx, 1);
+      }
+    }
+
+    // Remove from inEdges index
+    const inList = this.inEdges.get(edge.to);
+    if (inList) {
+      const inIdx = inList.indexOf(edge);
+      if (inIdx >= 0) {
+        inList.splice(inIdx, 1);
+      }
+    }
+  }
+
+  /**
    * Helper: Remove an edge from the edges array
    */
   private removeEdgeFromArray(edge: GraphEdge): void {
