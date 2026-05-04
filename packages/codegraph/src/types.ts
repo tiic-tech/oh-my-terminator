@@ -65,20 +65,29 @@ export enum EdgeType {
  * Contains extracted information about exported symbols
  */
 export interface ModuleMetadata {
+  // --- Core identity ---
   /** Symbol kind (function, class, component, etc.) */
   kind?: 'function' | 'class' | 'variable' | 'interface' | 'type' | 'component' | 'unknown';
+  /** Whether the symbol is exported */
+  isExported?: boolean;
+
+  // --- Documentation ---
   /** First 200 characters of JSDoc comment */
   jsDoc?: string;
+  /** Whether marked as @deprecated */
+  deprecated?: boolean;
+
+  // --- Code metrics ---
   /** Cyclomatic complexity */
   complexity?: number;
   /** Lines of code (excluding comments and blank lines) */
   loc?: number;
-  /** Whether the symbol is exported */
-  isExported?: boolean;
-  /** Whether marked as @deprecated */
-  deprecated?: boolean;
+
+  // --- Testing ---
   /** Associated test file path */
   testFile?: string;
+
+  // --- Git metadata ---
   /** Last commit that modified this node */
   lastModifiedCommit?: string;
   /** Modification count in last 30 days */

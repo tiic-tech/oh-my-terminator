@@ -57,9 +57,22 @@ function validateSchemaVersion(version: unknown): string[] {
   }
 
   const v = version as Record<string, unknown>;
+
+  // Type validation
   if (typeof v.major !== 'number') errors.push('schemaVersion.major must be number');
   if (typeof v.minor !== 'number') errors.push('schemaVersion.minor must be number');
   if (typeof v.patch !== 'number') errors.push('schemaVersion.patch must be number');
+
+  // Range validation (only if types are correct)
+  if (typeof v.major === 'number' && v.major < 0) {
+    errors.push('schemaVersion.major must be non-negative');
+  }
+  if (typeof v.minor === 'number' && v.minor < 0) {
+    errors.push('schemaVersion.minor must be non-negative');
+  }
+  if (typeof v.patch === 'number' && v.patch < 0) {
+    errors.push('schemaVersion.patch must be non-negative');
+  }
 
   return errors;
 }

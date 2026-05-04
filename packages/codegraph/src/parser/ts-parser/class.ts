@@ -96,7 +96,7 @@ export class TypeScriptParser {
         result.filesParsed++;
       } catch (error) {
         const msg = error instanceof Error
-          ? `${error.message}\nStack: ${error.stack}`
+          ? `${error.message}${error.stack ? ` (${error.stack.split('\n')[1]?.trim()})` : ''}`
           : String(error);
         result.warnings.push(`Error parsing ${filePath}: ${msg}`);
       }

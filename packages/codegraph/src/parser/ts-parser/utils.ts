@@ -15,10 +15,20 @@ import ts from 'typescript';
 export function getModuleSpecifier(
   node: ts.ImportDeclaration | ts.ExportDeclaration
 ): string | null {
-  if (node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-    return node.moduleSpecifier.text;
+  // No module specifier (e.g., export {};)
+  if (!node.moduleSpecifier) {
+    return null;
   }
-  return null;
+  // Not a string literal (should not happen, but type-safe)
+  if (!ts.isStringLiteral(node.moduleSpecifier)) {
+    return null;
+  }
+  const text = node.moduleSpecifier.text;
+  // Empty specifier is invalid (e.g., import '' or import '   ')
+  if (!text || text.trim() === '') {
+    return null;
+  }
+  return text;
 }
 
 /**
