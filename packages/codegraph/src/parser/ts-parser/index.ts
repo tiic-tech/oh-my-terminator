@@ -15,6 +15,7 @@ export {
 export {
   createParserProgram,
   resolveModulePath,
+  type ParserProgramResult,
 } from './program.js';
 
 // Module Resolution Utilities

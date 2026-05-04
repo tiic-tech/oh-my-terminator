@@ -54,12 +54,17 @@ export {
   isBuiltinModule,
   type ParsedImportInfo,
   type ParserOptions,
+  type ParserProgramResult,
   // C5: TypeScript Parser Adapter
   TypeScriptParserAdapter,
 } from './parser/index.js';
 
 // C5: Parser Registry
-export { DefaultParserRegistry } from './parser-registry.js';
+export {
+  DefaultParserRegistry,
+  type ParserRegistryOptions,
+  type RegistryLogger,
+} from './parser-registry.js';
 
 // C5: Core Analyzer
 export { analyzeFull } from './analyzer.js';

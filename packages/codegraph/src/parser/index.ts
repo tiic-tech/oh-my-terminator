@@ -18,6 +18,7 @@ export {
   type ParserResult,
   type ParsedImportInfo,
   type ParserOptions,
+  type ParserProgramResult,
 } from './ts-parser/index.js';
 
 export {

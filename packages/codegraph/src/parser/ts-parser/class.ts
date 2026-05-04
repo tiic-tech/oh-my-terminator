@@ -70,7 +70,9 @@ export class TypeScriptParser {
     }
 
     // Create single Program instance
-    this.program = createParserProgram(filePaths, this.projectRoot, this.options);
+    const programResult = createParserProgram(filePaths, this.projectRoot, this.options);
+    this.program = programResult.program;
+    result.warnings.push(...programResult.warnings);
 
     // External nodes deduplication map
     const externalNodes = new Map<string, GraphNode>();
@@ -121,7 +123,9 @@ export class TypeScriptParser {
 
     // Initialize program if not exists (for standalone parseFile calls)
     if (!this.program) {
-      this.program = createParserProgram([filePath], this.projectRoot, this.options);
+      const programResult = createParserProgram([filePath], this.projectRoot, this.options);
+      this.program = programResult.program;
+      result.warnings.push(...programResult.warnings);
     }
 
     const sourceFile = this.program.getSourceFile(filePath);

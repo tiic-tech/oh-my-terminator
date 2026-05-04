@@ -103,7 +103,11 @@ describe('TypeScriptParserAdapter', () => {
 
       assert.ok(Array.isArray(result.warnings));
       assert.ok(result.warnings.length > 0, 'Should have warning for non-existent file');
-      assert.ok(result.warnings[0].includes('not found') || result.warnings[0].includes('Error'));
+      // Check that warnings contain file-not-found message (may not be first warning due to tsconfig errors)
+      const hasNotFoundWarning = result.warnings.some(w =>
+        w.includes('not found') || w.includes('Error')
+      );
+      assert.ok(hasNotFoundWarning, 'Should have warning about file not found');
     });
   });
 });

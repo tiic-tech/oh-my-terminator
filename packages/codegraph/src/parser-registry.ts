@@ -8,10 +8,58 @@
 import type { Parser, ParserRegistry } from './types.js';
 
 /**
+ * Logger interface for registry debug output
+ *
+ * Allows callers to provide custom logging implementation.
+ * This avoids hardcoding console usage and enables flexible handling.
+ */
+export interface RegistryLogger {
+  /** Log a debug/warning message */
+  warn(message: string): void;
+}
+
+/**
+ * Options for creating a DefaultParserRegistry
+ *
+ * Provides control over debug output for plugin development scenarios.
+ */
+export interface ParserRegistryOptions {
+  /**
+   * Enable debug output for registration operations
+   *
+   * When true and no logger provided, warnings are collected internally.
+   * When a logger is provided, warnings are sent to the logger.
+   * Useful for debugging plugin registration order issues.
+   * Default: false (no debug output in production)
+   */
+  debug?: boolean;
+
+  /**
+   * Custom logger for debug output
+   *
+   * When provided, debug messages are sent to this logger instead of console.
+   * Enables integration with any logging system.
+   */
+  logger?: RegistryLogger;
+}
+
+/**
  * Default implementation of ParserRegistry
  *
  * Uses Map-based storage for efficient extension lookup.
  * Supports multiple parsers with overlapping extensions (last registered wins).
+ *
+ * @example
+ * ```typescript
+ * // Production use (no debug output)
+ * const registry = new DefaultParserRegistry();
+ *
+ * // Development use with custom logger
+ * const registry = new DefaultParserRegistry({
+ *   debug: true,
+ *   logger: { warn: (msg) => console.log(msg) }
+ * });
+ * ```
  */
 export class DefaultParserRegistry implements ParserRegistry {
   /** Parser instances by name */
@@ -20,12 +68,31 @@ export class DefaultParserRegistry implements ParserRegistry {
   /** Extension → Parser mapping (for quick lookup) */
   private extensionMap: Map<string, Parser> = new Map();
 
+  /** Debug mode flag */
+  private debug: boolean;
+
+  /** Optional logger for debug output */
+  private logger?: RegistryLogger;
+
+  /** Collected warnings (when debug=true but no logger) */
+  private warnings: string[] = [];
+
+  /**
+   * Create a new registry instance
+   *
+   * @param options - Registry configuration options
+   */
+  constructor(options?: ParserRegistryOptions) {
+    this.debug = options?.debug ?? false;
+    this.logger = options?.logger;
+  }
+
   /**
    * Register a parser
    *
    * Registers all extensions declared by the parser.
    * If an extension was previously registered, the new parser takes precedence.
-   * A warning is logged when an extension is re-registered.
+   * Debug mode captures/sends warnings when extensions are re-registered.
    *
    * @param parser - Parser instance to register
    */
@@ -33,17 +100,44 @@ export class DefaultParserRegistry implements ParserRegistry {
     // Store by name
     this.parsers.set(parser.name, parser);
 
-    // Map each extension to this parser (warn on collision)
+    // Map each extension to this parser (warn on collision if debug enabled)
     for (const ext of parser.extensions) {
       if (this.extensionMap.has(ext)) {
         const existing = this.extensionMap.get(ext);
-        // Log warning for debugging registration order issues
-        console.warn(
-          `[ParserRegistry] Extension ${ext} re-registered: ${existing?.name} → ${parser.name}`
-        );
+        // Debug output for plugin development - helps diagnose registration order issues
+        // Only enabled via constructor options, never in production by default
+        if (this.debug) {
+          const message = `[ParserRegistry] Extension ${ext} re-registered: ${existing?.name} → ${parser.name}`;
+          if (this.logger) {
+            this.logger.warn(message);
+          } else {
+            this.warnings.push(message);
+          }
+        }
       }
       this.extensionMap.set(ext, parser);
     }
+  }
+
+  /**
+   * Get collected debug warnings
+   *
+   * Returns warnings collected when debug=true but no logger was provided.
+   * Useful for inspecting registration issues after batch registration.
+   *
+   * @returns Array of warning messages
+   */
+  getWarnings(): string[] {
+    return [...this.warnings];
+  }
+
+  /**
+   * Clear collected warnings
+   *
+   * Resets the internal warnings array.
+   */
+  clearWarnings(): void {
+    this.warnings = [];
   }
 
   /**

@@ -8,22 +8,38 @@ import ts from 'typescript';
 import { ParserOptions } from './types.js';
 
 /**
+ * Result of creating a TypeScript Program
+ *
+ * Contains the Program instance and any warnings encountered during setup.
+ * Warnings allow callers to decide how to handle non-critical issues.
+ */
+export interface ParserProgramResult {
+  /** TypeScript Program instance */
+  program: ts.Program;
+  /** Non-critical warnings (e.g., tsconfig.json parsing errors) */
+  warnings: string[];
+}
+
+/**
  * Create a TypeScript Program for parsing
  *
  * Finds and reads tsconfig.json if available, applies custom options.
+ * Returns warnings array instead of logging directly - caller decides handling.
  *
  * @param filePaths - Absolute paths to files to parse
  * @param projectRoot - Absolute path to project root
  * @param options - Optional parser configuration
- * @returns TypeScript Program instance
+ * @returns ParserProgramResult with program and warnings
  */
 export function createParserProgram(
   filePaths: string[],
   projectRoot: string,
   options?: ParserOptions
-): ts.Program {
+): ParserProgramResult {
   // Find tsconfig.json
   const configPath = ts.findConfigFile(projectRoot, ts.sys.fileExists, 'tsconfig.json');
+
+  const warnings: string[] = [];
 
   let compilerOptions: ts.CompilerOptions = {
     target: ts.ScriptTarget.ESNext,
@@ -44,9 +60,11 @@ export function createParserProgram(
         projectRoot
       );
 
-      // Log parsing errors but continue with defaults
+      // Collect parsing errors as warnings - caller decides how to handle
       if (parsedConfig.errors && parsedConfig.errors.length > 0) {
-        console.warn('tsconfig.json parsing errors:', parsedConfig.errors);
+        warnings.push(
+          `tsconfig.json parsing errors: ${parsedConfig.errors.map(e => e.messageText).join(', ')}`
+        );
       }
 
       compilerOptions = { ...compilerOptions, ...parsedConfig.options };
@@ -58,7 +76,10 @@ export function createParserProgram(
     compilerOptions = { ...compilerOptions, ...options.compilerOptions };
   }
 
-  return ts.createProgram(filePaths, compilerOptions);
+  return {
+    program: ts.createProgram(filePaths, compilerOptions),
+    warnings,
+  };
 }
 
 /**

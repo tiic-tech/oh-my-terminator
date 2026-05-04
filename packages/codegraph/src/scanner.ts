@@ -107,6 +107,9 @@ export async function scanDirectory(
 
 /**
  * Internal recursive scanning function
+ *
+ * Orchestration function that coordinates directory traversal.
+ * Delegates file processing to processFileEntry helper.
  */
 async function scanRecursive(
   currentDir: string,
@@ -142,7 +145,7 @@ async function scanRecursive(
     }
   }
 
-  // Read directory
+  // Read directory entries
   let entries: fs.Dirent[];
   try {
     entries = await fs.promises.readdir(currentDir, { withFileTypes: true });
@@ -160,23 +163,20 @@ async function scanRecursive(
   }
 
   // Create directory node
+  // Use currentDir basename for root to get actual directory name (not '.')
   const currentNodeId = depth === 0 ? 'DIRECTORY:.' : `DIRECTORY:${relativePath}`;
-
+  const dirName = depth === 0 ? path.basename(currentDir) : path.basename(relativePath);
   result.nodes.push({
     id: currentNodeId,
     type: NodeType.DIRECTORY,
     path: relativePath || '.',
-    name: path.basename(currentDir) || '.',
+    name: dirName || '.',
   });
   result.stats.directories++;
 
   // Create CONTAINS edge from parent
   if (parentNodeId) {
-    result.edges.push({
-      from: parentNodeId,
-      to: currentNodeId,
-      type: EdgeType.CONTAINS,
-    });
+    result.edges.push(createContainsEdge(parentNodeId, currentNodeId));
   }
 
   // Process each entry
@@ -184,21 +184,8 @@ async function scanRecursive(
     const entryPath = path.join(currentDir, entry.name);
     const entryRelativePath = relativePath ? path.join(relativePath, entry.name) : entry.name;
 
-    // Skip symbolic links
-    if (entry.isSymbolicLink()) {
-      result.stats.skipped++;
-      continue;
-    }
-
-    // Skip hidden files/dirs
-    if (!opts.includeHidden && entry.name.startsWith('.')) {
-      result.stats.skipped++;
-      continue;
-    }
-
-    // Check ignore rules
-    if (shouldIgnore(entryRelativePath, opts.ignoreRules)) {
-      result.stats.skipped++;
+    // Skip symbolic links, hidden, or ignored entries
+    if (shouldSkipEntry(entry, entryRelativePath, opts, result)) {
       continue;
     }
 
@@ -206,28 +193,70 @@ async function scanRecursive(
       // Recursively scan subdirectory
       await scanRecursive(entryPath, rootDir, opts, depth + 1, result, currentNodeId);
     } else if (entry.isFile()) {
-      // Create file node
-      const fileId = `FILE:${entryRelativePath}`;
-      result.nodes.push({
-        id: fileId,
-        type: NodeType.FILE,
-        path: entryRelativePath,
-        name: entry.name,
-      });
-      result.stats.files++;
-
-      // Create CONTAINS edge
-      result.edges.push({
-        from: currentNodeId,
-        to: fileId,
-        type: EdgeType.CONTAINS,
-      });
-
-      // Check if file should be parsed
-      if (isParseableFile(entry.name, opts.extensions)) {
-        result.filesToParse.push(entryRelativePath);
-      }
+      // Process file entry
+      processFileEntry(entryRelativePath, entry.name, currentNodeId, opts, result);
     }
+  }
+}
+
+/**
+ * Check if an entry should be skipped during scanning
+ *
+ * Handles symbolic links, hidden files, and ignore rule checks.
+ * Updates skip statistics when entry is filtered out.
+ */
+function shouldSkipEntry(
+  entry: fs.Dirent,
+  entryRelativePath: string,
+  opts: Required<ScanOptions>,
+  result: ScanResult
+): boolean {
+  // Skip symbolic links
+  if (entry.isSymbolicLink()) {
+    result.stats.skipped++;
+    return true;
+  }
+
+  // Skip hidden files/dirs
+  if (!opts.includeHidden && entry.name.startsWith('.')) {
+    result.stats.skipped++;
+    return true;
+  }
+
+  // Check ignore rules
+  if (shouldIgnore(entryRelativePath, opts.ignoreRules)) {
+    result.stats.skipped++;
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Process a file entry and add to scan results
+ *
+ * Creates file node, CONTAINS edge, and adds to parseable files list
+ * if extension matches configured extensions.
+ */
+function processFileEntry(
+  entryRelativePath: string,
+  entryName: string,
+  parentNodeId: string,
+  opts: Required<ScanOptions>,
+  result: ScanResult
+): void {
+  // Create file node using helper
+  const fileNode = createFileNode(entryRelativePath);
+  result.nodes.push(fileNode);
+  result.stats.files++;
+
+  // Create CONTAINS edge
+  const fileId = `FILE:${entryRelativePath}`;
+  result.edges.push(createContainsEdge(parentNodeId, fileId));
+
+  // Check if file should be parsed
+  if (isParseableFile(entryName, opts.extensions)) {
+    result.filesToParse.push(entryRelativePath);
   }
 }
 

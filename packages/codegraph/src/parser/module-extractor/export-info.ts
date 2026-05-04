@@ -83,22 +83,36 @@ export function getDeclarationName(node: ts.Node, sourceFile: ts.SourceFile): st
 }
 
 /**
+ * Safely get modifiers from a node
+ *
+ * @param node - AST node
+ * @returns Modifiers array or undefined
+ */
+function getModifiersSafe(node: ts.Node): readonly ts.Modifier[] | undefined {
+  return ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
+}
+
+/**
+ * Check if node has a specific modifier kind
+ *
+ * @param node - AST node to check
+ * @param kind - SyntaxKind to look for
+ * @returns True if node has the specified modifier
+ */
+function hasModifierKind(node: ts.Node, kind: ts.SyntaxKind): boolean {
+  const modifiers = getModifiersSafe(node);
+  return modifiers?.some(m => m.kind === kind) ?? false;
+}
+
+/**
  * Check if node is exported
  *
  * @param node - AST node to check
- * @returns True if node has export modifier
+ * @returns True if node has export modifier (either named or default)
  */
 export function isExported(node: ts.Node): boolean {
-  const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
-  if (!modifiers) return false;
-
-  // Single iteration - check both ExportKeyword and DefaultKeyword
-  let hasExport = false;
-  for (const mod of modifiers) {
-    if (mod.kind === ts.SyntaxKind.ExportKeyword) hasExport = true;
-    if (mod.kind === ts.SyntaxKind.DefaultKeyword) return true;
-  }
-  return hasExport;
+  return hasModifierKind(node, ts.SyntaxKind.ExportKeyword) ||
+         hasModifierKind(node, ts.SyntaxKind.DefaultKeyword);
 }
 
 /**
@@ -108,13 +122,5 @@ export function isExported(node: ts.Node): boolean {
  * @returns True if node has default modifier
  */
 export function isDefaultExport(node: ts.Node): boolean {
-  const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
-  if (modifiers) {
-    for (const mod of modifiers) {
-      if (mod.kind === ts.SyntaxKind.DefaultKeyword) {
-        return true;
-      }
-    }
-  }
-  return false;
+  return hasModifierKind(node, ts.SyntaxKind.DefaultKeyword);
 }
