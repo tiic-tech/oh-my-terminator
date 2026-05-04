@@ -24,9 +24,11 @@ import { writeFile, rename, stat, copyFile } from 'node:fs/promises';
 import type {
   Baseline,
   SaveBaselineOptions,
+} from './types/index.js';
+import type {
   CompressionConfig,
   CompressedBaseline,
-} from './types/index.js';
+} from '../types.js';
 import {
   getBaselinePath,
   getBackupPath,

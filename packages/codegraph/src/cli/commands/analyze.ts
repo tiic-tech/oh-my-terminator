@@ -32,6 +32,7 @@ import {
   type AnalyzeResult,
   type CliError,
   type CliResultStats,
+  type CompressionStats,
   EdgeType,
 } from '../../types.js';
 import type { Baseline } from '../../persistence/types/baseline.js';
@@ -46,6 +47,8 @@ import type { Baseline } from '../../persistence/types/baseline.js';
 export interface AnalyzeOptions {
   /** Output as JSON (for programmatic consumption) */
   json?: boolean;
+  /** Enable compression (default: true, use --compress to explicitly enable) */
+  compress?: boolean;
 }
 
 // ============================================================================
@@ -58,14 +61,18 @@ export interface AnalyzeOptions {
  * Performs full repository analysis and creates baseline for future updates.
  *
  * @param cwd - Project root directory
- * @param options - Command options
+ * @param options - Command options (compress defaults to true)
  * @returns AnalyzeResult on success, CliError on failure
  */
 export async function analyzeCommand(
   cwd: string,
-  _options?: AnalyzeOptions
+  options?: AnalyzeOptions
 ): Promise<AnalyzeResult | CliError> {
   const startTime = Date.now();
+
+  // Compression is enabled by default (6.1-6.3)
+  // --no-compression sets compress=false, --compress explicitly sets compress=true
+  const compress = options?.compress ?? true;
 
   // ========================================
   // Step 1: Validate Project (Path + Git)
@@ -124,21 +131,50 @@ export async function analyzeCommand(
   };
 
   // ========================================
-  // Step 5: Save Baseline
+  // Step 5: Save Baseline (with compression)
   // ========================================
   await ensureCodegraphDir(projectRoot);
-  await saveBaseline(baseline, projectRoot);
+
+  // Calculate original size estimate (uncompressed JSON)
+  const originalSizeBytes = Buffer.byteLength(JSON.stringify(baseline), 'utf-8');
+
+  await saveBaseline(baseline, projectRoot, { compress });
 
   // ========================================
-  // Step 6: Save HEAD Commit
+  // Step 6: Calculate Compression Stats
+  // ========================================
+  let compressionStats: CompressionStats | undefined;
+  if (compress) {
+    // Read saved file to get compressed size
+    const { readFile } = await import('node:fs/promises');
+    const baselinePath = `.codegraph/baseline.json`;
+    const fullPath = `${projectRoot}/${baselinePath}`;
+    try {
+      const savedContent = await readFile(fullPath, 'utf-8');
+      const compressedSizeBytes = Buffer.byteLength(savedContent, 'utf-8');
+      const savingsPercent = originalSizeBytes > 0
+        ? Math.round(((originalSizeBytes - compressedSizeBytes) / originalSizeBytes) * 100)
+        : 0;
+      compressionStats = {
+        originalSizeBytes,
+        compressedSizeBytes,
+        savingsPercent,
+      };
+    } catch {
+      // If file read fails, skip compression stats
+    }
+  }
+
+  // ========================================
+  // Step 7: Save HEAD Commit
   // ========================================
   const lastCommitPath = getLastCommitPath(projectRoot);
   await writeFile(lastCommitPath, headCommit, 'utf-8');
 
   // ========================================
-  // Step 7: Return Result
+  // Step 8: Return Result
   // ========================================
-  return {
+  const result: AnalyzeResult = {
     success: true,
     stats,
     baseline: {
@@ -146,6 +182,7 @@ export async function analyzeCommand(
       commitHash: headCommit,
       timestamp,
     },
+    compressionStats,
     durationMs: Date.now() - startTime,
     warnings: analysis.warnings,
     nextSuggested: [
@@ -153,6 +190,8 @@ export async function analyzeCommand(
       'codegraph scope --all',
     ],
   };
+
+  return result;
 }
 
 // ============================================================================

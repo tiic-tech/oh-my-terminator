@@ -21,11 +21,11 @@ import { detectBaselineFormat, migrate1_0To1_1 } from './migrations/1.0-to-1.1.j
 import { deserializeCompressed } from './compression/serializer.js';
 import { CorruptedBaselineError } from './compression/errors.js';
 import { CodeGraph } from '../graph.js';
+import type { Baseline } from './types/index.js';
 import type {
-  Baseline,
   CompressionConfig,
   CompressedBaseline,
-} from './types/index.js';
+} from '../types.js';
 
 // ============================================================================
 // Main Loading Function

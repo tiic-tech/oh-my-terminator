@@ -406,6 +406,21 @@ export interface CliResultStats {
 }
 
 /**
+ * Compression statistics for CLI results
+ *
+ * WHY: Shows compression effectiveness to users for token budget awareness.
+ * Enables users to understand baseline size reduction.
+ */
+export interface CompressionStats {
+  /** Estimated original size in bytes (before compression) */
+  originalSizeBytes: number;
+  /** Actual compressed size in bytes */
+  compressedSizeBytes: number;
+  /** Percentage savings from compression (0-100) */
+  savingsPercent: number;
+}
+
+/**
  * Result of CLI analyze command
  *
  * WHY: Structured result enables both programmatic consumption and CLI output formatting.
@@ -425,6 +440,8 @@ export interface AnalyzeResult {
     /** Unix timestamp when baseline was created */
     timestamp: number;
   };
+  /** Compression statistics (present when compression enabled) */
+  compressionStats?: CompressionStats;
   /** Total processing time in milliseconds */
   durationMs: number;
   /** Non-fatal issues that didn't block analysis */
@@ -457,10 +474,62 @@ export interface UpdateResult {
     /** Nodes removed from the graph */
     removedNodes: number;
   };
+  /** Compression statistics (present when compression enabled) */
+  compressionStats?: CompressionStats;
   /** Total processing time in milliseconds */
   durationMs: number;
   /** Non-fatal issues during update */
   warnings: string[];
+}
+
+/**
+ * Migration statistics for migrate command
+ *
+ * WHY: Reports migration effectiveness to users.
+ * Shows size reduction and path table efficiency.
+ */
+export interface MigrateStats {
+  /** Input baseline size in bytes */
+  inputSizeBytes: number;
+  /** Output baseline size in bytes */
+  outputSizeBytes: number;
+  /** Percentage savings from compression (0-100) */
+  savingsPercent: number;
+  /** Number of entries in path table */
+  pathTableEntries: number;
+}
+
+/**
+ * Result of CLI migrate command
+ *
+ * WHY: Structured result for manual baseline migration from 1.0 to 1.1 format.
+ * Enables users to migrate existing baselines without re-analyzing.
+ */
+export interface MigrateResult {
+  /** true for successful migration, false for errors */
+  success: true;
+  /** Migration statistics */
+  stats: MigrateStats;
+  /** Input file path */
+  inputPath: string;
+  /** Output file path */
+  outputPath: string;
+  /** Total processing time in milliseconds */
+  durationMs: number;
+}
+
+/**
+ * Options for migrate command
+ *
+ * WHY: Required paths for manual migration operation.
+ */
+export interface MigrateOptions {
+  /** Input baseline file path (required) */
+  input: string;
+  /** Output baseline file path (required) */
+  output: string;
+  /** Output as JSON (for programmatic consumption) */
+  json?: boolean;
 }
 
 /**

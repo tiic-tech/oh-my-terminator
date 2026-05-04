@@ -76,4 +76,30 @@ describe('CLI smoke tests', () => {
     assert.ok(result.stdout.includes('update'), 'Output should contain update command');
     assert.ok(result.stdout.includes('Usage'), 'Help should show usage section');
   });
+
+  it('shows migrate command help with migrate --help (6.7)', async () => {
+    const result = await runCLI(['migrate', '--help']);
+
+    assert.strictEqual(result.exitCode, 0, 'CLI should exit with 0 for migrate help');
+    assert.ok(result.stdout.includes('migrate'), 'Output should contain migrate command');
+    assert.ok(result.stdout.includes('--input'), 'Help should show --input option');
+    assert.ok(result.stdout.includes('--output'), 'Help should show --output option');
+    assert.ok(result.stdout.includes('Usage'), 'Help should show usage section');
+  });
+
+  it('shows compression flags in analyze --help (6.1-6.3)', async () => {
+    const result = await runCLI(['analyze', '--help']);
+
+    assert.strictEqual(result.exitCode, 0, 'CLI should exit with 0 for analyze help');
+    assert.ok(result.stdout.includes('--compress'), 'Help should show --compress flag');
+    assert.ok(result.stdout.includes('--no-compression'), 'Help should show --no-compression flag');
+  });
+
+  it('shows compression flags in update --help (6.11-6.12)', async () => {
+    const result = await runCLI(['update', '--help']);
+
+    assert.strictEqual(result.exitCode, 0, 'CLI should exit with 0 for update help');
+    assert.ok(result.stdout.includes('--compress'), 'Help should show --compress flag');
+    assert.ok(result.stdout.includes('--no-compression'), 'Help should show --no-compression flag');
+  });
 });

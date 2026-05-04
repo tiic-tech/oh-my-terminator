@@ -33,6 +33,7 @@ import {
   NodeType,
   type UpdateResult,
   type CliError,
+  type CompressionStats,
 } from '../../types.js';
 import { CodeGraph } from '../../graph.js';
 import type { Baseline } from '../../persistence/types/baseline.js';
@@ -48,6 +49,8 @@ import { reparseFiles } from '../reparser.js';
 export interface UpdateOptions {
   /** Output as JSON (for programmatic consumption) */
   json?: boolean;
+  /** Enable compression (default: true, inherit analyze behavior) */
+  compress?: boolean;
 }
 
 // ============================================================================
@@ -60,14 +63,18 @@ export interface UpdateOptions {
  * Performs incremental graph update based on git changes.
  *
  * @param cwd - Project root directory
- * @param options - Command options
+ * @param options - Command options (compress defaults to true, inherits analyze behavior)
  * @returns UpdateResult on success, CliError on failure
  */
 export async function updateCommand(
   cwd: string,
-  _options?: UpdateOptions
+  options?: UpdateOptions
 ): Promise<UpdateResult | CliError> {
   const startTime = Date.now();
+
+  // Compression is enabled by default (6.11-6.12)
+  // Inherits analyze behavior: compress=true unless --no-compression
+  const compress = options?.compress ?? true;
 
   // ========================================
   // Step 1: Validate Project (Path + Git)
@@ -192,7 +199,7 @@ export async function updateCommand(
   }
 
   // ========================================
-  // Step 7: Save Updated Baseline
+  // Step 7: Save Updated Baseline (with compression)
   // ========================================
   const newHead = await getHeadCommit(projectRoot);
   const timestamp = Date.now();
@@ -209,7 +216,34 @@ export async function updateCommand(
     migrationHistory: baseline.migrationHistory,
   };
 
-  await saveBaseline(updatedBaseline, projectRoot);
+  // Calculate original size estimate (uncompressed JSON)
+  const originalSizeBytes = Buffer.byteLength(JSON.stringify(updatedBaseline), 'utf-8');
+
+  await saveBaseline(updatedBaseline, projectRoot, { compress });
+
+  // ========================================
+  // Step 7.5: Calculate Compression Stats
+  // ========================================
+  let compressionStats: CompressionStats | undefined;
+  if (compress) {
+    const { readFile } = await import('node:fs/promises');
+    const baselinePath = `.codegraph/baseline.json`;
+    const fullPath = `${projectRoot}/${baselinePath}`;
+    try {
+      const savedContent = await readFile(fullPath, 'utf-8');
+      const compressedSizeBytes = Buffer.byteLength(savedContent, 'utf-8');
+      const savingsPercent = originalSizeBytes > 0
+        ? Math.round(((originalSizeBytes - compressedSizeBytes) / originalSizeBytes) * 100)
+        : 0;
+      compressionStats = {
+        originalSizeBytes,
+        compressedSizeBytes,
+        savingsPercent,
+      };
+    } catch {
+      // If file read fails, skip compression stats
+    }
+  }
 
   // Update lastCommit.txt
   const lastCommitPath = getLastCommitPath(projectRoot);
@@ -233,6 +267,7 @@ export async function updateCommand(
       newNodes,
       removedNodes,
     },
+    compressionStats,
     durationMs: Date.now() - startTime,
     warnings,
   };

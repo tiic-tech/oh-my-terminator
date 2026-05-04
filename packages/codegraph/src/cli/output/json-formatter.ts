@@ -5,7 +5,7 @@
  * Each formatter returns a string - caller handles stdout/stderr routing.
  */
 
-import type { AnalyzeResult, UpdateResult, CliError } from '../../types.js';
+import type { AnalyzeResult, UpdateResult, MigrateResult, CliError } from '../../types.js';
 
 /**
  * Format AnalyzeResult as compact JSON
@@ -24,6 +24,16 @@ export function formatAnalyzeJson(result: AnalyzeResult): string {
  * @returns JSON string with minimal whitespace
  */
 export function formatUpdateJson(result: UpdateResult): string {
+  return JSON.stringify(result);
+}
+
+/**
+ * Format MigrateResult as compact JSON
+ *
+ * @param result - Migration result from CLI migrate command
+ * @returns JSON string with minimal whitespace
+ */
+export function formatMigrateJson(result: MigrateResult): string {
   return JSON.stringify(result);
 }
 

@@ -72,19 +72,19 @@
 
 ## 6. CLI Integration
 
-- [ ] 6.1 Add `--compress` flag to analyze command
-- [ ] 6.2 Add `--no-compression` flag to analyze command
-- [ ] 6.3 Set compression as default (compress: true unless --no-compression)
-- [ ] 6.4 Create `src/cli/commands/migrate.ts` for manual migration
-- [ ] 6.5 Implement `cg migrate --input <path> --output <path>` command
-- [ ] 6.6 Add migration statistics output (size reduction, savings %)
-- [ ] 6.7 Register migrate command in CLI entry point
-- [ ] 6.8 Add compression stats to analyze/update result output
-- [ ] 6.9 Write unit tests for CLI compression flags
-- [ ] 6.10 Write unit tests for migrate command
-- [ ] 6.11 Add `--compress` flag to update command (inherit analyze behavior)
-- [ ] 6.12 Add `--no-compression` flag to update command
-- [ ] 6.13 Write unit tests for update command compression flags
+- [x] 6.1 Add `--compress` flag to analyze command
+- [x] 6.2 Add `--no-compression` flag to analyze command
+- [x] 6.3 Set compression as default (compress: true unless --no-compression)
+- [x] 6.4 Create `src/cli/commands/migrate.ts` for manual migration
+- [x] 6.5 Implement `cg migrate --input <path> --output <path>` command
+- [x] 6.6 Add migration statistics output (size reduction, savings %)
+- [x] 6.7 Register migrate command in CLI entry point
+- [x] 6.8 Add compression stats to analyze/update result output
+- [x] 6.9 Write unit tests for CLI compression flags
+- [x] 6.10 Write unit tests for migrate command
+- [x] 6.11 Add `--compress` flag to update command (inherit analyze behavior)
+- [x] 6.12 Add `--no-compression` flag to update command
+- [x] 6.13 Write unit tests for update command compression flags
 
 ## 7. Integration Tests
 

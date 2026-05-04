@@ -5,7 +5,41 @@
  * Uses Unicode symbols for visual clarity and structured layout for scanning.
  */
 
-import type { AnalyzeResult, UpdateResult, CliError } from '../../types.js';
+import type { AnalyzeResult, UpdateResult, MigrateResult, CliError, CompressionStats } from '../../types.js';
+
+/**
+ * Format compression statistics for text output
+ *
+ * WHY: Shows users the benefit of compression for token budget awareness.
+ *
+ * @param stats - Compression statistics
+ * @returns Formatted compression stats string
+ */
+function formatCompressionStats(stats: CompressionStats): string {
+  const lines: string[] = [];
+  lines.push('');
+  lines.push('Compression stats:');
+  lines.push(`- Original size: ${formatBytes(stats.originalSizeBytes)}`);
+  lines.push(`- Compressed size: ${formatBytes(stats.compressedSizeBytes)}`);
+  lines.push(`- Savings: ${stats.savingsPercent}%`);
+  return lines.join('\n');
+}
+
+/**
+ * Format bytes in human-readable format
+ *
+ * @param bytes - Size in bytes
+ * @returns Formatted string (e.g., "1.2KB", "500B")
+ */
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)}MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(2)}KB`;
+  }
+  return `${bytes}B`;
+}
 
 /**
  * Format AnalyzeResult as human-readable text
@@ -31,6 +65,11 @@ export function formatAnalyzeText(result: AnalyzeResult): string {
   if (result.baseline) {
     lines.push('');
     lines.push(`Baseline saved: ${result.baseline.path}`);
+  }
+
+  // Compression stats (if present - 6.8)
+  if (result.compressionStats) {
+    lines.push(formatCompressionStats(result.compressionStats));
   }
 
   // Duration
@@ -81,6 +120,11 @@ export function formatUpdateText(result: UpdateResult): string {
   lines.push(`New nodes: ${result.delta.newNodes}`);
   lines.push(`Removed nodes: ${result.delta.removedNodes}`);
 
+  // Compression stats (if present - 6.8)
+  if (result.compressionStats) {
+    lines.push(formatCompressionStats(result.compressionStats));
+  }
+
   // Duration
   lines.push(`Duration: ${formatDuration(result.durationMs)}`);
 
@@ -123,4 +167,38 @@ function formatDuration(ms: number): string {
     return `${(ms / 1000).toFixed(1)}s`;
   }
   return `${ms}ms`;
+}
+
+/**
+ * Format MigrateResult as human-readable text
+ *
+ * WHY: Shows migration statistics to users for verification.
+ *
+ * @param result - Migration result from CLI migrate command
+ * @returns Multiline formatted string
+ */
+export function formatMigrateText(result: MigrateResult): string {
+  const lines: string[] = [];
+
+  // Header
+  lines.push('Migration complete');
+
+  // Paths
+  lines.push('');
+  lines.push(`Input: ${result.inputPath}`);
+  lines.push(`Output: ${result.outputPath}`);
+
+  // Statistics (6.6)
+  lines.push('');
+  lines.push('Migration statistics:');
+  lines.push(`- Input size: ${formatBytes(result.stats.inputSizeBytes)}`);
+  lines.push(`- Output size: ${formatBytes(result.stats.outputSizeBytes)}`);
+  lines.push(`- Savings: ${result.stats.savingsPercent}%`);
+  lines.push(`- Path table entries: ${result.stats.pathTableEntries}`);
+
+  // Duration
+  lines.push('');
+  lines.push(`Duration: ${formatDuration(result.durationMs)}`);
+
+  return lines.join('\n');
 }
