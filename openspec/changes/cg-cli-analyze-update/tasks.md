@@ -100,4 +100,4 @@
 - [x] 8.2 Add CLI usage examples to README
 - [x] 8.3 Verify all tests pass: `pnpm test`
 - [x] 8.4 Run TypeScript type check: `pnpm build`
-- [x] 8.5 Create archive.md when complete
+- [ ] 8.5 Create archive.md when complete (requires user trigger: /opsx:archive)
