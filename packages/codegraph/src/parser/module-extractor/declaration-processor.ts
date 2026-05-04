@@ -8,7 +8,7 @@ import ts from 'typescript';
 import { ModuleExtractResult, ExportInfoMap } from './types.js';
 import { ModuleKind } from './types.js';
 import { detectKind } from './kind-detector.js';
-import { createModuleNode } from './node-builder.js';
+import { createModuleNode, CreateModuleNodeOptions } from './node-builder.js';
 import { getDeclarationName, isExported, isDefaultExport } from './export-info.js';
 
 /**
@@ -79,21 +79,23 @@ export function processDeclaration(
     ? exportInfo.exportedNames[0]
     : name;
 
-  createModuleNode(
+  createModuleNode({
     node,
     sourceFile,
     relativePath,
     fileId,
-    exportName,
+    name: exportName,
     kind,
     result,
     exportNames,
-    hasName,
-    isDefault,
-    internalName,
-    exportInfoMap,
-    allExportTypes
-  );
+    exportInfo: {
+      hasName,
+      isDefault,
+      internalName,
+      exportInfoMap,
+      allExportTypes,
+    },
+  });
 }
 
 /**
@@ -112,20 +114,22 @@ function processVariableStatement(
   for (const decl of decls) {
     const varName = decl.name.getText(sourceFile);
     const varKind = detectKind(decl, sourceFile);
-    createModuleNode(
-      decl,
+    createModuleNode({
+      node: decl,
       sourceFile,
       relativePath,
       fileId,
-      varName,
-      varKind,
+      name: varName,
+      kind: varKind,
       result,
       exportNames,
-      true,
-      false,
-      varName,
-      exportInfoMap
-    );
+      exportInfo: {
+        hasName: true,
+        isDefault: false,
+        internalName: varName,
+        exportInfoMap,
+      },
+    });
   }
 }
 

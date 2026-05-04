@@ -13,37 +13,58 @@ import { calculateComplexity } from './complexity.js';
 import { countLOC } from './loc-counter.js';
 
 /**
- * Create MODULE node with all metadata
+ * Options for creating a MODULE node
  *
- * @param node - AST node
- * @param sourceFile - Source file
- * @param relativePath - Relative file path
- * @param fileId - Parent FILE node ID
- * @param name - Export name
- * @param kind - Module kind
- * @param result - Result accumulator
- * @param exportNames - Name collision tracker
- * @param hasName - Whether declaration has a name
- * @param isDefault - Whether this is a default export
- * @param internalName - Internal symbol name (for renamed exports)
- * @param exportInfoMap - Export info map
- * @param allExportTypes - All export types for this symbol
+ * Groups related parameters for better decomposition
  */
-export function createModuleNode(
-  node: ts.Node,
-  sourceFile: ts.SourceFile,
-  relativePath: string,
-  fileId: string,
-  name: string,
-  kind: ModuleKind,
-  result: ModuleExtractResult,
-  exportNames: Map<string, number>,
-  hasName: boolean,
-  isDefault: boolean,
-  internalName?: string,
-  exportInfoMap?: ExportInfoMap,
-  allExportTypes?: string[]
-): void {
+export interface CreateModuleNodeOptions {
+  // Core context
+  node: ts.Node;
+  sourceFile: ts.SourceFile;
+  relativePath: string;
+  fileId: string;
+
+  // Module identity
+  name: string;
+  kind: ModuleKind;
+
+  // Result containers
+  result: ModuleExtractResult;
+  exportNames: Map<string, number>;
+
+  // Export info (grouped)
+  exportInfo: {
+    hasName: boolean;
+    isDefault: boolean;
+    internalName?: string;
+    exportInfoMap?: ExportInfoMap;
+    allExportTypes?: string[];
+  };
+}
+
+/**
+ * Create MODULE node with all metadata
+ */
+export function createModuleNode(options: CreateModuleNodeOptions): void {
+  const {
+    node,
+    sourceFile,
+    relativePath,
+    fileId,
+    name,
+    kind,
+    result,
+    exportNames,
+    exportInfo,
+  } = options;
+
+  const {
+    hasName,
+    isDefault,
+    internalName,
+    exportInfoMap,
+    allExportTypes,
+  } = exportInfo;
   // Handle duplicate names (anonymous defaults)
   let finalName = name;
   const count = exportNames.get(name) ?? 0;
