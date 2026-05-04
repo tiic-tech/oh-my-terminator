@@ -39,19 +39,20 @@ export class CodeGraph {
    * Add a node to the graph
    *
    * Initializes empty edge index arrays for the node.
-   * If node with same id exists, it will be overwritten.
+   * If node with same id exists, old edges are cleaned up first.
    *
    * @param node - The node to add
    */
   addNode(node: GraphNode): void {
+    // If node already exists, clean up its old edges first
+    if (this.nodes.has(node.id)) {
+      this.removeNode(node.id);
+    }
+
     this.nodes.set(node.id, node);
     // Initialize empty edge index arrays
-    if (!this.outEdges.has(node.id)) {
-      this.outEdges.set(node.id, []);
-    }
-    if (!this.inEdges.has(node.id)) {
-      this.inEdges.set(node.id, []);
-    }
+    this.outEdges.set(node.id, []);
+    this.inEdges.set(node.id, []);
   }
 
   /**

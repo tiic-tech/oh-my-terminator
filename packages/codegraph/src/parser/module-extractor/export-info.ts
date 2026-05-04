@@ -89,22 +89,16 @@ export function getDeclarationName(node: ts.Node, sourceFile: ts.SourceFile): st
  * @returns True if node has export modifier
  */
 export function isExported(node: ts.Node): boolean {
-  // Check for export modifier
   const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
-  if (modifiers) {
-    for (const mod of modifiers) {
-      if (mod.kind === ts.SyntaxKind.ExportKeyword) {
-        // Check for default
-        for (const m of modifiers) {
-          if (m.kind === ts.SyntaxKind.DefaultKeyword) {
-            return true; // export default
-          }
-        }
-        return true; // export
-      }
-    }
+  if (!modifiers) return false;
+
+  // Single iteration - check both ExportKeyword and DefaultKeyword
+  let hasExport = false;
+  for (const mod of modifiers) {
+    if (mod.kind === ts.SyntaxKind.ExportKeyword) hasExport = true;
+    if (mod.kind === ts.SyntaxKind.DefaultKeyword) return true;
   }
-  return false;
+  return hasExport;
 }
 
 /**

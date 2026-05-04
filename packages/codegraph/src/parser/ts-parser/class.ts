@@ -46,9 +46,12 @@ export class TypeScriptParser {
   }
 
   /**
-   * Parse all files and return combined result
+   * Parse all files and return combined result.
    *
-   * Creates a single TypeScript Program instance and processes all files.
+   * Creates a single TypeScript Program instance holding all source files
+   * in memory. For large repositories (>500 files), consider batch processing
+   * with parseFile() to reduce memory footprint.
+   *
    * EXTERNAL nodes are deduplicated across all files.
    *
    * @param filePaths - Absolute paths to TypeScript/JavaScript files
