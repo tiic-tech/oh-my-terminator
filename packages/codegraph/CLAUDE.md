@@ -301,6 +301,124 @@ All tests passing. Coverage: X%
 
 ---
 
+### 6. Subagent Orchestration Rules (Subagent调度规则)
+
+**并行调度限制与依赖分析 — 基于实际开发教训**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️ CRITICAL: Subagent 并行调度限制                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. 并行数量限制:                                             │
+│     ├─ MAX_PARALLEL_SUBAGENTS = 3                          │
+│     ├─ 超过3个会导致 API 访问峰值过高                         │
+│     ├─ API 可能被禁止访问                                    │
+│     └─ 必须分批次调度，避免并发过载                           │
+│                                                             │
+│  2. 依赖分析前置:                                             │
+│     ├─ 并行分配前必须分析任务依赖关系                          │
+│     ├─ 按依赖拓扑顺序分发任务                                 │
+│     ├─ 避免并发冲突 (同一文件被多个subagent修改)               │
+│     ├─ 避免依赖混乱 (B依赖A，但B先于A完成)                     │
+│     └─ 使用 DAG 分析工具或手动绘制依赖图                       │
+│                                                             │
+│  3. 调度流程:                                                 │
+│     Step 1: 分析 tasks.md，识别任务依赖                       │
+│     Step 2: 构建依赖图 (DAG)                                 │
+│     Step 3: 按拓扑顺序分组 (无依赖的节点可并行)                │
+│     Step 4: 每组最多3个subagent并行                          │
+│     Step 5: 等待组内所有subagent完成                          │
+│     Step 6: 进行下一组调度                                   │
+│                                                             │
+│  4. 禁止行为:                                                 │
+│     ❌ 一次性并行6-7个subagent                                │
+│     ❌ 不分析依赖直接并行                                     │
+│     ❌ 同一文件分配给多个subagent                             │
+│     ❌ 下游任务先于上游任务执行                               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**用户反馈 (实际教训)**:
+> "一次性并行了6-7个subagent，导致API访问峰值过高，API被禁止访问"
+> "在并行分配subagent之前，必须进行任务批次规划以及开发依赖关系分析"
+
+---
+
+### 7. Checkpoint Commit Protocol (节点提交协议)
+
+**每个批次完成后必须执行 git commit**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️ CRITICAL: 批次完成 → 立即 Commit                          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  执行时机:                                                   │
+│     ├─ 每个批次完成时 (不是整个Change完成时)                   │
+│     ├─ 任务组完成时 (如 Section 1, Section 2)                │
+│     ├─ 测试通过时                                            │
+│     └─ 功能里程碑时                                          │
+│                                                             │
+│  禁止行为:                                                   │
+│     ❌ 所有批次完成后才commit                                │
+│     ❌ 跨多个批次一次性commit                                │
+│     ❌ 忘记commit，积累大量修改                               │
+│                                                             │
+│  Checkpoint Commit 格式:                                     │
+│     feat(<change>): Complete batch N - <scope>              │
+│                                                             │
+│     Tasks: N.1, N.2, N.3...                                 │
+│     Tests: X passing                                        │
+│                                                             │
+│  用户反馈 (实际教训):                                         │
+│     > "没有恰当的执行git commit。应该要在每个批次完成时进行commit"│
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 8. OpenSpec Artifacts Protocol (OpenSpec文档协议)
+
+**OpenSpec artifacts 必须由用户手动触发，Agent 禁止擅自创建**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ⚠️ CRITICAL: OpenSpec Artifacts 创建规则                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Agent 禁止创建的 artifacts:                               │
+│     ❌ archive.md                                           │
+│     ❌ proposal.md                                          │
+│     ❌ design.md                                            │
+│     ❌ spec.md                                              │
+│     ❌ tasks.md                                             │
+│     ❌ 任何 openspec/ 目录下的文档                            │
+│                                                             │
+│  2. 用户触发方式:                                             │
+│     ├─ /opsx:plan <change> - 创建 planning artifacts         │
+│     ├─ /opsx:spec <change> - 创建 spec artifacts            │
+│     ├─ /opsx:task <change> - 创建 tasks.md                  │
+│     ├─ /opsx:archive <change> - 创建 archive.md             │
+│     └─ 其他用户明确指令                                       │
+│                                                             │
+│  3. OpenSpec 位置:                                           │
+│     ├─ 必须在 repo 根目录: /openspec/changes/<change>/       │
+│     ❌ 禁止在 package 目录创建 openspec/                     │
+│     ❌ packages/<name>/openspec/ → 错误位置                  │
+│                                                             │
+│  4. 用户反馈 (实际教训):                                      │
+│     > "你错误的创建了archive.md文件。所有openspec的artifacts   │
+│     > 必须由我手动输入命令触发，你不能擅自创建"                │
+│     > "openspec的artifacts默认都应该保存在repo的根目录中"      │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
 ## 快速检查清单
 
 **开发前 (NEW!)**:
@@ -309,10 +427,13 @@ All tests passing. Coverage: X%
 - [ ] tasks.md 已阅读
 - [ ] 复杂度已评估
 - [ ] 批次规划已确定
+- [ ] 依赖关系已分析 (NEW!)
+- [ ] subagent并行数 ≤ 3 (NEW!)
 
 **每个批次开始前**:
 - [ ] 重新加载 coding-taste SKILL
 - [ ] 确认批次任务范围
+- [ ] 确认依赖顺序 (NEW!)
 
 **每个 Task**:
 - [ ] 测试先写 (RED)
@@ -325,7 +446,7 @@ All tests passing. Coverage: X%
 
 **批次完成**:
 - [ ] 进行中期汇报
-- [ ] checkpoint commit
+- [ ] checkpoint commit (MANDATORY!)
 - [ ] 确认无遗留问题
 
 **Change 完成**:
@@ -333,6 +454,7 @@ All tests passing. Coverage: X%
 - [ ] code-reviewer 审查执行
 - [ ] 审查问题处理完毕
 - [ ] 不直接 merge (等待审查结果)
+- [ ] 不创建 archive.md (等待用户触发) (NEW!)
 
 ---
 
@@ -340,14 +462,15 @@ All tests passing. Coverage: X%
 
 - [01_origin_blueprint.md](../docs/design-codegraph/01_origin_blueprint.md) — 技术规格
 - [develop_changes_plan.md](../docs/design-codegraph/develop_changes_plan.md) — Change 拆分规划
-- [openspec/changes/](../openspec/changes/) — Change artifacts 目录
+- [openspec/changes/](../../openspec/changes/) — Change artifacts 目录 (repo根目录)
 
 ---
 
-**版本**: v2.0
-**更新**: 2026-05-03
+**版本**: v2.1
+**更新**: 2026-05-04
 **适用**: CodeGraph MVP 开发 (C1-C12)
 
-**v2.0 新增约束**:
-- 0. Coding Taste SKILL - 所有编程前必须加载
-- 4. Batched Development Strategy - 分批次开发，优先质量而非速度
+**v2.1 新增约束**:
+- 6. Subagent Orchestration Rules - 并行≤3，依赖分析前置
+- 7. Checkpoint Commit Protocol - 批次完成立即commit
+- 8. OpenSpec Artifacts Protocol - 禁止擅自创建，repo根目录
