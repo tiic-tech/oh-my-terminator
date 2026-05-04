@@ -13,6 +13,7 @@ import { createExternalNode } from './external-node.js';
 import { generateImportEdge, generateReExportEdge, generateDynamicImportEdge } from './edge-generator.js';
 import { extractImports } from './import-extractor.js';
 import { ModuleExtractor } from '../module-extractor/index.js';
+import { getRelativePath } from './path-utils.js';
 
 /**
  * TypeScript Parser class
@@ -126,7 +127,7 @@ export class TypeScriptParser {
     }
 
     // Get relative path
-    const relativePath = this.getRelativePath(filePath);
+    const relativePath = getRelativePath(this.projectRoot, filePath);
 
     // Extract imports using the import extractor
     if (this.program) {
@@ -159,16 +160,6 @@ export class TypeScriptParser {
     }
 
     return result;
-  }
-
-  /**
-   * Get relative path from absolute path
-   *
-   * @param absolutePath - Absolute file path
-   * @returns Relative path from project root
-   */
-  private getRelativePath(absolutePath: string): string {
-    return absolutePath.replace(this.projectRoot, '').replace(/^[/\\]/, '');
   }
 }
 

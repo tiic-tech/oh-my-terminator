@@ -36,6 +36,11 @@ export {
   generateDynamicImportEdge,
 } from './edge-generator.js';
 
+// Path Utilities
+export {
+  getRelativePath,
+} from './path-utils.js';
+
 // Parser Class and Convenience Function
 export {
   TypeScriptParser,

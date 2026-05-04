@@ -8,6 +8,7 @@ import ts from 'typescript';
 import { ImportInfo } from './types.js';
 import { getModuleSpecifier, getImportSpecifierType, getExportSpecifierType } from './utils.js';
 import { resolveModulePath } from './program.js';
+import { getRelativePath } from './path-utils.js';
 
 /**
  * Extract all imports from a source file
@@ -31,16 +32,11 @@ export function extractImports(
 ): ImportInfo[] {
   const imports: ImportInfo[] = [];
 
-  // Helper to get relative path from absolute
-  const getRelativePath = (absolutePath: string): string => {
-    return absolutePath.replace(projectRoot, '').replace(/^[/\\]/, '');
-  };
-
   // Helper to resolve specifier
   const resolveSpecifier = (specifier: string, sourceFileName: string): string | null => {
     const resolved = resolveModulePath(specifier, sourceFileName, program);
     if (resolved) {
-      return getRelativePath(resolved);
+      return getRelativePath(projectRoot, resolved);
     }
     return null;
   };
