@@ -62,13 +62,13 @@
 
 ## 5. Persistence Integration
 
-- [ ] 5.1 Update `src/persistence/save.ts` to support compression option
-- [ ] 5.2 Add `compress` parameter to `saveBaseline()` function
-- [ ] 5.3 Update `src/persistence/load.ts` (or create if missing)
-- [ ] 5.4 Add schema version detection to `loadBaseline()`
-- [ ] 5.5 Implement transparent decompression on load
-- [ ] 5.6 Update `src/persistence/index.ts` exports
-- [ ] 5.7 Write integration tests for save/load with compression
+- [x] 5.1 Update `src/persistence/save.ts` to support compression option
+- [x] 5.2 Add `compress` parameter to `saveBaseline()` function
+- [x] 5.3 Update `src/persistence/load.ts` (or create if missing)
+- [x] 5.4 Add schema version detection to `loadBaseline()`
+- [x] 5.5 Implement transparent decompression on load
+- [x] 5.6 Update `src/persistence/index.ts` exports
+- [x] 5.7 Write integration tests for save/load with compression
 
 ## 6. CLI Integration
 

@@ -80,6 +80,12 @@ export {
   saveBaseline,
 } from './save.js';
 
+// Baseline loading functions (from load.ts)
+export {
+  loadBaselineFile,
+  loadBaselineMetadata,
+} from './load.js';
+
 // Migration functions
 export {
   registerMigration,

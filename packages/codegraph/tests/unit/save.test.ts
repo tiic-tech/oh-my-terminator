@@ -17,6 +17,7 @@ import {
   getLastCommitPath,
   ensureCodegraphDir,
 } from '../../src/persistence/paths.js';
+import { detectBaselineFormat } from '../../src/persistence/migrations/1.0-to-1.1.js';
 
 // Helper to create valid mock baseline
 function createValidBaseline(): Baseline {
@@ -62,18 +63,35 @@ describe('saveBaseline', () => {
       assert.strictEqual(exists, true);
     });
 
-    it('should write valid JSON content', async () => {
+    it('should write valid JSON content (compressed format by default)', async () => {
       const baseline = createValidBaseline();
+      // Default: compress=true, produces 1.1 format
       await saveBaseline(baseline, testDir);
 
       const baselinePath = getBaselinePath(testDir);
       const content = await readFile(baselinePath, 'utf-8');
       const parsed = JSON.parse(content);
 
+      // Compressed format has pathTable
+      assert.ok(parsed.pathTable, 'Compressed baseline should have pathTable');
       assert.strictEqual(parsed.commitHash, baseline.commitHash);
       assert.strictEqual(parsed.schemaVersion.major, 1);
-      assert.strictEqual(parsed.schemaVersion.minor, 0);
+      assert.strictEqual(parsed.schemaVersion.minor, 1); // Compressed format is 1.1
       assert.strictEqual(parsed.schemaVersion.patch, 0);
+    });
+
+    it('should write legacy format when compress=false', async () => {
+      const baseline = createValidBaseline();
+      await saveBaseline(baseline, testDir, { compress: false });
+
+      const baselinePath = getBaselinePath(testDir);
+      const content = await readFile(baselinePath, 'utf-8');
+      const parsed = JSON.parse(content);
+
+      // Legacy format has graph.nodes/edges structure
+      assert.ok(parsed.graph, 'Legacy baseline should have graph field');
+      assert.strictEqual(parsed.schemaVersion.major, 1);
+      assert.strictEqual(parsed.schemaVersion.minor, 0); // Legacy format is 1.0
     });
 
     it('should write to temp file first then rename (atomic)', async () => {
@@ -213,7 +231,8 @@ describe('saveBaseline', () => {
       assert.strictEqual(exists, true);
 
       const content = await readFile(versionPath, 'utf-8');
-      assert.strictEqual(content.trim(), '1.0.0');
+      // Default compress=true produces 1.1 version
+      assert.strictEqual(content.trim(), '1.1.0');
     });
 
     it('should not create .version file when createVersionFile is false', async () => {
@@ -251,16 +270,43 @@ describe('saveBaseline', () => {
     });
   });
 
-  describe('save/load round-trip', () => {
-    it('should produce identical baseline after save/load cycle', async () => {
+  describe('compression format detection', () => {
+    it('should produce 1.1 format when compress=true', async () => {
       const baseline = createValidBaseline();
-      await saveBaseline(baseline, testDir);
+      await saveBaseline(baseline, testDir, { compress: true });
+
+      const baselinePath = getBaselinePath(testDir);
+      const content = await readFile(baselinePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      const format = detectBaselineFormat(parsed);
+
+      assert.strictEqual(format, '1.1', 'Should be detected as 1.1 format');
+    });
+
+    it('should produce 1.0 format when compress=false', async () => {
+      const baseline = createValidBaseline();
+      await saveBaseline(baseline, testDir, { compress: false });
+
+      const baselinePath = getBaselinePath(testDir);
+      const content = await readFile(baselinePath, 'utf-8');
+      const parsed = JSON.parse(content);
+      const format = detectBaselineFormat(parsed);
+
+      assert.strictEqual(format, '1.0', 'Should be detected as 1.0 format');
+    });
+  });
+
+  describe('save/load round-trip (legacy format)', () => {
+    it('should preserve baseline metadata after save/load cycle (legacy)', async () => {
+      const baseline = createValidBaseline();
+      // Use legacy format for this round-trip test
+      await saveBaseline(baseline, testDir, { compress: false });
 
       const baselinePath = getBaselinePath(testDir);
       const content = await readFile(baselinePath, 'utf-8');
       const loaded = JSON.parse(content);
 
-      // Verify all fields match
+      // Verify all fields match (legacy format)
       assert.strictEqual(loaded.commitHash, baseline.commitHash);
       assert.strictEqual(loaded.timestamp, baseline.timestamp);
       assert.deepStrictEqual(loaded.schemaVersion, baseline.schemaVersion);
@@ -269,22 +315,23 @@ describe('saveBaseline', () => {
       assert.strictEqual(loaded.healthScore, baseline.healthScore);
       assert.deepStrictEqual(loaded.skillDemand, baseline.skillDemand);
 
-      // Verify graph structure
+      // Verify graph structure (legacy format)
       assert.strictEqual(loaded.graph.nodes.length, baseline.graph.nodes.length);
       assert.strictEqual(loaded.graph.edges.length, baseline.graph.edges.length);
       assert.strictEqual(loaded.graph.commitHash, baseline.graph.commitHash);
       assert.strictEqual(loaded.graph.timestamp, baseline.graph.timestamp);
     });
 
-    it('should preserve node map structure in graph', async () => {
+    it('should preserve node map structure in graph (legacy format)', async () => {
       const baseline = createValidBaseline();
-      await saveBaseline(baseline, testDir);
+      // Use legacy format
+      await saveBaseline(baseline, testDir, { compress: false });
 
       const baselinePath = getBaselinePath(testDir);
       const content = await readFile(baselinePath, 'utf-8');
       const loaded = JSON.parse(content);
 
-      // Verify nodes are stored as [id, node] pairs
+      // Verify nodes are stored as [id, node] pairs (legacy format)
       assert.ok(Array.isArray(loaded.graph.nodes));
       assert.ok(Array.isArray(loaded.graph.nodes[0]));
       assert.strictEqual(loaded.graph.nodes[0][0], 'FILE:a.ts');
@@ -292,10 +339,41 @@ describe('saveBaseline', () => {
     });
   });
 
-  describe('graph serialization', () => {
-    it('should include schemaVersion in output when set', async () => {
+  describe('compressed format structure', () => {
+    it('should have pathTable in compressed output', async () => {
       const baseline = createValidBaseline();
-      baseline.schemaVersion = { major: 1, minor: 2, patch: 3 };
+      await saveBaseline(baseline, testDir, { compress: true });
+
+      const baselinePath = getBaselinePath(testDir);
+      const content = await readFile(baselinePath, 'utf-8');
+      const loaded = JSON.parse(content);
+
+      // Compressed format has pathTable, nodes without id, edges with indexes
+      assert.ok(Array.isArray(loaded.pathTable), 'Should have pathTable array');
+      assert.ok(loaded.pathTable.includes('a.ts'), 'pathTable should include node path');
+    });
+
+    it('should have nodes without id field in compressed output', async () => {
+      const baseline = createValidBaseline();
+      await saveBaseline(baseline, testDir, { compress: true });
+
+      const baselinePath = getBaselinePath(testDir);
+      const content = await readFile(baselinePath, 'utf-8');
+      const loaded = JSON.parse(content);
+
+      // Compressed nodes should have pathIndex instead of id
+      assert.ok(Array.isArray(loaded.nodes), 'Should have nodes array');
+      for (const node of loaded.nodes) {
+        assert.ok(typeof node.pathIndex === 'number', 'Node should have pathIndex');
+        assert.ok(node.id === undefined, 'Node should NOT have id field');
+      }
+    });
+  });
+
+  describe('graph serialization', () => {
+    it('should preserve schemaVersion from baseline in compressed format', async () => {
+      const baseline = createValidBaseline();
+      // Note: serializeCompressed always uses schemaVersion 1.1
       await saveBaseline(baseline, testDir);
 
       const baselinePath = getBaselinePath(testDir);
@@ -303,8 +381,8 @@ describe('saveBaseline', () => {
       const loaded = JSON.parse(content);
 
       assert.strictEqual(loaded.schemaVersion.major, 1);
-      assert.strictEqual(loaded.schemaVersion.minor, 2);
-      assert.strictEqual(loaded.schemaVersion.patch, 3);
+      assert.strictEqual(loaded.schemaVersion.minor, 1);
+      assert.strictEqual(loaded.schemaVersion.patch, 0);
     });
 
     it('should include migrationHistory when present', async () => {

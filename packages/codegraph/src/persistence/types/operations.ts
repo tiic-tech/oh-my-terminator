@@ -125,4 +125,10 @@ export interface SaveBaselineOptions {
   createVersionFile?: boolean;
   /** File permissions (default: inherit from existing or 0o644) */
   mode?: number;
+  /**
+   * Enable compression (saves as CompressedBaseline format 1.1)
+   * Default: true - compression is opt-out (--no-compression to disable)
+   * When false: saves as legacy SerializedCodeGraph format 1.0
+   */
+  compress?: boolean;
 }
