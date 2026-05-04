@@ -1,0 +1,67 @@
+{
+  "schemaVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "generatorVersion": "1.0.0",
+  "timestamp": 1234567890000,
+  "commitHash": "abc123def456789012345678901234567890abcd",
+  "graph": {
+    "nodes": [
+      ["FILE:src/index.ts", {
+        "id": "FILE:src/index.ts",
+        "type": "FILE",
+        "path": "src/index.ts",
+        "name": "index.ts",
+        "language": "typescript",
+        "lineCount": 10
+      }],
+      ["FILE:src/lib.ts", {
+        "id": "FILE:src/lib.ts",
+        "type": "FILE",
+        "path": "src/lib.ts",
+        "name": "lib.ts",
+        "language": "typescript",
+        "lineCount": 20
+      }],
+      ["MODULE:src/index.ts::App", {
+        "id": "MODULE:src/index.ts::App",
+        "type": "MODULE",
+        "name": "App",
+        "filePath": "src/index.ts",
+        "moduleType": "class",
+        "isExported": true
+      }],
+      ["MODULE:src/lib.ts::util", {
+        "id": "MODULE:src/lib.ts::util",
+        "type": "MODULE",
+        "name": "util",
+        "filePath": "src/lib.ts",
+        "moduleType": "function",
+        "isExported": true,
+        "signature": "(x: number) => number"
+      }]
+    ],
+    "edges": [
+      {
+        "id": "EDGE:index-imports-lib",
+        "type": "IMPORTS",
+        "source": "FILE:src/index.ts",
+        "target": "FILE:src/lib.ts"
+      },
+      {
+        "id": "EDGE:App-calls-util",
+        "type": "CALLS",
+        "source": "MODULE:src/index.ts::App",
+        "target": "MODULE:src/lib.ts::util"
+      }
+    ],
+    "commitHash": "abc123def456789012345678901234567890abcd",
+    "timestamp": 1234567890000
+  },
+  "architectureConstraints": [],
+  "healthScore": 75,
+  "skillDemand": {
+    "testWriter": 0.6,
+    "refactorSpecialist": 0.2,
+    "architect": 0.15,
+    "securityReviewer": 0.05
+  }
+}

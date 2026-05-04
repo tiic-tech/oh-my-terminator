@@ -25,8 +25,8 @@
 - [x] 3.5 Implement `getHeadCommit(cwd)` function
 - [x] 3.6 Create `src/git/index.ts` to export git functions
 - [x] 3.7 Update `src/git/fs-adapter.ts` with additional methods as needed
-- [ ] 3.8 Write unit tests for `detectGitChanges()`
-- [ ] 3.9 Write unit tests for `getHeadCommit()`
+- [x] 3.8 Write unit tests for `detectGitChanges()`
+- [x] 3.9 Write unit tests for `getHeadCommit()`
 - [x] 3.10 Implement `getFileChangesByWalkingCommits()` fallback for walk API failures
 - [x] 3.11 Define `isSupportedFile(filePath: string): boolean` function with extension list
 - [x] 3.12 Define `CliErrorCode` enum in types.ts (E_NO_GIT_REPO, E_BASELINE_NOT_FOUND, etc.)
@@ -42,8 +42,8 @@
 - [x] 4.7 Implement `formatUpdateText()` function
 - [x] 4.8 Implement `formatErrorText()` function
 - [x] 4.9 Create `src/cli/output/index.ts` to export formatters
-- [ ] 4.10 Write unit tests for JSON formatter
-- [ ] 4.11 Write unit tests for text formatter
+- [x] 4.10 Write unit tests for JSON formatter
+- [x] 4.11 Write unit tests for text formatter
 
 ## 5. CLI Commands
 
@@ -65,8 +65,8 @@
 - [x] 5.16 Handle error cases (no baseline, no changes)
 - [x] 5.17 Implement git repository validation with E_NO_GIT_REPO error
 - [x] 5.18 Create `src/cli/commands/index.ts` to export commands
-- [ ] 5.19 Write unit tests for analyze command
-- [ ] 5.20 Write unit tests for update command
+- [x] 5.19 Write unit tests for analyze command
+- [x] 5.20 Write unit tests for update command
 
 ## 6. CLI Entry Point
 
@@ -78,26 +78,26 @@
 - [x] 6.6 Add help text for commands
 - [x] 6.7 Handle global error catching
 - [x] 6.8 Ensure proper ESM module resolution
-- [ ] 6.9 Write smoke test for CLI entry point
+- [x] 6.9 Write smoke test for CLI entry point
 
 ## 7. Integration Tests
 
-- [ ] 7.1 Create test fixture: sample git repository
-- [ ] 7.2 Create test fixture: baseline.json sample
-- [ ] 7.3 Create test fixture: lastCommit.txt sample
-- [ ] 7.4 Write integration test: analyze command full flow
-- [ ] 7.5 Write integration test: update command with ADD changes
-- [ ] 7.6 Write integration test: update command with MODIFY changes
-- [ ] 7.7 Write integration test: update command with DELETE changes
-- [ ] 7.8 Write integration test: update command no changes
-- [ ] 7.9 Write integration test: --json flag output format
-- [ ] 7.10 Write integration test: error output JSON format
-- [ ] 7.11 Run full test suite and verify coverage ≥80%
+- [x] 7.1 Create test fixture: sample git repository
+- [x] 7.2 Create test fixture: baseline.json sample
+- [x] 7.3 Create test fixture: lastCommit.txt sample
+- [x] 7.4 Write integration test: analyze command full flow
+- [x] 7.5 Write integration test: update command with ADD changes
+- [x] 7.6 Write integration test: update command with MODIFY changes
+- [x] 7.7 Write integration test: update command with DELETE changes
+- [x] 7.8 Write integration test: update command no changes
+- [x] 7.9 Write integration test: --json flag output format
+- [x] 7.10 Write integration test: error output JSON format
+- [x] 7.11 Run full test suite and verify coverage ≥80%
 
 ## 8. Documentation & Finalization
 
-- [ ] 8.1 Update package.json version if needed
-- [ ] 8.2 Add CLI usage examples to README
-- [ ] 8.3 Verify all tests pass: `pnpm test`
-- [ ] 8.4 Run TypeScript type check: `pnpm build`
-- [ ] 8.5 Create archive.md when complete
+- [x] 8.1 Update package.json version if needed
+- [x] 8.2 Add CLI usage examples to README
+- [x] 8.3 Verify all tests pass: `pnpm test`
+- [x] 8.4 Run TypeScript type check: `pnpm build`
+- [x] 8.5 Create archive.md when complete
