@@ -28,19 +28,16 @@ export const legacyToV1_0_0: MigrationScript = {
   description: 'Add schemaVersion and generatorVersion to legacy baseline',
 
   migrate: (baseline: Baseline): Baseline => {
-    // Set schema version
-    baseline.schemaVersion = { major: 1, minor: 0, patch: 0 };
-
-    // Set generator version
-    baseline.generatorVersion = '1.0.0';
-
-    // Initialize migration history if not present
-    if (!baseline.migrationHistory) {
-      baseline.migrationHistory = [];
-    }
+    // Create new baseline object (immutable update)
+    const migrated: Baseline = {
+      ...baseline,
+      schemaVersion: { major: 1, minor: 0, patch: 0 },
+      generatorVersion: '1.0.0',
+      migrationHistory: baseline.migrationHistory ? [...baseline.migrationHistory] : [],
+    };
 
     // Add migration record
-    baseline.migrationHistory.push({
+    migrated.migrationHistory.push({
       fromVersion: 'legacy',
       toVersion: '1.0.0',
       migratedAt: Date.now(),
@@ -49,6 +46,6 @@ export const legacyToV1_0_0: MigrationScript = {
 
     // Preserve all existing graph data - no modifications needed
 
-    return baseline;
+    return migrated;
   },
 };

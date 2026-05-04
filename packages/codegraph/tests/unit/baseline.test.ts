@@ -7,7 +7,7 @@ import {
   loadBaseline,
   executeActionWithFallback,
   handleMigrationNotAvailable,
-} from '../../src/persistence/baseline.js';
+} from '../../src/persistence/baseline/index.js';
 import type {
   Baseline,
   LoadBaselineOptions,
@@ -481,26 +481,48 @@ describe('executeActionWithFallback', () => {
   });
 
   describe('migrate action with fallback', () => {
-    it('should fallback to rebuild when migration framework not implemented', async () => {
-      const baseline = createValidBaseline();
-      const compatResult = createMigrateCompatResult();
-      const mockGraph = { nodes: [], edges: [], commitHash: '', timestamp: 0 } as any;
-      const rebuildHandler = async () => mockGraph;
-
-      const result = await executeActionWithFallback(baseline, compatResult, testCwd, { rebuildHandler });
-
-      // Migration framework not implemented, should fallback to rebuild
-      assert.strictEqual(result.success, true);
-      assert.strictEqual(result.executedAction, 'rebuild');
-      assert.strictEqual(result.migrated, false);
-    });
-
-    it('should return failure when migrate action fails and no rebuildHandler', async () => {
-      const baseline = createValidBaseline();
+    it('should execute migration when baseline is at current version (no changes needed)', async () => {
+      const baseline = createValidBaseline(); // schemaVersion: 1.0.0
       const compatResult = createMigrateCompatResult();
 
       const result = await executeActionWithFallback(baseline, compatResult, testCwd, undefined);
 
+      // Baseline is already at current version (1.0.0), migration succeeds with no changes
+      assert.strictEqual(result.success, true);
+      assert.strictEqual(result.executedAction, 'migrate');
+      assert.strictEqual(result.migrated, true);
+    });
+
+    it('should return failure when action is error (future version)', async () => {
+      // Create a baseline with a version that is higher than current (cannot downgrade)
+      const futureBaseline: Baseline = {
+        graph: {
+          nodes: [
+            ['FILE:a.ts', { id: 'FILE:a.ts', type: 'FILE', path: 'a.ts', name: 'a.ts' }],
+          ],
+          edges: [],
+          commitHash: 'abc1234',
+          timestamp: Date.now(),
+        },
+        commitHash: 'abc1234',
+        timestamp: Date.now(),
+        schemaVersion: { major: 2, minor: 0, patch: 0 }, // Future version - cannot downgrade
+        generatorVersion: '2.0.0',
+        architectureConstraints: [],
+        healthScore: 50,
+        skillDemand: { testWriter: 0.5, refactorSpecialist: 0.3, architect: 0.2, securityReviewer: 0.1 },
+      };
+      // For major_version_mismatch with future version, action is 'error'
+      const compatResult: CompatibilityResult = {
+        compatible: false,
+        reason: 'major_version_mismatch',
+        action: 'error',
+        message: 'Baseline schema version (2.0.0) is higher than current (1.0.0) - cannot downgrade',
+      };
+
+      const result = await executeActionWithFallback(futureBaseline, compatResult, testCwd, undefined);
+
+      // Cannot downgrade from future version - action 'error' throws IncompatibleBaselineError
       assert.strictEqual(result.success, false);
       assert.strictEqual(result.failure?.reason, 'schema_incompatible');
     });

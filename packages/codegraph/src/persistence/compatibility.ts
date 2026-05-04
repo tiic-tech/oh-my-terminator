@@ -31,7 +31,8 @@ import type {
   RebuildHandler,
 } from './types.js';
 import { IncompatibleBaselineError } from './types.js';
-import type { CodeGraph } from '../graph.js';
+import { CodeGraph } from '../graph.js';
+import { migrateBaseline } from './migrations/index.js';
 
 // ============================================================================
 // Compatibility Checking
@@ -192,6 +193,53 @@ export function determineAction(
 }
 
 // ============================================================================
+// Graph Deserialization Helper
+// ============================================================================
+
+/**
+ * Deserialize baseline graph with structure validation
+ *
+ * WHY: Unsafe `as any` type assertions bypass TypeScript's type safety.
+ * This helper validates the graph structure before deserialization to ensure:
+ * - Required properties (nodes, edges) are present
+ * - Structure matches SerializedCodeGraph format
+ * - Clear error message if structure is invalid
+ *
+ * @param graphData - Graph data from baseline
+ * @returns Properly deserialized CodeGraph instance
+ * @throws Error if graph structure is invalid
+ */
+function deserializeBaselineGraph(graphData: unknown): CodeGraph {
+  // Validate structure before deserialization
+  if (!graphData || typeof graphData !== 'object') {
+    throw new Error('Invalid baseline graph: graph data is not an object');
+  }
+
+  const graph = graphData as Record<string, unknown>;
+
+  // Check required properties
+  if (!Array.isArray(graph.nodes)) {
+    throw new Error('Invalid baseline graph: missing or invalid "nodes" array');
+  }
+
+  if (!Array.isArray(graph.edges)) {
+    throw new Error('Invalid baseline graph: missing or invalid "edges" array');
+  }
+
+  // Validate nodes format (array of [id, node] tuples)
+  for (const [index, entry] of graph.nodes.entries()) {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      throw new Error(
+        `Invalid baseline graph: nodes[${index}] is not a valid [id, node] tuple`
+      );
+    }
+  }
+
+  // Use CodeGraph.fromJSON for proper deserialization
+  return CodeGraph.fromJSON(graphData as import('../types.js').SerializedCodeGraph);
+}
+
+// ============================================================================
 // Action Execution
 // ============================================================================
 
@@ -220,7 +268,7 @@ export async function executeAction(
     case 'error':
       throw new IncompatibleBaselineError(
         'Baseline schema incompatible with current version. ' +
-        'Please run `codegraph analyze --force` to rebuild.'
+        'See documentation for recovery options.'
       );
 
     case 'rebuild':
@@ -239,17 +287,22 @@ export async function executeAction(
       if (!baseline) {
         throw new Error('Cannot migrate: no baseline loaded');
       }
-      // Migration will be implemented in migrations/index.ts
-      // For now, this placeholder will be replaced when migration framework is complete
-      throw new Error('Migration framework not yet implemented');
+      // Execute migration framework to transform baseline to current version
+      const migratedBaseline = migrateBaseline(baseline, cwd);
+      // Deserialize migrated graph into CodeGraph instance
+      const migratedGraph = deserializeBaselineGraph(migratedBaseline.graph);
+      return {
+        graph: migratedGraph,
+        action: 'migrate',
+        migrated: true,
+      };
 
     case 'proceed':
       if (!baseline) {
         throw new Error('Cannot proceed: no baseline loaded');
       }
-      // Deserialize baseline.graph into CodeGraph
-      // This will use CodeGraph.fromJSON when graph.ts supports it
-      const proceedGraph = baseline.graph as any; // Placeholder - will be proper deserialization
+      // Deserialize baseline.graph with structure validation
+      const proceedGraph = deserializeBaselineGraph(baseline.graph);
       return {
         graph: proceedGraph,
         action: 'proceed',

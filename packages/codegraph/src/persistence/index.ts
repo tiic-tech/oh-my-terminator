@@ -68,13 +68,13 @@ export {
   executeAction,
 } from './compatibility.js';
 
-// Baseline load/save functions
+// Baseline load/save functions (from split baseline module)
 export {
   validateBaselineStructure,
   verifyDataIntegrity,
   handleFailure,
   loadBaseline,
-} from './baseline.js';
+} from './baseline/index.js';
 
 export {
   saveBaseline,
