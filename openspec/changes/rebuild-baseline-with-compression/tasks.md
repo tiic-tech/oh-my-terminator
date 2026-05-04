@@ -13,32 +13,32 @@
 
 ## 2. Compression Module
 
-- [ ] 2.1 Create `src/persistence/compression/` directory
-- [ ] 2.2 Create `src/persistence/compression/index.ts` entry point
-- [ ] 2.3 Create `src/persistence/compression/id-deduplication.ts`
-- [ ] 2.4 Implement `removeIds(nodes: Node[]): CompressedNode[]`
-- [ ] 2.5 Implement `reconstructNodeId(type: string, pathIndex: number): string`
-- [ ] 2.6 Create `src/persistence/compression/jsdoc-truncate.ts`
-- [ ] 2.7 Implement `truncateJSDoc(jsDoc: string, maxLength: number): TruncatedJSDoc`
-- [ ] 2.8 Create `src/persistence/compression/path-table.ts`
-- [ ] 2.9 Implement `buildPathTable(nodes: Node[], edges: Edge[]): string[]`
-- [ ] 2.10 Implement `resolvePathIndex(path: string, table: string[]): number`
-- [ ] 2.11 Implement `resolvePathFromIndex(index: number, table: string[]): string`
-- [ ] 2.12 Create `src/persistence/compression/edge-batcher.ts`
-- [ ] 2.13 Implement `batchImportsEdges(edges: Edge[], pathTable: string[]): IMPORTS_BATCH[]` (uses fromIndex/targetIndexes)
-- [ ] 2.14 Implement `expandBatchedEdges(batches: IMPORTS_BATCH[], pathTable: string[]): Edge[]`
-- [ ] 2.15 Create `src/persistence/compression/serializer.ts`
-- [ ] 2.16 Implement `serializeCompressed(graph: Graph, config: CompressionConfig): CompressedBaseline` (schemaVersion as object)
-- [ ] 2.17 Implement `deserializeCompressed(data: CompressedBaseline): Graph`
-- [ ] 2.18 Write unit tests for id-deduplication module
-- [ ] 2.19 Write unit tests for jsdoc-truncate module
-- [ ] 2.20 Write unit tests for path-table module
-- [ ] 2.21 Write unit tests for edge-batcher module
-- [ ] 2.22 Write unit tests for serializer module
-- [ ] 2.23 Define `CliErrorCode.E_INDEX_OUT_OF_BOUNDS` enum value
-- [ ] 2.24 Define `CliErrorCode.E_CORRUPTED_BASELINE` enum value
-- [ ] 2.25 Implement compression error handling in serializer.ts
-- [ ] 2.26 Write unit tests for compression error handling
+- [x] 2.1 Create `src/persistence/compression/` directory
+- [x] 2.2 Create `src/persistence/compression/index.ts` entry point
+- [x] 2.3 Create `src/persistence/compression/id-deduplication.ts`
+- [x] 2.4 Implement `removeIds(nodes: Node[]): CompressedNode[]`
+- [x] 2.5 Implement `reconstructNodeId(type: string, pathIndex: number): string`
+- [x] 2.6 Create `src/persistence/compression/jsdoc-truncate.ts`
+- [x] 2.7 Implement `truncateJSDoc(jsDoc: string, maxLength: number): TruncatedJSDoc`
+- [x] 2.8 Create `src/persistence/compression/path-table.ts`
+- [x] 2.9 Implement `buildPathTable(nodes: Node[], edges: Edge[]): string[]`
+- [x] 2.10 Implement `resolvePathIndex(path: string, table: string[]): number`
+- [x] 2.11 Implement `resolvePathFromIndex(index: number, table: string[]): string`
+- [x] 2.12 Create `src/persistence/compression/edge-batcher.ts`
+- [x] 2.13 Implement `batchImportsEdges(edges: Edge[], pathTable: string[]): IMPORTS_BATCH[]` (uses fromIndex/targetIndexes)
+- [x] 2.14 Implement `expandBatchedEdges(batches: IMPORTS_BATCH[], pathTable: string[]): Edge[]`
+- [x] 2.15 Create `src/persistence/compression/serializer.ts`
+- [x] 2.16 Implement `serializeCompressed(graph: Graph, config: CompressionConfig): CompressedBaseline` (schemaVersion as object)
+- [x] 2.17 Implement `deserializeCompressed(data: CompressedBaseline): Graph`
+- [x] 2.18 Write unit tests for id-deduplication module
+- [x] 2.19 Write unit tests for jsdoc-truncate module
+- [x] 2.20 Write unit tests for path-table module
+- [x] 2.21 Write unit tests for edge-batcher module
+- [x] 2.22 Write unit tests for serializer module
+- [x] 2.23 Define `CliErrorCode.E_INDEX_OUT_OF_BOUNDS` enum value
+- [x] 2.24 Define `CliErrorCode.E_CORRUPTED_BASELINE` enum value
+- [x] 2.25 Implement compression error handling in serializer.ts
+- [x] 2.26 Write unit tests for compression error handling
 
 ## 3. Configuration System
 
