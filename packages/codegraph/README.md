@@ -204,6 +204,109 @@ MIT
 - `@oh-my-terminator/codegraph-cli` - CLI tools (planned)
 - `@oh-my-terminator/codegraph-api` - Intelligence APIs (planned)
 
+## Compression Feature (Schema Version 1.1)
+
+### Overview
+
+CodeGraph supports baseline compression to reduce file size by 20-30%, optimized for AI Agent token budgets. Compression is **enabled by default** since schema version 1.1.
+
+### Compression Techniques
+
+| Technique | Size Reduction | Description |
+|-----------|---------------|-------------|
+| ID Removal | 15-20% | Reconstruct IDs from type + pathIndex |
+| Path Table | 10-15% | String interning for repeated paths |
+| IMPORTS_BATCH | 5-10% | Batch import edges from same source |
+| JSDoc Truncation | 5% | Truncate JSDoc to configurable length |
+
+### Schema Versions
+
+| Version | Format | Description |
+|---------|--------|-------------|
+| 1.0 | Uncompressed | Full IDs, individual edges, full JSDoc |
+| 1.1 | Compressed | No IDs, path table, batched imports, truncated JSDoc |
+
+Compression is backward compatible: CodeGraph automatically detects schema version and handles decompression transparently on load.
+
+### CLI Usage
+
+```bash
+# Compression is enabled by default
+codegraph analyze
+
+# Disable compression (use 1.0 format)
+codegraph analyze --no-compression
+
+# Migrate existing baseline from 1.0 to 1.1
+codegraph migrate --input .codegraph/baseline.json --output .codegraph/baseline.json
+
+# Check migration stats
+codegraph migrate --input old.json --output new.json
+# Output: "Migration complete: 150KB → 105KB (30% reduction)"
+```
+
+### Configuration File
+
+Create `.codegraph/config.json` to customize compression settings:
+
+```json
+{
+  "compression": {
+    "enabled": true,
+    "jsDocMaxLength": 100
+  }
+}
+```
+
+#### Config Schema
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `compression.enabled` | boolean | `true` | Enable/disable compression |
+| `compression.jsDocMaxLength` | number | `100` | Max JSDoc characters before truncation |
+
+### When to Use `--no-compression`
+
+Use `--no-compression` when:
+- External tools expect 1.0 format (full IDs)
+- Debugging baseline structure
+- Integration with legacy systems
+
+To permanently disable compression, use config file:
+```json
+{
+  "compression": {
+    "enabled": false
+  }
+}
+```
+
+### Migration Guide
+
+#### From 1.0 to 1.1
+
+Existing baselines (1.0 format) are automatically detected and can be migrated:
+
+```bash
+# Option 1: Migrate existing baseline
+codegraph migrate --input .codegraph/baseline.json --output .codegraph/baseline.json
+
+# Option 2: Re-analyze (creates fresh 1.1 baseline)
+codegraph analyze
+```
+
+Migration statistics reported:
+- Input/output size
+- Savings percentage
+- Path table entries
+
+#### Backward Compatibility
+
+Loading 1.0 baselines works transparently:
+- Schema version detected automatically
+- No migration required for reading
+- Optional migration for size optimization
+
 ## Full Analysis (C5)
 
 ### analyzeFull(cwd, options?)

@@ -42,15 +42,15 @@
 
 ## 3. Configuration System
 
-- [ ] 3.1 Create `src/config/` directory
-- [ ] 3.2 Create `src/config/load-config.ts`
-- [ ] 3.3 Implement `loadCompressionConfig(projectPath: string): CompressionConfig`
-- [ ] 3.4 Create `src/config/validate-config.ts`
-- [ ] 3.5 Implement `validateCompressionConfig(config: unknown): CompressionConfig | Error`
-- [ ] 3.6 Add default config values (jsDocMaxLength: 100)
-- [ ] 3.7 Handle missing config file gracefully
-- [ ] 3.8 Write unit tests for config loader
-- [ ] 3.9 Write unit tests for config validator
+- [x] 3.1 Create `src/config/` directory
+- [x] 3.2 Create `src/config/load-config.ts`
+- [x] 3.3 Implement `loadCompressionConfig(projectPath: string): CompressionConfig`
+- [x] 3.4 Create `src/config/validate-config.ts`
+- [x] 3.5 Implement `validateCompressionConfig(config: unknown): CompressionConfig | Error`
+- [x] 3.6 Add default config values (jsDocMaxLength: 100)
+- [x] 3.7 Handle missing config file gracefully
+- [x] 3.8 Write unit tests for config loader
+- [x] 3.9 Write unit tests for config validator
 
 ## 4. Migration Module
 
@@ -101,10 +101,10 @@
 
 ## 8. Documentation & Finalization
 
-- [ ] 8.1 Update README with compression feature documentation
-- [ ] 8.2 Add migration guide for existing users
-- [ ] 8.3 Add config file schema documentation
-- [ ] 8.4 Document `--no-compression` permanent disable option for backward compat users
-- [ ] 8.5 Run full test suite: `pnpm test`
-- [ ] 8.6 Run TypeScript type check: `pnpm build`
-- [ ] 8.7 Verify 80%+ test coverage
+- [x] 8.1 Update README with compression feature documentation
+- [x] 8.2 Add migration guide for existing users
+- [x] 8.3 Add config file schema documentation
+- [x] 8.4 Document `--no-compression` permanent disable option for backward compat users
+- [x] 8.5 Run full test suite: `pnpm test`
+- [x] 8.6 Run TypeScript type check: `pnpm build`
+- [x] 8.7 Verify 80%+ test coverage
