@@ -6,9 +6,8 @@
 
 // Types
 export {
-  type ParseResult,
   type ParserResult,
-  type ImportInfo,
+  type ParsedImportInfo,
   type ParserOptions,
 } from './types.js';
 

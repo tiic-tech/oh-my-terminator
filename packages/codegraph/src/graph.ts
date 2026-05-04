@@ -1,4 +1,4 @@
-import { GraphNode, GraphEdge, SerializedCodeGraph, SchemaVersion } from './types.js';
+import { GraphNode, GraphEdge, SerializedCodeGraph, SchemaVersion, NodeType } from './types.js';
 
 /**
  * CodeGraph - Core graph data structure for repository modeling
@@ -177,14 +177,14 @@ export class CodeGraph {
     const edgesToRemove = this.edges.filter(edge => {
       // Check source
       const sourceNode = this.nodes.get(edge.from);
-      if (sourceNode && (sourceNode.type === 'FILE' || sourceNode.type === 'MODULE')) {
+      if (sourceNode && (sourceNode.type === NodeType.FILE || sourceNode.type === NodeType.MODULE)) {
         if (sourceNode.path === filePath) {
           return true;
         }
       }
       // Check target
       const targetNode = this.nodes.get(edge.to);
-      if (targetNode && (targetNode.type === 'FILE' || targetNode.type === 'MODULE')) {
+      if (targetNode && (targetNode.type === NodeType.FILE || targetNode.type === NodeType.MODULE)) {
         if (targetNode.path === filePath) {
           return true;
         }

@@ -12,7 +12,7 @@ import {
   generateImportEdge,
   generateReExportEdge,
   generateDynamicImportEdge,
-  ImportInfo,
+  ParsedImportInfo,
 } from '../../src/parser/index.js';
 import { NodeType, EdgeType } from '../../src/types.js';
 
@@ -257,7 +257,7 @@ describe('createExternalNode', () => {
 });
 
 describe('edge generation', () => {
-  const sampleImportInfo: ImportInfo = {
+  const sampleImportInfo: ParsedImportInfo = {
     sourceFile: 'src/index.ts',
     specifier: './utils',
     resolvedPath: 'src/utils.ts',
@@ -277,14 +277,14 @@ describe('edge generation', () => {
   });
 
   it('should generate RE_EXPORTS edge', () => {
-    const reExportInfo: ImportInfo = { ...sampleImportInfo, importType: 're-export' };
+    const reExportInfo: ParsedImportInfo = { ...sampleImportInfo, importType: 're-export' };
     const edge = generateReExportEdge(reExportInfo);
 
     assert.strictEqual(edge.type, EdgeType.RE_EXPORTS);
   });
 
   it('should generate DYNAMIC_IMPORTS edge', () => {
-    const dynamicInfo: ImportInfo = {
+    const dynamicInfo: ParsedImportInfo = {
       ...sampleImportInfo,
       importType: 'dynamic',
       importSpecifier: 'dynamic',
@@ -296,7 +296,7 @@ describe('edge generation', () => {
   });
 
   it('should generate edge to EXTERNAL node for unresolved imports', () => {
-    const externalInfo: ImportInfo = {
+    const externalInfo: ParsedImportInfo = {
       sourceFile: 'src/index.ts',
       specifier: 'lodash',
       resolvedPath: null,

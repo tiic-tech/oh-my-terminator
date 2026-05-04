@@ -4,43 +4,19 @@
  * Core types for TypeScript/JavaScript import parsing.
  */
 
+import type { ParserResult } from '../../types.js';
 import ts from 'typescript';
 
-/**
- * Result of parsing a single file
- */
-export interface ParseResult {
-  /** EXTERNAL nodes created for unresolved imports */
-  nodes: GraphNode[];
-
-  /** IMPORTS, RE_EXPORTS, DYNAMIC_IMPORTS edges */
-  edges: GraphEdge[];
-
-  /** Non-fatal error/warning messages */
-  warnings: string[];
-}
+// Re-export ParserResult from single truth source (src/types.ts)
+export type { ParserResult };
 
 /**
- * Result of parsing multiple files
+ * Extracted import information (raw parsed data)
+ *
+ * This represents the raw import data extracted during parsing.
+ * Different from api/types.ts ImportInfo which is the formatted API output.
  */
-export interface ParserResult {
-  /** All EXTERNAL nodes (deduplicated) */
-  nodes: GraphNode[];
-
-  /** All edges from all files */
-  edges: GraphEdge[];
-
-  /** Number of files successfully parsed */
-  filesParsed: number;
-
-  /** All warnings from all files */
-  warnings: string[];
-}
-
-/**
- * Extracted import information
- */
-export interface ImportInfo {
+export interface ParsedImportInfo {
   /** Source file path (relative) */
   sourceFile: string;
 
@@ -70,6 +46,3 @@ export interface ParserOptions {
   /** Skip files with syntax errors */
   skipErrors?: boolean;
 }
-
-// Import types from core types module
-import { GraphNode, GraphEdge } from '../../types.js';

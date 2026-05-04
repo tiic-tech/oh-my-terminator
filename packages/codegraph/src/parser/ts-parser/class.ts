@@ -5,8 +5,8 @@
  */
 
 import ts from 'typescript';
-import { NodeType, GraphNode } from '../../types.js';
-import { ParseResult, ParserResult, ParserOptions } from './types.js';
+import { NodeType, GraphNode, ParserResult } from '../../types.js';
+import { ParserOptions } from './types.js';
 import { createParserProgram } from './program.js';
 import { extractPackageName } from './module-resolution.js';
 import { createExternalNode } from './external-node.js';
@@ -93,7 +93,8 @@ export class TypeScriptParser {
 
         result.edges.push(...fileResult.edges);
         result.warnings.push(...fileResult.warnings);
-        result.filesParsed++;
+        // filesParsed is initialized to 0 in parseAll, safe to increment
+        result.filesParsed = (result.filesParsed ?? 0) + 1;
       } catch (error) {
         const msg = error instanceof Error
           ? `${error.message}${error.stack ? ` (${error.stack.split('\n')[1]?.trim()})` : ''}`
@@ -109,10 +110,10 @@ export class TypeScriptParser {
    * Parse a single file
    *
    * @param filePath - Absolute path to the file to parse
-   * @returns ParseResult with nodes, edges, and warnings for this file
+   * @returns ParserResult with nodes, edges, and warnings for this file
    */
-  parseFile(filePath: string): ParseResult {
-    const result: ParseResult = {
+  parseFile(filePath: string): ParserResult {
+    const result: ParserResult = {
       nodes: [],
       edges: [],
       warnings: [],

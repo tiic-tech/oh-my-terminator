@@ -45,7 +45,7 @@ describe('TypeScriptParserAdapter', () => {
         return;
       }
 
-      const result = await adapter.parse('src/index.ts', '', projectRoot);
+      const result = await adapter.parse('src/index.ts', null, projectRoot);
 
       assert.ok(Array.isArray(result.nodes));
       assert.ok(Array.isArray(result.edges));
@@ -62,7 +62,7 @@ describe('TypeScriptParserAdapter', () => {
         return;
       }
 
-      const result = await adapter.parse('src/all-kinds.ts', '', projectRoot);
+      const result = await adapter.parse('src/all-kinds.ts', null, projectRoot);
 
       // Should have MODULE nodes for exported symbols
       const moduleNodes = result.nodes.filter(n => n.type === 'MODULE');
@@ -78,7 +78,7 @@ describe('TypeScriptParserAdapter', () => {
         return;
       }
 
-      const result = await adapter.parse('src/index.ts', '', projectRoot);
+      const result = await adapter.parse('src/index.ts', null, projectRoot);
 
       // Should have IMPORTS edges for imports
       const importEdges = result.edges.filter(e => e.type === 'IMPORTS');
@@ -89,7 +89,7 @@ describe('TypeScriptParserAdapter', () => {
       const adapter = new TypeScriptParserAdapter(fixturesDir);
 
       // Parse a file that doesn't exist (TypeScript Compiler API handles this)
-      const result = await adapter.parse('nonexistent-bad.ts', '', fixturesDir);
+      const result = await adapter.parse('nonexistent-bad.ts', null, fixturesDir);
 
       // Should not throw, should return with warnings
       assert.ok(Array.isArray(result.warnings));
@@ -99,7 +99,7 @@ describe('TypeScriptParserAdapter', () => {
       const adapter = new TypeScriptParserAdapter(fixturesDir);
 
       // Non-existent file returns with warning
-      const result = await adapter.parse('nonexistent.ts', '', fixturesDir);
+      const result = await adapter.parse('nonexistent.ts', null, fixturesDir);
 
       assert.ok(Array.isArray(result.warnings));
       assert.ok(result.warnings.length > 0, 'Should have warning for non-existent file');

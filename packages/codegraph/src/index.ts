@@ -52,9 +52,7 @@ export {
   generateDynamicImportEdge,
   extractPackageName,
   isBuiltinModule,
-  type ParseResult,
-  type ParserResult,
-  type ImportInfo,
+  type ParsedImportInfo,
   type ParserOptions,
   // C5: TypeScript Parser Adapter
   TypeScriptParserAdapter,

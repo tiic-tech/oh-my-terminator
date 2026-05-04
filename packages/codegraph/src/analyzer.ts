@@ -44,10 +44,28 @@ export async function analyzeFull(
   const graph = new CodeGraph();
   const registry = new DefaultParserRegistry();
 
-  // Register TypeScript parser (built-in) with project context
-  // Note: Parser is created once and reused across all files
-  const tsParser = new TypeScriptParserAdapter(cwd);
-  registry.register(tsParser);
+  // ========================================
+  // Parser Registration (Plugin Architecture)
+  // ========================================
+
+  // WHY: Follows "Dependencies Are Invisible Chains" principle.
+  // Parser registration is explicit through configuration, not hardcoded.
+  // Users can inject custom parsers without modifying analyzer source code.
+  //
+  // @see coding-taste skill: "Declare dependencies explicitly. Validate before runtime."
+  // @see parser-registry.ts: "Extensible plugin architecture for multi-language support"
+
+  // Register user-provided parsers (explicit dependency injection)
+  if (options?.parsers && options.parsers.length > 0) {
+    for (const parser of options.parsers) {
+      registry.register(parser);
+    }
+  } else {
+    // Backward compatibility: Register built-in TypeScript parser if no custom parsers
+    // This maintains the default behavior while enabling plugin architecture.
+    const tsParser = new TypeScriptParserAdapter(cwd);
+    registry.register(tsParser);
+  }
 
   // Determine extensions to parse
   const extensions = options?.extensions ?? registry.getAllExtensions();
@@ -153,8 +171,8 @@ export async function analyzeFull(
     }
 
     try {
-      // Parse file (TypeScriptParserAdapter ignores content, reads from disk)
-      const parseResult = await parser.parse(filePath, '', cwd);
+      // Parse file (disk-based parsers read from filesystem, content=null)
+      const parseResult = await parser.parse(filePath, null, cwd);
 
       // Merge parse result into graph
       mergeParserResult(graph, parseResult);

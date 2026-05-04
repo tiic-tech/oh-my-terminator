@@ -222,10 +222,24 @@ export interface AnalysisStats {
 /**
  * Options for full analysis
  *
- * Controls analysis behavior and output
+ * Controls analysis behavior and output.
+ *
+ * WHY parsers is optional: Follows "Dependencies Are Invisible Chains" principle.
+ * Parser registration is explicit through configuration, not hidden in source code.
+ * This enables plugin architecture without modifying core analyzer logic.
+ *
+ * @see parser-registry.ts - Plugin architecture implementation
+ * @see coding-taste skill - "Declare dependencies explicitly"
  */
 export interface AnalysisOptions {
-  /** File extensions to parse (default: ['.ts', '.tsx', '.js', '.jsx', '.mjs']) */
+  /**
+   * Custom parsers to register (plugin architecture).
+   * If provided, only these parsers are used.
+   * If omitted, built-in TypeScript parser is registered as default.
+   * @example [{ name: 'python', extensions: ['.py'], parse: async () => {...} }]
+   */
+  parsers?: Parser[];
+  /** File extensions to parse (default: all registered parser extensions) */
   extensions?: string[];
   /** Progress callback for reporting */
   onProgress?: ProgressCallback;
@@ -254,7 +268,8 @@ export interface FullAnalysisResult {
 /**
  * Result from a single file parse operation
  *
- * Contains extracted nodes, edges, and warnings
+ * Contains extracted nodes, edges, and warnings.
+ * For multi-file parsing, filesParsed is populated with the count.
  */
 export interface ParserResult {
   /** Nodes extracted from the file */
@@ -263,6 +278,8 @@ export interface ParserResult {
   edges: GraphEdge[];
   /** Non-fatal warnings during parsing */
   warnings: string[];
+  /** Number of files successfully parsed (multi-file batch parsing only) */
+  filesParsed?: number;
 }
 
 /**
@@ -271,7 +288,8 @@ export interface ParserResult {
  * All language parsers must implement this interface.
  *
  * NOTE: Some parsers (like TypeScript Compiler API) require files to exist on disk.
- * Callers should check `requiresFileOnDisk` before passing synthetic content.
+ * When requiresFileOnDisk=true, pass null for content parameter to indicate disk read.
+ * Content-based parsers (default) receive the file content string.
  */
 export interface Parser {
   /** Unique parser name (e.g., 'typescript', 'python') */
@@ -287,11 +305,11 @@ export interface Parser {
   /**
    * Parse a single file
    * @param filePath - Relative file path
-   * @param content - File content (ignored if requiresFileOnDisk=true)
+   * @param content - File content string, or null to indicate disk read (disk-based parsers)
    * @param projectRoot - Project root directory
    * @returns ParserResult with nodes, edges, warnings
    */
-  parse(filePath: string, content: string, projectRoot: string): Promise<ParserResult>;
+  parse(filePath: string, content: string | null, projectRoot: string): Promise<ParserResult>;
 }
 
 /**

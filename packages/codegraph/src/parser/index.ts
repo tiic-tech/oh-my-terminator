@@ -15,9 +15,8 @@ export {
   generateDynamicImportEdge,
   extractPackageName,
   isBuiltinModule,
-  type ParseResult,
   type ParserResult,
-  type ImportInfo,
+  type ParsedImportInfo,
   type ParserOptions,
 } from './ts-parser/index.js';
 

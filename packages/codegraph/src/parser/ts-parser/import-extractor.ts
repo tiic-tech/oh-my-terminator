@@ -5,7 +5,7 @@
  */
 
 import ts from 'typescript';
-import { ImportInfo } from './types.js';
+import { ParsedImportInfo } from './types.js';
 import { getModuleSpecifier, getImportSpecifierType, getExportSpecifierType } from './utils.js';
 import { resolveModulePath } from './program.js';
 import { getRelativePath } from './path-utils.js';
@@ -22,15 +22,15 @@ import { getRelativePath } from './path-utils.js';
  * @param relativePath - Relative path for the source file
  * @param program - TypeScript Program for module resolution
  * @param projectRoot - Project root for relative path calculation
- * @returns Array of ImportInfo objects
+ * @returns Array of ParsedImportInfo objects
  */
 export function extractImports(
   sourceFile: ts.SourceFile,
   relativePath: string,
   program: ts.Program,
   projectRoot: string
-): ImportInfo[] {
-  const imports: ImportInfo[] = [];
+): ParsedImportInfo[] {
+  const imports: ParsedImportInfo[] = [];
 
   // Helper to resolve specifier
   const resolveSpecifier = (specifier: string, sourceFileName: string): string | null => {

@@ -9,7 +9,7 @@
  * Program creation is expensive (reads tsconfig, resolves modules).
  *
  * WARNING: TypeScriptParser uses TypeScript Compiler API which reads from
- * filesystem. The content parameter is IGNORED - file must exist on disk.
+ * filesystem. Pass null for content parameter - file must exist on disk.
  * This is a TypeScript Compiler API limitation.
  */
 
@@ -54,17 +54,17 @@ export class TypeScriptParserAdapter implements Parser {
    * Parse a single TypeScript/JavaScript file
    *
    * Uses cached TypeScriptParser which reads from filesystem via Compiler API.
-   * The content parameter is IGNORED - file must exist on disk.
+   * Content parameter is null (disk-based parser reads file from disk).
    *
    * @param filePath - Relative file path (file must exist on disk)
-   * @param content - File content (IGNORED - TypeScript reads from disk)
-   * @param projectRoot - Project root directory (uses cached parser's root)
+   * @param _content - Ignored (underscore prefix indicates intentionally unused)
+   * @param _projectRoot - Ignored (uses cached parser's projectRoot from constructor)
    * @returns ParserResult with nodes, edges, warnings
    */
   async parse(
     filePath: string,
-    content: string, // eslint-disable-line @typescript-eslint/no-unused-vars
-    projectRoot: string
+    _content: string | null,
+    _projectRoot: string
   ): Promise<ParserResult> {
     // Initialize cached parser on first call
     if (!this.tsParser) {

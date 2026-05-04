@@ -5,16 +5,16 @@
  */
 
 import { GraphEdge, EdgeType } from '../../types.js';
-import { ImportInfo } from './types.js';
+import { ParsedImportInfo } from './types.js';
 import { extractPackageName } from './module-resolution.js';
 
 /**
  * Generate an IMPORTS edge from import info
  *
- * @param info - Import information
+ * @param info - Parsed import information
  * @returns GraphEdge with IMPORTS type
  */
-export function generateImportEdge(info: ImportInfo): GraphEdge {
+export function generateImportEdge(info: ParsedImportInfo): GraphEdge {
   const targetId = info.resolvedPath
     ? `FILE:${info.resolvedPath}`
     : `EXTERNAL:${extractPackageName(info.specifier)}`;
@@ -33,10 +33,10 @@ export function generateImportEdge(info: ImportInfo): GraphEdge {
 /**
  * Generate a RE_EXPORTS edge from import info
  *
- * @param info - Import information (must have importType 're-export')
+ * @param info - Parsed import information (must have importType 're-export')
  * @returns GraphEdge with RE_EXPORTS type
  */
-export function generateReExportEdge(info: ImportInfo): GraphEdge {
+export function generateReExportEdge(info: ParsedImportInfo): GraphEdge {
   const targetId = info.resolvedPath
     ? `FILE:${info.resolvedPath}`
     : `EXTERNAL:${extractPackageName(info.specifier)}`;
@@ -55,10 +55,10 @@ export function generateReExportEdge(info: ImportInfo): GraphEdge {
 /**
  * Generate a DYNAMIC_IMPORTS edge from import info
  *
- * @param info - Import information (must have importType 'dynamic')
+ * @param info - Parsed import information (must have importType 'dynamic')
  * @returns GraphEdge with DYNAMIC_IMPORTS type
  */
-export function generateDynamicImportEdge(info: ImportInfo): GraphEdge {
+export function generateDynamicImportEdge(info: ParsedImportInfo): GraphEdge {
   const targetId = info.resolvedPath
     ? `FILE:${info.resolvedPath}`
     : `EXTERNAL:${extractPackageName(info.specifier)}`;
