@@ -11,7 +11,6 @@ import { generateModuleId } from './module-id.js';
 import { extractJSDoc, isDeprecated } from './jsdoc-extractor.js';
 import { calculateComplexity } from './complexity.js';
 import { countLOC } from './loc-counter.js';
-import { isExported } from './export-info.js';
 
 /**
  * Options for creating a MODULE node
@@ -63,7 +62,6 @@ export function createModuleNode(options: CreateModuleNodeOptions): void {
     hasName,
     isDefault,
     internalName,
-    exportInfoMap,
     allExportTypes,
   } = exportInfo;
   // Handle duplicate names (anonymous defaults)
@@ -188,19 +186,19 @@ export function buildMetadata(
  * @param relativePath - Relative file path
  * @param fileId - Parent FILE node ID
  * @param exportedName - Exported name
- * @param originalName - Original name (if renamed)
- * @param kind - Module kind (default 'variable')
  * @param result - Result accumulator
  * @param exportNames - Name collision tracker
+ * @param originalName - Original name (if renamed)
+ * @param kind - Module kind (default 'variable')
  */
 export function createSimpleModuleNode(
   relativePath: string,
   fileId: string,
   exportedName: string,
-  originalName?: string,
-  kind: ModuleKind = 'variable',
   result: ModuleExtractResult,
-  exportNames: Map<string, number>
+  exportNames: Map<string, number>,
+  originalName?: string,
+  kind: ModuleKind = 'variable'
 ): void {
   // Handle duplicates
   let finalName = exportedName;

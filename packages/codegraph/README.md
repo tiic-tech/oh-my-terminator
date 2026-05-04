@@ -19,6 +19,48 @@ This package provides the foundational data structures for modeling code reposit
 npm install @oh-my-terminator/codegraph
 ```
 
+## CLI Usage
+
+### Installation
+```bash
+pnpm install
+pnpm build
+```
+
+### Commands
+
+#### analyze
+Run full analysis and save baseline:
+```bash
+codegraph analyze [cwd]
+codegraph analyze --json  # JSON output
+```
+
+#### update
+Incremental update based on git changes:
+```bash
+codegraph update [cwd]
+codegraph update --json  # JSON output
+```
+
+### Output Format
+
+JSON output (--json):
+```json
+{
+  "success": true,
+  "stats": { "filesScanned": 42, ... },
+  "durationMs": 2300
+}
+```
+
+Text output (default):
+```
+✓ Analysis complete
+Files scanned: 42
+Duration: 2.3s
+```
+
 ## Usage
 
 ### Basic Usage

@@ -1,4 +1,7 @@
+// Import CodeGraph type for use in this file and re-export for consumers
 import type { CodeGraph } from './graph.js';
+export { CodeGraph } from './graph.js';
+
 import type { ScanOptions } from './scanner.js';
 
 // ============================================================================

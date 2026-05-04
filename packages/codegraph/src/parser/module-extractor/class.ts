@@ -14,11 +14,9 @@ import { processExportDeclaration } from './export-processor.js';
  * Module Extractor class
  */
 export class ModuleExtractor {
-  private program: ts.Program;
   private projectRoot: string;
 
-  constructor(program: ts.Program, projectRoot: string) {
-    this.program = program;
+  constructor(_program: ts.Program, projectRoot: string) {
     this.projectRoot = projectRoot;
   }
 
@@ -48,7 +46,7 @@ export class ModuleExtractor {
       }
       // Handle: export default identifier (ExportAssignment)
       if (ts.isExportAssignment(node)) {
-        const isDefault = true; // ExportAssignment is always default
+        // ExportAssignment is always default
         if (ts.isIdentifier(node.expression)) {
           const internalName = node.expression.text;
           const existing = exportInfoMap.get(internalName) ?? { exportTypes: [], exportedNames: [] };

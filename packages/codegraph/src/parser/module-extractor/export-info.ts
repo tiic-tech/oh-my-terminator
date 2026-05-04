@@ -19,16 +19,22 @@ export function collectExportInfo(
 ): void {
   // Check for default keyword
   const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
-  const isDefault = modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword);
+  const isDefault = modifiers?.some(m => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
 
   // Handle: export default identifier
-  if (isDefault && node.exportClause && ts.isIdentifier(node.exportClause)) {
-    const internalName = node.exportClause.text;
-    const existing = exportInfoMap.get(internalName) ?? { exportTypes: [], exportedNames: [] };
-    existing.exportTypes.push('default');
-    existing.exportedNames.push(internalName); // default export uses original name
-    exportInfoMap.set(internalName, existing);
-    return;
+  // NOTE: TypeScript's type narrowing doesn't recognize that `export default identifier`
+  // creates an ExportDeclaration with Identifier as exportClause. We use explicit check.
+  if (isDefault && node.exportClause) {
+    const clause = node.exportClause;
+    // Check if it's an Identifier using runtime check (bypass TS type narrowing)
+    if ('text' in clause && typeof clause.text === 'string') {
+      const internalName = clause.text;
+      const existing = exportInfoMap.get(internalName) ?? { exportTypes: [], exportedNames: [] };
+      existing.exportTypes.push('default');
+      existing.exportedNames.push(internalName); // default export uses original name
+      exportInfoMap.set(internalName, existing);
+      return;
+    }
   }
 
   if (!node.exportClause) {

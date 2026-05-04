@@ -33,8 +33,8 @@ export function getQuickBrief(
     return createBriefError(
       ErrorCode.TARGET_NOT_FOUND,
       `File not found: ${filePath}`,
-      'Run `codegraph analyze` to build graph first',
-      startTime
+      startTime,
+      'Run `codegraph analyze` to build graph first'
     );
   }
 

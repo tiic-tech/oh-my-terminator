@@ -12,7 +12,7 @@ import { createSimpleModuleNode } from './node-builder.js';
  * Process export declaration (export { x } or export { x as y })
  *
  * @param node - Export declaration node
- * @param sourceFile - Source file
+ * @param _sourceFile - Source file (unused, kept for API consistency)
  * @param relativePath - Relative file path
  * @param fileId - Parent FILE node ID
  * @param result - Result accumulator
@@ -21,7 +21,7 @@ import { createSimpleModuleNode } from './node-builder.js';
  */
 export function processExportDeclaration(
   node: ts.ExportDeclaration,
-  sourceFile: ts.SourceFile,
+  _sourceFile: ts.SourceFile,
   relativePath: string,
   fileId: string,
   result: ModuleExtractResult,
@@ -54,10 +54,10 @@ export function processExportDeclaration(
         relativePath,
         fileId,
         exportedName,
-        internalName !== exportedName ? internalName : undefined,
-        'variable', // Default, we don't know the actual kind
         result,
-        exportNames
+        exportNames,
+        internalName !== exportedName ? internalName : undefined,
+        'variable' // Default, we don't know the actual kind
       );
     }
   }
@@ -101,10 +101,10 @@ export function processReExport(
         relativePath,
         fileId,
         exportedName,
-        originalName !== exportedName ? originalName : undefined,
-        'variable',
         result,
-        exportNames
+        exportNames,
+        originalName !== exportedName ? originalName : undefined,
+        'variable'
       );
     }
   }

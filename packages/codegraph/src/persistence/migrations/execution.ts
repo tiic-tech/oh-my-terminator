@@ -6,7 +6,8 @@
  */
 
 import type { Baseline, MigrationScript, MigrationRecord, RebuildHandler } from '../types/index.js';
-import { SchemaVersionImpl, CURRENT_SCHEMA_VERSION } from '../../version.js';
+import { CodeGraph } from '../../graph.js';
+import { SchemaVersionImpl, CURRENT_SCHEMA_VERSION, createSchemaVersion } from '../../version.js';
 import { findMigrationPath } from './path-finding.js';
 
 // ============================================================================
@@ -80,17 +81,17 @@ function executeMigrationStep(baseline: Baseline, script: MigrationScript): Base
  * 5. Return transformed baseline
  *
  * @param baseline - Baseline to migrate
- * @param cwd - Project working directory (for potential rebuild fallback)
+ * @param _cwd - Project working directory (unused, kept for API consistency)
  * @param targetVersion - Optional target version (default: CURRENT_SCHEMA_VERSION)
  * @returns Migrated baseline
  * @throws Error if no migration path found
  */
 export function migrateBaseline(
   baseline: Baseline,
-  cwd: string,
+  _cwd: string,
   targetVersion?: SchemaVersionImpl
 ): Baseline {
-  const target = targetVersion ?? CURRENT_SCHEMA_VERSION;
+  const target = targetVersion ?? createSchemaVersion(CURRENT_SCHEMA_VERSION);
   const currentVersion = SchemaVersionImpl.parse(
     `${baseline.schemaVersion.major}.${baseline.schemaVersion.minor}.${baseline.schemaVersion.patch}`
   );
@@ -128,23 +129,25 @@ export function migrateBaseline(
  * WHY: When no migration path exists, rebuild handler creates fresh baseline.
  * Encapsulates baseline construction from graph data.
  *
- * @param graph - Rebuilt graph data
+ * @param graph - Rebuilt graph data (CodeGraph instance)
  * @param target - Target schema version
  * @returns New baseline from rebuilt graph
  */
 function createRebuiltBaseline(
-  graph: NonNullable<ReturnType<RebuildHandler>>,
+  graph: CodeGraph,
   target: SchemaVersionImpl
 ): Baseline {
+  // Serialize graph data
+  const serialized = graph.toJSON();
   return {
     graph: {
-      nodes: graph.nodes,
-      edges: graph.edges,
-      commitHash: graph.commitHash ?? '',
-      timestamp: graph.timestamp ?? Date.now(),
+      nodes: serialized.nodes,
+      edges: serialized.edges,
+      commitHash: serialized.commitHash ?? '',
+      timestamp: serialized.timestamp ?? Date.now(),
     },
-    commitHash: graph.commitHash ?? '',
-    timestamp: graph.timestamp ?? Date.now(),
+    commitHash: serialized.commitHash ?? '',
+    timestamp: serialized.timestamp ?? Date.now(),
     schemaVersion: { major: target.major, minor: target.minor, patch: target.patch },
     generatorVersion: CURRENT_SCHEMA_VERSION.toString(),
     architectureConstraints: [],
@@ -178,7 +181,7 @@ export async function safeMigrateBaseline(
   targetVersion?: SchemaVersionImpl,
   rebuildHandler?: RebuildHandler
 ): Promise<Baseline> {
-  const target = targetVersion ?? CURRENT_SCHEMA_VERSION;
+  const target = targetVersion ?? createSchemaVersion(CURRENT_SCHEMA_VERSION);
   const currentVersion = SchemaVersionImpl.parse(
     `${baseline.schemaVersion.major}.${baseline.schemaVersion.minor}.${baseline.schemaVersion.patch}`
   );

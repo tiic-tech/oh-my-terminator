@@ -8,8 +8,8 @@ import ts from 'typescript';
 import { ModuleExtractResult, ExportInfoMap } from './types.js';
 import { ModuleKind } from './types.js';
 import { detectKind } from './kind-detector.js';
-import { createModuleNode, CreateModuleNodeOptions } from './node-builder.js';
-import { getDeclarationName, isExported, isDefaultExport } from './export-info.js';
+import { createModuleNode } from './node-builder.js';
+import { isExported, isDefaultExport } from './export-info.js';
 
 /**
  * Process individual declaration

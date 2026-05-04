@@ -4,7 +4,7 @@
  * Count import/importedBy edges for QuickBrief.
  */
 
-import { CodeGraph, EdgeType, type GraphNode } from '../../types.js';
+import { CodeGraph, EdgeType, type GraphNode, type GraphEdge } from '../../types.js';
 
 /**
  * Count import edges for a FILE node
@@ -19,7 +19,7 @@ import { CodeGraph, EdgeType, type GraphNode } from '../../types.js';
 export function countImports(graph: CodeGraph, fileNode: GraphNode): number {
   const outEdges = graph.outEdges.get(fileNode.id) || [];
   return outEdges.filter(
-    (e) =>
+    (e: GraphEdge) =>
       e.type === EdgeType.IMPORTS ||
       e.type === EdgeType.RE_EXPORTS ||
       e.type === EdgeType.DYNAMIC_IMPORTS
@@ -39,6 +39,6 @@ export function countImports(graph: CodeGraph, fileNode: GraphNode): number {
 export function countImportedBy(graph: CodeGraph, fileNode: GraphNode): number {
   const inEdges = graph.inEdges.get(fileNode.id) || [];
   return inEdges.filter(
-    (e) => e.type === EdgeType.IMPORTS || e.type === EdgeType.RE_EXPORTS
+    (e: GraphEdge) => e.type === EdgeType.IMPORTS || e.type === EdgeType.RE_EXPORTS
   ).length;
 }

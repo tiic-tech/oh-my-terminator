@@ -15,8 +15,7 @@
  * @see 06_c6_baseline_version_spec.md Section 5
  */
 
-import { writeFile, rename, stat, readFile, copyFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { writeFile, rename, stat, copyFile } from 'node:fs/promises';
 import type {
   Baseline,
   SaveBaselineOptions,
@@ -66,7 +65,7 @@ export async function saveBaseline(
   // Step 2: Create backup if requested and baseline exists
   if (options?.createBackup) {
     try {
-      const existingStat = await stat(baselinePath);
+      await stat(baselinePath);
       // Baseline exists, create backup
       const backupPath = getBackupPath(cwd);
       await copyFile(baselinePath, backupPath);

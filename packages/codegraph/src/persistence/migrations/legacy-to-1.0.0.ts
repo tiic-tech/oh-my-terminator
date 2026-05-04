@@ -36,7 +36,10 @@ export const legacyToV1_0_0: MigrationScript = {
       migrationHistory: baseline.migrationHistory ? [...baseline.migrationHistory] : [],
     };
 
-    // Add migration record
+    // Add migration record (migrationHistory is guaranteed to exist now)
+    if (!migrated.migrationHistory) {
+      migrated.migrationHistory = [];
+    }
     migrated.migrationHistory.push({
       fromVersion: 'legacy',
       toVersion: '1.0.0',

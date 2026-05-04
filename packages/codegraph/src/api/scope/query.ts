@@ -40,8 +40,8 @@ export function getScope(graph: CodeGraph, target: string): ScopeResult | ScopeE
     return createScopeError(
       ErrorCode.TARGET_NOT_FOUND,
       `MODULE node not found: ${target}`,
-      'Check if the export name exists in the file',
-      startTime
+      startTime,
+      'Check if the export name exists in the file'
     );
   }
 
@@ -50,8 +50,8 @@ export function getScope(graph: CodeGraph, target: string): ScopeResult | ScopeE
     return createScopeError(
       ErrorCode.TARGET_NOT_FOUND,
       `Target not found: ${target}`,
-      'Run `codegraph analyze` to build graph first',
-      startTime
+      startTime,
+      'Run `codegraph analyze` to build graph first'
     );
   }
 

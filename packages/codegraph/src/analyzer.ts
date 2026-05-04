@@ -13,8 +13,6 @@ import {
   type FullAnalysisResult,
   type AnalysisOptions,
   type AnalysisStats,
-  type ProgressEvent,
-  type ProgressCallback,
   type ParserResult,
 } from './types.js';
 import { CodeGraph } from './graph.js';
