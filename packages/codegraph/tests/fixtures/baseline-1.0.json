@@ -1,0 +1,132 @@
+{
+  "schemaVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "generatorVersion": "1.0.0",
+  "timestamp": 1704067200000,
+  "commitHash": "abc123def456789012345678901234567890abcd",
+  "graph": {
+    "nodes": [
+      ["FILE:src/utils.ts", {
+        "id": "FILE:src/utils.ts",
+        "type": "FILE",
+        "path": "src/utils.ts",
+        "name": "utils.ts"
+      }],
+      ["FILE:src/index.ts", {
+        "id": "FILE:src/index.ts",
+        "type": "FILE",
+        "path": "src/index.ts",
+        "name": "index.ts"
+      }],
+      ["MODULE:src/utils.ts#formatDate", {
+        "id": "MODULE:src/utils.ts#formatDate",
+        "type": "MODULE",
+        "path": "src/utils.ts",
+        "name": "formatDate",
+        "metadata": {
+          "kind": "function",
+          "isExported": true,
+          "jsDoc": "Format a date to ISO string format. This is a longer JSDoc comment that will be truncated during compression to save space in the baseline file. The truncation target is 100 characters by default.",
+          "complexity": 1,
+          "loc": 5
+        }
+      }],
+      ["MODULE:src/utils.ts#parseDate", {
+        "id": "MODULE:src/utils.ts#parseDate",
+        "type": "MODULE",
+        "path": "src/utils.ts",
+        "name": "parseDate",
+        "metadata": {
+          "kind": "function",
+          "isExported": true,
+          "jsDoc": "Parse ISO string to Date object",
+          "complexity": 2,
+          "loc": 8
+        }
+      }],
+      ["MODULE:src/index.ts#main", {
+        "id": "MODULE:src/index.ts#main",
+        "type": "MODULE",
+        "path": "src/index.ts",
+        "name": "main",
+        "metadata": {
+          "kind": "function",
+          "isExported": true,
+          "jsDoc": "Main entry point",
+          "complexity": 3,
+          "loc": 15
+        }
+      }],
+      ["EXTERNAL:lodash", {
+        "id": "EXTERNAL:lodash",
+        "type": "EXTERNAL",
+        "path": "lodash",
+        "name": "lodash"
+      }],
+      ["EXTERNAL:dayjs", {
+        "id": "EXTERNAL:dayjs",
+        "type": "EXTERNAL",
+        "path": "dayjs",
+        "name": "dayjs"
+      }],
+      ["EXTERNAL:axios", {
+        "id": "EXTERNAL:axios",
+        "type": "EXTERNAL",
+        "path": "axios",
+        "name": "axios"
+      }]
+    ],
+    "edges": [
+      {
+        "from": "FILE:src/utils.ts",
+        "to": "MODULE:src/utils.ts#formatDate",
+        "type": "CONTAINS"
+      },
+      {
+        "from": "FILE:src/utils.ts",
+        "to": "MODULE:src/utils.ts#parseDate",
+        "type": "CONTAINS"
+      },
+      {
+        "from": "FILE:src/index.ts",
+        "to": "MODULE:src/index.ts#main",
+        "type": "CONTAINS"
+      },
+      {
+        "from": "FILE:src/utils.ts",
+        "to": "EXTERNAL:lodash",
+        "type": "IMPORTS",
+        "metadata": { "importSpecifier": "named:debounce" }
+      },
+      {
+        "from": "FILE:src/utils.ts",
+        "to": "EXTERNAL:dayjs",
+        "type": "IMPORTS"
+      },
+      {
+        "from": "FILE:src/index.ts",
+        "to": "EXTERNAL:axios",
+        "type": "IMPORTS"
+      },
+      {
+        "from": "FILE:src/index.ts",
+        "to": "EXTERNAL:lodash",
+        "type": "IMPORTS"
+      },
+      {
+        "from": "FILE:src/index.ts",
+        "to": "EXTERNAL:dayjs",
+        "type": "IMPORTS"
+      }
+    ],
+    "commitHash": "abc123def456789012345678901234567890abcd",
+    "timestamp": 1704067200000
+  },
+  "architectureConstraints": [],
+  "healthScore": 75,
+  "skillDemand": {
+    "testWriter": 0.6,
+    "refactorSpecialist": 0.2,
+    "architect": 0.15,
+    "securityReviewer": 0.05
+  }
+}

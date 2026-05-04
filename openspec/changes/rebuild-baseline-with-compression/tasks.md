@@ -88,16 +88,16 @@
 
 ## 7. Integration Tests
 
-- [ ] 7.1 Create test fixture: sample 1.0 baseline.json
-- [ ] 7.2 Create test fixture: expected 1.1 compressed output
-- [ ] 7.3 Write integration test: full compression flow (analyze → save → load)
-- [ ] 7.4 Write integration test: migration from 1.0 to 1.1
-- [ ] 7.5 Write integration test: config file loading
-- [ ] 7.6 Write integration test: CLI migrate command
-- [ ] 7.7 Write integration test: compression disabled (--no-compression)
-- [ ] 7.8 Verify size reduction meets 20-30% target
-- [ ] 7.9 Benchmark decompression performance (target: <50ms for 1MB baseline)
-- [ ] 7.10 Benchmark compression performance during save
+- [x] 7.1 Create test fixture: sample 1.0 baseline.json
+- [x] 7.2 Create test fixture: expected 1.1 compressed output
+- [x] 7.3 Write integration test: full compression flow (analyze → save → load)
+- [x] 7.4 Write integration test: migration from 1.0 to 1.1
+- [x] 7.5 Write integration test: config file loading
+- [x] 7.6 Write integration test: CLI migrate command
+- [x] 7.7 Write integration test: compression disabled (--no-compression)
+- [x] 7.8 Verify size reduction meets 20-30% target
+- [x] 7.9 Benchmark decompression performance (target: <50ms for 1MB baseline)
+- [x] 7.10 Benchmark compression performance during save
 
 ## 8. Documentation & Finalization
 

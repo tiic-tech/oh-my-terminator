@@ -1,0 +1,38 @@
+{
+  "schemaVersion": { "major": 1, "minor": 1, "patch": 0 },
+  "generatorVersion": "1.0.0",
+  "timestamp": 1704067200000,
+  "commitHash": "abc123def456789012345678901234567890abcd",
+  "pathTable": [
+    "src/utils.ts",
+    "src/index.ts",
+    "lodash",
+    "dayjs",
+    "axios"
+  ],
+  "nodes": [
+    { "type": "FILE", "pathIndex": 0, "name": "utils.ts" },
+    { "type": "FILE", "pathIndex": 1, "name": "index.ts" },
+    { "type": "MODULE", "pathIndex": 0, "name": "formatDate", "metadata": { "kind": "function", "isExported": true, "jsDoc": "Format a date to ISO string format. This is a longer JSDoc comment that will be truncated during compression to save", "jsDocTruncated": true, "hasJSDoc": true, "complexity": 1, "loc": 5 } },
+    { "type": "MODULE", "pathIndex": 0, "name": "parseDate", "metadata": { "kind": "function", "isExported": true, "jsDoc": "Parse ISO string to Date object", "hasJSDoc": true, "complexity": 2, "loc": 8 } },
+    { "type": "MODULE", "pathIndex": 1, "name": "main", "metadata": { "kind": "function", "isExported": true, "jsDoc": "Main entry point", "hasJSDoc": true, "complexity": 3, "loc": 15 } },
+    { "type": "EXTERNAL", "pathIndex": 2, "name": "lodash" },
+    { "type": "EXTERNAL", "pathIndex": 3, "name": "dayjs" },
+    { "type": "EXTERNAL", "pathIndex": 4, "name": "axios" }
+  ],
+  "edges": [
+    { "type": "IMPORTS_BATCH", "fromIndex": 0, "targetIndexes": [2, 3] },
+    { "type": "IMPORTS_BATCH", "fromIndex": 1, "targetIndexes": [4, 2, 3] },
+    { "type": "CONTAINS", "fromIndex": 0, "toIndex": 0 },
+    { "type": "CONTAINS", "fromIndex": 0, "toIndex": 0 },
+    { "type": "CONTAINS", "fromIndex": 1, "toIndex": 1 }
+  ],
+  "architectureConstraints": [],
+  "healthScore": 75,
+  "skillDemand": {
+    "testWriter": 0.6,
+    "refactorSpecialist": 0.2,
+    "architect": 0.15,
+    "securityReviewer": 0.05
+  }
+}

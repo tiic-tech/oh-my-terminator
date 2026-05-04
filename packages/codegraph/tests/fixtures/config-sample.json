@@ -1,0 +1,6 @@
+{
+  "compression": {
+    "enabled": true,
+    "jsDocMaxLength": 50
+  }
+}
