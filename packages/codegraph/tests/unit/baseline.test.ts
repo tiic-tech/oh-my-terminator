@@ -2,12 +2,14 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validateBaselineStructure,
+  validateCompressedBaselineStructure,
   verifyDataIntegrity,
   handleFailure,
   loadBaseline,
   executeActionWithFallback,
   handleMigrationNotAvailable,
 } from '../../src/persistence/baseline/index.js';
+import { detectBaselineFormat } from '../../src/persistence/migrations/1.0-to-1.1.js';
 import type {
   Baseline,
   LoadBaselineOptions,
@@ -17,9 +19,10 @@ import type {
   IntegrityResult,
   CompatibilityResult,
 } from '../../src/persistence/types.js';
+import { NodeType, EdgeType } from '../../src/types.js';
 import { join } from 'node:path';
 
-// Helper to create valid mock baseline
+// Helper to create valid mock baseline (1.0 format)
 function createValidBaseline(): Baseline {
   return {
     graph: {
@@ -38,6 +41,25 @@ function createValidBaseline(): Baseline {
     architectureConstraints: [],
     healthScore: 50,
     skillDemand: { testWriter: 0.5, refactorSpecialist: 0.3, architect: 0.2, securityReviewer: 0.1 },
+  };
+}
+
+// Helper to create valid 1.1 format (CompressedBaseline)
+function createValidCompressedBaseline(): object {
+  return {
+    pathTable: ['src/utils.ts', 'src/main.ts', 'lodash'],
+    nodes: [
+      { type: NodeType.FILE, pathIndex: 0 },
+      { type: NodeType.FILE, pathIndex: 1 },
+      { type: NodeType.EXTERNAL, pathIndex: 2 },
+    ],
+    edges: [
+      { type: EdgeType.IMPORTS, fromIndex: 0, toIndex: 2 },
+      { type: EdgeType.CONTAINS, fromIndex: 1, toIndex: 0 },
+    ],
+    commitHash: 'abc1234',
+    timestamp: Date.now(),
+    schemaVersion: { major: 1, minor: 1, patch: 0 },
   };
 }
 
@@ -145,6 +167,316 @@ describe('validateBaselineStructure', () => {
       baseline.schemaVersion = undefined;
       const result = validateBaselineStructure(baseline);
       assert.strictEqual(result.valid, true);
+    });
+  });
+});
+
+describe('validateCompressedBaselineStructure', () => {
+  describe('1.1 format validation', () => {
+    it('should accept valid 1.1 format with pathTable, nodes, edges', () => {
+      const baseline = createValidCompressedBaseline();
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, true);
+      assert.deepStrictEqual(result.errors, []);
+    });
+
+    it('should accept 1.1 format without schemaVersion (optional)', () => {
+      const baseline = createValidCompressedBaseline();
+      delete (baseline as any).schemaVersion;
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, true);
+    });
+
+    it('should reject missing pathTable', () => {
+      const baseline = createValidCompressedBaseline();
+      delete (baseline as any).pathTable;
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('Missing required field: pathTable')));
+    });
+
+    it('should reject missing nodes', () => {
+      const baseline = createValidCompressedBaseline();
+      delete (baseline as any).nodes;
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('Missing required field: nodes')));
+    });
+
+    it('should reject missing edges', () => {
+      const baseline = createValidCompressedBaseline();
+      delete (baseline as any).edges;
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('Missing required field: edges')));
+    });
+
+    it('should reject missing commitHash', () => {
+      const baseline = createValidCompressedBaseline();
+      delete (baseline as any).commitHash;
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('Missing required field: commitHash')));
+    });
+
+    it('should reject missing timestamp', () => {
+      const baseline = createValidCompressedBaseline();
+      delete (baseline as any).timestamp;
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('Missing required field: timestamp')));
+    });
+
+    it('should reject null input', () => {
+      const result = validateCompressedBaselineStructure(null);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('must be an object')));
+    });
+
+    it('should reject non-object input', () => {
+      const result = validateCompressedBaselineStructure('string');
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('must be an object')));
+    });
+  });
+
+  describe('pathTable validation', () => {
+    it('should reject pathTable not being an array', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).pathTable = 'invalid';
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('pathTable must be an array')));
+    });
+
+    it('should reject pathTable with non-string entries', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).pathTable = ['src/a.ts', 123, 'src/b.ts'];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('pathTable[1] must be a string')));
+    });
+
+    it('should accept empty pathTable', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).pathTable = [];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, true);
+    });
+  });
+
+  describe('nodes validation', () => {
+    it('should reject nodes not being an array', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).nodes = 'invalid';
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('nodes must be an array')));
+    });
+
+    it('should reject node missing type field', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).nodes = [{ pathIndex: 0 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('nodes[0] missing required field: type')));
+    });
+
+    it('should reject node with invalid type', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).nodes = [{ type: 'INVALID_TYPE', pathIndex: 0 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('nodes[0].type must be a valid NodeType')));
+    });
+
+    it('should reject node missing pathIndex field', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).nodes = [{ type: NodeType.FILE }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('nodes[0] missing required field: pathIndex')));
+    });
+
+    it('should reject node with non-number pathIndex', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).nodes = [{ type: NodeType.FILE, pathIndex: 'invalid' }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('nodes[0].pathIndex must be a number')));
+    });
+
+    it('should accept node without name field (optional)', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).nodes = [{ type: NodeType.FILE, pathIndex: 0 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, true);
+    });
+
+    it('should accept empty nodes array', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).nodes = [];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, true);
+    });
+  });
+
+  describe('edges validation', () => {
+    it('should reject edges not being an array', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = 'invalid';
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('edges must be an array')));
+    });
+
+    it('should reject edge missing type field', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [{ fromIndex: 0, toIndex: 1 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('edges[0] missing or invalid type field')));
+    });
+
+    it('should reject edge with invalid type', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [{ type: 'INVALID_EDGE', fromIndex: 0, toIndex: 1 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('edges[0].type must be a valid EdgeType')));
+    });
+
+    it('should reject edge missing fromIndex', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [{ type: EdgeType.IMPORTS, toIndex: 1 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('edges[0] missing or invalid fromIndex')));
+    });
+
+    it('should reject edge missing toIndex', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [{ type: EdgeType.IMPORTS, fromIndex: 0 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('edges[0] missing or invalid toIndex')));
+    });
+
+    it('should accept IMPORTS_BATCH edge type', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [{ type: 'IMPORTS_BATCH', fromIndex: 0, targetIndexes: [1, 2] }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, true);
+    });
+
+    it('should reject IMPORTS_BATCH missing targetIndexes', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [{ type: 'IMPORTS_BATCH', fromIndex: 0 }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('edges[0] (IMPORTS_BATCH) missing or invalid targetIndexes')));
+    });
+
+    it('should reject IMPORTS_BATCH with non-array targetIndexes', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [{ type: 'IMPORTS_BATCH', fromIndex: 0, targetIndexes: 'invalid' }];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('edges[0] (IMPORTS_BATCH) missing or invalid targetIndexes')));
+    });
+
+    it('should accept empty edges array', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).edges = [];
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, true);
+    });
+  });
+
+  describe('field types', () => {
+    it('should reject non-number timestamp', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).timestamp = 'invalid';
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('timestamp must be a number')));
+    });
+
+    it('should reject non-string commitHash', () => {
+      const baseline = createValidCompressedBaseline();
+      (baseline as any).commitHash = 123;
+      const result = validateCompressedBaselineStructure(baseline);
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('commitHash must be a string')));
+    });
+  });
+});
+
+describe('validateBaselineStructure format dispatch', () => {
+  describe('format detection', () => {
+    it('should detect 1.1 format for pathTable structure', () => {
+      const baseline = createValidCompressedBaseline();
+      const format = detectBaselineFormat(baseline);
+      assert.strictEqual(format, '1.1');
+    });
+
+    it('should detect 1.0 format for graph structure', () => {
+      const baseline = createValidBaseline();
+      const format = detectBaselineFormat(baseline);
+      assert.strictEqual(format, '1.0');
+    });
+
+    it('should detect legacy format for invalid structure', () => {
+      const format = detectBaselineFormat({ random: 'data' });
+      assert.strictEqual(format, 'legacy');
+    });
+
+    it('should detect legacy format for null input', () => {
+      const format = detectBaselineFormat(null);
+      assert.strictEqual(format, 'legacy');
+    });
+  });
+
+  describe('dispatch to correct validator', () => {
+    it('should dispatch to 1.1 validator for pathTable format', () => {
+      const baseline = createValidCompressedBaseline();
+      const result = validateBaselineStructure(baseline);
+      // 1.1 validator should accept valid pathTable structure
+      assert.strictEqual(result.valid, true);
+    });
+
+    it('should reject 1.1 format with missing pathTable via dispatch', () => {
+      const baseline = createValidCompressedBaseline();
+      delete (baseline as any).pathTable;
+      const result = validateBaselineStructure(baseline);
+      // When pathTable is removed, format detection falls to 'legacy'
+      // Legacy format is dispatched to 1.0 validator which expects 'graph'
+      assert.strictEqual(result.valid, false);
+      // The 1.0 validator will reject missing 'graph' field
+      assert.ok(result.errors.some(e => e.includes('Missing required field: graph')));
+    });
+
+    it('should dispatch to 1.0 validator for graph format', () => {
+      const baseline = createValidBaseline();
+      const result = validateBaselineStructure(baseline);
+      // 1.0 validator should accept valid graph structure
+      assert.strictEqual(result.valid, true);
+    });
+
+    it('should reject 1.0 format with missing graph via dispatch', () => {
+      const baseline = createValidBaseline();
+      delete (baseline as any).graph;
+      const result = validateBaselineStructure(baseline);
+      // Should reject because 1.0 validator requires graph
+      assert.strictEqual(result.valid, false);
+      assert.ok(result.errors.some(e => e.includes('Missing required field: graph')));
+    });
+
+    it('should reject legacy format with unknown format error', () => {
+      const result = validateBaselineStructure({ random: 'data' });
+      // Legacy format should be detected and dispatched to 1.0 validator
+      // (legacy is handled by 1.0 validator which will reject missing graph)
+      assert.strictEqual(result.valid, false);
     });
   });
 });

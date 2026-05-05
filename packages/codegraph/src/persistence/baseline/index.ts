@@ -8,6 +8,7 @@
 // Re-export from validation module
 export {
   validateBaselineStructure,
+  validateCompressedBaselineStructure,
   verifyDataIntegrity,
 } from './validation.js';
 
