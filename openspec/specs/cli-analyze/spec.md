@@ -41,3 +41,31 @@ The system SHALL provide human-readable text output as default.
 #### Scenario: Text output with warnings
 - **WHEN** analysis encounters parse errors
 - **THEN** text output includes warning section listing failed files and reasons
+
+### Requirement: CLI analyze compression options
+The system SHALL provide clear compression flag options without contradictory descriptions.
+
+#### Scenario: Default compression behavior
+- **WHEN** user runs `codegraph analyze` without compression flags
+- **THEN** baseline is saved in compressed 1.1 format by default
+
+#### Scenario: Explicit compress flag
+- **WHEN** user runs `codegraph analyze --compress`
+- **THEN** baseline is saved in compressed 1.1 format
+- **AND** help shows "Enable compression (default behavior)" without default annotation
+
+#### Scenario: No-compression flag
+- **WHEN** user runs `codegraph analyze --no-compression`
+- **THEN** baseline is saved in uncompressed 1.0 format
+- **AND** help shows "Save as uncompressed 1.0 format" without default annotation
+
+### Requirement: CLI analyze help includes examples
+The system SHALL provide usage examples in analyze command help.
+
+#### Scenario: Help shows usage examples
+- **WHEN** user runs `codegraph analyze --help`
+- **THEN** help output includes examples section with common usage patterns
+
+#### Scenario: Examples show typical workflows
+- **WHEN** user views analyze help examples
+- **THEN** examples include: basic usage, custom directory, JSON output, no-compression

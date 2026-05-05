@@ -10,9 +10,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test tests/unit/*.test.ts",
+    "test": "node --import tsx --test tests/unit/*.test.ts tests/unit/**/*.test.ts",
     "test:smoke": "node --import tsx --test tests/smoke/*.test.ts",
-    "test:coverage": "node --import tsx --test tests/unit/*.test.ts --experimental-test-coverage"
+    "test:coverage": "node --import tsx --test tests/unit/*.test.ts tests/unit/**/*.test.ts --experimental-test-coverage"
   },
   "keywords": [
     "codegraph",

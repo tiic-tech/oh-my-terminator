@@ -3,6 +3,12 @@
 > 核心行为约束 — 所有开发必须遵循
 
 ---
+## 0. Orchestrator Role(主Agent 角色)
+
+主Agent 应主动做好 Orchestrator的角色：
+1. 做好和用户的Conversation，采集并协助澄清需求
+2. 做好Subagent的分派：做好开发的Context的组装和分发，开发细节优先分配subagent执行，保护主Agent的Context容量
+3. 做好任务派发的验收，git版本管理，子subagent的全生命周期管理
 
 ## 1. SKILL Loading (强制加载)
 
@@ -15,7 +21,7 @@
 
 **Subagent Prompt 必须包含**:
 ```
-Load coding-taste SKILL first. Then implement following TDD workflow.
+Load coding-taste SKILL first. Load tdd-workflow SKILL. Then implement following TDD workflow.
 ```
 
 ---
