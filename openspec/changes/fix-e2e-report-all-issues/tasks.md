@@ -55,12 +55,12 @@
 
 ## 6. Integration Tests
 
-- [ ] 6.1 Write integration test: update with compressed baseline (P0 fix verification) (file: tests/integration/cli-commands.test.ts)
-- [ ] 6.2 Write integration test: scope command full flow (file: tests/integration/cli-commands.test.ts)
-- [ ] 6.3 Write integration test: impact command full flow (file: tests/integration/cli-commands.test.ts)
-- [ ] 6.4 Write integration test: layers command full flow (file: tests/integration/cli-commands.test.ts)
-- [ ] 6.5 Write integration test: help shows all commands (file: tests/integration/cli-commands.test.ts)
-- [ ] 6.6 Run full test suite: `pnpm test`
+- [x] 6.1 Write integration test: update with compressed baseline (P0 fix verification) (file: tests/integration/cli-commands.test.ts)
+- [x] 6.2 Write integration test: scope command full flow (file: tests/integration/cli-commands.test.ts)
+- [x] 6.3 Write integration test: impact command full flow (file: tests/integration/cli-commands.test.ts)
+- [x] 6.4 Write integration test: layers command full flow (file: tests/integration/cli-commands.test.ts)
+- [x] 6.5 Write integration test: help shows all commands (file: tests/integration/cli-commands.test.ts)
+- [x] 6.6 Run full test suite: `pnpm test`
 
 ## 7. Verification & Finalization
 

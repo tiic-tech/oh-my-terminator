@@ -7,6 +7,8 @@
  * - migrate: Call migration framework
  * - proceed: Return baseline graph directly
  *
+ * Format-aware: Handles both 1.0 (legacy) and 1.1 (compressed) baseline formats.
+ *
  * Originally extracted from compatibility.ts (315 lines) to comply with
  * coding-taste Rule 2 (max 150 lines per file).
  */
@@ -19,9 +21,12 @@ import type {
   Baseline,
   RebuildHandler,
 } from '../types/index.js';
+import type { CompressedBaseline } from '../../types.js';
 import { IncompatibleBaselineError } from '../types/index.js';
 import { migrateBaseline } from '../migrations/index.js';
 import { deserializeBaselineGraph } from './deserialize.js';
+import { detectBaselineFormat } from '../migrations/1.0-to-1.1.js';
+import { deserializeCompressed } from '../compression/serializer.js';
 
 /**
  * Determine action based on compatibility result and configuration
@@ -70,13 +75,17 @@ export function determineAction(
 }
 
 /**
- * Execute compatibility action
+ * Execute compatibility action with format-aware deserialization
  *
  * WHY: Translates action decision into actual operation:
  * - error: Throw exception
  * - rebuild: Call rebuildHandler (or analyzeFull)
  * - migrate: Call migration framework
  * - proceed: Return baseline graph directly
+ *
+ * Format handling:
+ * - 1.1 (compressed): Use deserializeCompressed directly on CompressedBaseline
+ * - 1.0 (legacy): Use deserializeBaselineGraph on baseline.graph
  *
  * @param action - Action to execute
  * @param baseline - Loaded baseline (may be null for rebuild)
@@ -115,8 +124,8 @@ export async function executeAction(
       }
       // Execute migration framework to transform baseline to current version
       const migratedBaseline = migrateBaseline(baseline, cwd);
-      // Deserialize migrated graph into CodeGraph instance
-      const migratedGraph = deserializeBaselineGraph(migratedBaseline.graph);
+      // Deserialize migrated graph with format detection
+      const migratedGraph = deserializeBaselineWithFormatDetection(migratedBaseline);
       return {
         graph: migratedGraph,
         action: 'migrate',
@@ -127,8 +136,8 @@ export async function executeAction(
       if (!baseline) {
         throw new Error('Cannot proceed: no baseline loaded');
       }
-      // Deserialize baseline.graph with structure validation
-      const proceedGraph = deserializeBaselineGraph(baseline.graph);
+      // Deserialize baseline with format detection
+      const proceedGraph = deserializeBaselineWithFormatDetection(baseline);
       return {
         graph: proceedGraph,
         action: 'proceed',
@@ -137,5 +146,33 @@ export async function executeAction(
 
     default:
       throw new Error(`Unknown action: ${action}`);
+  }
+}
+
+/**
+ * Deserialize baseline with format detection
+ *
+ * WHY: Baselines can be 1.0 (graph.nodes/edges) or 1.1 (pathTable/nodes/edges).
+ * This helper detects format and uses appropriate deserialization path.
+ *
+ * @param baseline - Baseline to deserialize (may be 1.0 or 1.1 structure)
+ * @returns Deserialized CodeGraph instance
+ */
+function deserializeBaselineWithFormatDetection(baseline: Baseline): import('../../graph.js').CodeGraph {
+  const format = detectBaselineFormat(baseline);
+
+  switch (format) {
+    case '1.1':
+      // Compressed format - deserialize directly using CompressedBaseline path
+      // Cast to CompressedBaseline for proper deserialization
+      return deserializeCompressed(baseline as unknown as CompressedBaseline);
+
+    case '1.0':
+    case 'legacy':
+      // Legacy format - use graph property with SerializedCodeGraph structure
+      return deserializeBaselineGraph(baseline.graph);
+
+    default:
+      throw new Error(`Unknown baseline format during deserialization: ${format}`);
   }
 }

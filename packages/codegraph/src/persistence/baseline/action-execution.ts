@@ -15,6 +15,7 @@ import { checkSchemaCompatibility, determineAction, executeAction } from '../com
 import { CURRENT_SCHEMA_VERSION } from '../../version.js';
 import { handleFailure } from './failure-handlers.js';
 import { validateBaselineStructure, verifyDataIntegrity } from './validation.js';
+import { detectBaselineFormat } from '../migrations/1.0-to-1.1.js';
 
 // ============================================================================
 // Validation Helper
@@ -26,6 +27,8 @@ import { validateBaselineStructure, verifyDataIntegrity } from './validation.js'
  * WHY: Combines two validation phases (structure + integrity) into one helper.
  * Structure validation checks required fields; integrity checks semantic consistency.
  *
+ * Format-aware: 1.1 format skips legacy integrity check (structure validation is sufficient).
+ *
  * @param parsed - Parsed JSON data (unknown type for validation)
  * @param cwd - Project working directory (for failure handler)
  * @param options - Load options (for failure handler)
@@ -36,15 +39,29 @@ export async function validateAndCheckIntegrity(
   cwd: string,
   options?: LoadBaselineOptions
 ): Promise<{ success: true; baseline: Baseline } | LoadBaselineResult> {
-  // Step 1: Structure validation (required fields, types)
+  // Step 1: Structure validation (required fields, types) - format-aware
   const validationResult = validateBaselineStructure(parsed);
   if (!validationResult.valid) {
     return handleFailure('invalid_structure', cwd, options, validationResult);
   }
 
+  // Step 2: Detect format to determine integrity check path
+  const format = detectBaselineFormat(parsed);
+
+  // For 1.1 (compressed) format, skip legacy integrity check
+  // WHY: 1.1 format has different structure (pathTable, nodes array) - legacy check expects graph.nodes
+  // Structure validation already validated the compressed format's integrity
+  if (format === '1.1') {
+    // Cast to Baseline for downstream compatibility
+    // Note: This Baseline has 1.1 structure but will be handled by executeAction
+    const baseline = parsed as Baseline;
+    return { success: true, baseline };
+  }
+
+  // For 1.0/legacy format, perform legacy data integrity verification
   const baseline = parsed as Baseline;
 
-  // Step 2: Data integrity verification (semantic checks)
+  // Step 3: Data integrity verification (semantic checks for 1.0 format)
   const integrityResult = verifyDataIntegrity(baseline);
   if (!integrityResult.valid) {
     return handleFailure('corrupted_data', cwd, options, integrityResult);
