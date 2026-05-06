@@ -8,7 +8,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { CodeGraph, NodeType, EdgeType, type GraphNode, type GraphEdge } from '../../../../src/index.js';
-import { extractImportsWithKind } from '../../../../src/api/scope/extract.js';
+import { extractImportsWithKind } from '../../../../src/api/scope/extract-with-kind.js';
 import { formatScopeOutput } from '../../../../src/api/scope/format/index.js';
 import type { ImportInfo, ImportKind } from '../../../../src/api/types/index.js';
 

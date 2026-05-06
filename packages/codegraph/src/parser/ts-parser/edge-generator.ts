@@ -2,6 +2,14 @@
  * Edge Generation
  *
  * Generates IMPORTS, RE_EXPORTS, and DYNAMIC_IMPORTS edges from import info.
+ *
+ * WHY 4 imports: All imports serve single responsibility (edge generation).
+ * - types.js: Core graph types (GraphEdge, EdgeType) - foundational
+ * - types.js (parser): ParsedImportInfo - parser domain, cohesive with this file
+ * - module-resolution.js: Path resolution helpers - same domain (parser)
+ *
+ * Per decomposition principle: These 3 modules form the "parser edge generation"
+ * cohesive unit. File size 98 lines (under 150). Coupling is appropriate.
  */
 
 import { GraphEdge, EdgeType } from '../../types.js';

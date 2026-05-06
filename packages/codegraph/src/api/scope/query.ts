@@ -14,7 +14,8 @@ import {
   ErrorCode,
 } from '../types/index.js';
 import { normalizeTarget } from './normalize.js';
-import { extractExports, extractImportedBy, extractImportsWithKind } from './extract.js';
+import { extractExports, extractImportedBy } from './extract.js';
+import { extractImportsWithKind } from './extract-with-kind.js';
 import { findTestFile, aggregateComplexity, checkDeprecated, getLastModified } from './metadata.js';
 import { formatScopeOutput } from './format/index.js';
 import { createScopeError } from './errors.js';

@@ -10,7 +10,8 @@ export { getQuickBrief } from './brief.js';
 
 // Internal helpers (exported for testing)
 export { normalizeTarget } from './normalize.js';
-export { extractExports, extractImports, extractImportedBy, extractImportsWithKind } from './extract.js';
+export { extractExports, extractImports, extractImportedBy } from './extract.js';
+export { extractImportsWithKind } from './extract-with-kind.js';
 export { findTestFile, aggregateComplexity, checkDeprecated } from './metadata.js';
 export { countImports, countImportedBy } from './count.js';
 export { formatScopeOutput, formatQuickBriefOutput } from './format/index.js';
