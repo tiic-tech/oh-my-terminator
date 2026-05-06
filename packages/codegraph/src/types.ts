@@ -421,6 +421,35 @@ export interface CompressionStats {
 }
 
 /**
+ * Edge case result for special project states
+ *
+ * WHY: Empty/single-file/test-only projects need graceful handling, not errors.
+ * CLI should exit 0 with structured output for programmatic consumption.
+ *
+ * @see analyzer/edge-case-detector.ts for detection logic
+ */
+export interface EdgeCaseResult {
+  /** true - edge cases are valid states, not errors */
+  success: true;
+  /** Project classification from detectSpecialCases() */
+  kind: 'empty' | 'single-file' | 'test-only';
+  /** Human-readable message explaining the situation */
+  message: string;
+  /** Optional suggestions for empty projects */
+  suggestions?: string[];
+  /** Optional file path for single-file projects */
+  file?: string;
+  /** Optional external dependencies for single-file projects */
+  externalDeps?: string[];
+  /** Optional warning for test-only projects */
+  warning?: string;
+  /** Optional test file list for test-only projects */
+  testFiles?: string[];
+  /** Processing time in milliseconds */
+  durationMs: number;
+}
+
+/**
  * Result of CLI analyze command
  *
  * WHY: Structured result enables both programmatic consumption and CLI output formatting.

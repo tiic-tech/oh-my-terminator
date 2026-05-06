@@ -7,11 +7,12 @@
  * Flow:
  * 1. Validate project (path existence + git repo + commits)
  * 2. Check baseline exists
- * 3. Detect changes since lastCommit
- * 4. Remove deleted/modified file nodes
- * 5. Re-parse added/modified files
- * 6. Save updated baseline
- * 7. Return structured result
+ * 3. Detect edge cases (re-check after git changes)
+ * 4. Detect changes since lastCommit
+ * 5. Remove deleted/modified file nodes
+ * 6. Re-parse added/modified files
+ * 7. Save updated baseline
+ * 8. Return structured result
  *
  * @see 09_c9_cli_analyze_update_spec.md Section 5.10-5.18
  */
@@ -34,10 +35,15 @@ import {
   type UpdateResult,
   type CliError,
   type CompressionStats,
+  type EdgeCaseResult,
 } from '../../types.js';
 import { CodeGraph } from '../../graph.js';
 import type { Baseline } from '../../persistence/types/baseline.js';
 import { reparseFiles } from '../reparser.js';
+import {
+  detectSpecialCases,
+  type SpecialCaseResult,
+} from '../../analyzer/index.js';
 
 // ============================================================================
 // Command Options
@@ -61,15 +67,17 @@ export interface UpdateOptions {
  * Execute update command
  *
  * Performs incremental graph update based on git changes.
+ * Handles edge cases gracefully - if project becomes empty/single-file after
+ * file deletions, returns appropriate EdgeCaseResult.
  *
  * @param cwd - Project root directory
  * @param options - Command options (compress defaults to true, inherits analyze behavior)
- * @returns UpdateResult on success, CliError on failure
+ * @returns UpdateResult on success, CliError on failure, EdgeCaseResult for edge cases
  */
 export async function updateCommand(
   cwd: string,
   options?: UpdateOptions
-): Promise<UpdateResult | CliError> {
+): Promise<UpdateResult | CliError | EdgeCaseResult> {
   const startTime = Date.now();
 
   // Compression is enabled by default (6.11-6.12)
@@ -120,7 +128,21 @@ export async function updateCommand(
   const graph = loadResult.graph;
 
   // ========================================
-  // Step 3: Detect Changes
+  // Step 3: Detect Edge Cases
+  // ========================================
+  // WHY: After file deletions, project might become empty/single-file.
+  // Check current state before proceeding with update.
+  const specialCase = detectSpecialCases(projectRoot);
+  const edgeCaseResult = handleUpdateEdgeCase(specialCase, startTime);
+
+  // Return early for empty case (no files to update)
+  // For single-file/test-only: proceed with update but note the state
+  if (edgeCaseResult && edgeCaseResult.kind === 'empty') {
+    return edgeCaseResult;
+  }
+
+  // ========================================
+  // Step 4: Detect Changes
   // ========================================
   let changes: GitChangeResult;
   try {
@@ -139,7 +161,7 @@ export async function updateCommand(
   }
 
   // ========================================
-  // Step 4: Handle No Changes
+  // Step 5: Handle No Changes
   // ========================================
   if (!changes.hasChanges) {
     return {
@@ -159,7 +181,7 @@ export async function updateCommand(
   }
 
   // ========================================
-  // Step 5: Remove Changed/Deleted File Nodes
+  // Step 6: Remove Changed/Deleted File Nodes
   // ========================================
   let removedNodes = 0;
   const warnings: string[] = [];
@@ -177,7 +199,7 @@ export async function updateCommand(
   }
 
   // ========================================
-  // Step 6: Re-parse Added/Modified Files
+  // Step 7: Re-parse Added/Modified Files
   // ========================================
   const filesToReparse = changes.changes.filter(
     c => c.type === 'ADD' || c.type === 'MODIFY'
@@ -199,7 +221,7 @@ export async function updateCommand(
   }
 
   // ========================================
-  // Step 7: Save Updated Baseline (with compression)
+  // Step 8: Save Updated Baseline (with compression)
   // ========================================
   const newHead = await getHeadCommit(projectRoot);
   const timestamp = Date.now();
@@ -222,7 +244,7 @@ export async function updateCommand(
   await saveBaseline(updatedBaseline, projectRoot, { compress });
 
   // ========================================
-  // Step 7.5: Calculate Compression Stats
+  // Step 9: Calculate Compression Stats
   // ========================================
   let compressionStats: CompressionStats | undefined;
   if (compress) {
@@ -250,8 +272,13 @@ export async function updateCommand(
   await writeFile(lastCommitPath, newHead, 'utf-8');
 
   // ========================================
-  // Step 8: Return Result
+  // Step 10: Return Result
   // ========================================
+  // Add edge case warning if applicable
+  if (edgeCaseResult && edgeCaseResult.kind === 'test-only') {
+    warnings.unshift(edgeCaseResult.warning!);
+  }
+
   const addedFiles = changes.changes.filter(c => c.type === 'ADD').map(c => c.path);
   const removedFiles = deletedFiles.map(c => c.path);
   const modifiedFileList = modifiedFiles.map(c => c.path);
@@ -276,6 +303,72 @@ export async function updateCommand(
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Handle edge cases for update command
+ *
+ * WHY: After file deletions, project might become empty/single-file.
+ * Returns EdgeCaseResult for empty case (no files to update).
+ * Returns null for normal/single-file/test-only to proceed with update.
+ *
+ * @param specialCase - Detection result from detectSpecialCases()
+ * @param startTime - Start timestamp for duration calculation
+ * @returns EdgeCaseResult for empty, null for other cases
+ */
+function handleUpdateEdgeCase(
+  specialCase: SpecialCaseResult,
+  startTime: number
+): EdgeCaseResult | null {
+  const durationMs = Date.now() - startTime;
+
+  switch (specialCase.kind) {
+    case 'empty': {
+      // Project became empty after deletions
+      return {
+        success: true,
+        kind: 'empty',
+        message: 'No source files found. Project may have been cleared.',
+        suggestions: [
+          'Check if source files were accidentally deleted',
+          'Re-run codegraph analyze after restoring files',
+        ],
+        durationMs,
+      };
+    }
+
+    case 'single-file': {
+      // Single file: proceed with update but note the state
+      // No need to return early - update can still work
+      return {
+        success: true,
+        kind: 'single-file',
+        message: `Project now has single file: ${specialCase.sourceFiles[0]}`,
+        file: specialCase.sourceFiles[0],
+        durationMs,
+      };
+    }
+
+    case 'test-only': {
+      // Test-only: proceed with update, add warning to result
+      return {
+        success: true,
+        kind: 'test-only',
+        message: 'Project contains only test files.',
+        warning: `Warning: Only test files found (${specialCase.testFiles.length} files). Treating as normal project.`,
+        testFiles: specialCase.testFiles,
+        durationMs,
+      };
+    }
+
+    case 'normal':
+      // Normal project: proceed with standard update
+      return null;
+
+    default:
+      // Exhaustive check - TypeScript ensures all cases handled
+      throw new Error(`Unknown project kind: ${specialCase.kind}`);
+  }
+}
 
 /**
  * Remove FILE node and all MODULE sub-nodes for a file

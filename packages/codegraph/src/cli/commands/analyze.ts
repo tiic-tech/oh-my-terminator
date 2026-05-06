@@ -7,16 +7,24 @@
  *
  * Flow:
  * 1. Validate project (path existence + git repo + commits)
- * 2. Run full analysis (scan + parse)
- * 3. Save baseline.json
- * 4. Save lastCommit.txt
- * 5. Return structured result
+ * 2. Detect edge cases (empty/single-file/test-only/normal)
+ * 3. Handle edge cases with appropriate output
+ * 4. Run full analysis (scan + parse) for normal projects
+ * 5. Save baseline.json
+ * 6. Save lastCommit.txt
+ * 7. Return structured result
  *
  * @see 09_c9_cli_analyze_update_spec.md Section 5.1-5.9
  */
 
 import { writeFile } from 'node:fs/promises';
 import { analyzeFull } from '../../analyzer.js';
+import {
+  detectSpecialCases,
+  handleEmptyProject,
+  handleSingleFileProject,
+  type SpecialCaseResult,
+} from '../../analyzer/index.js';
 import {
   saveBaseline,
   ensureCodegraphDir,
@@ -33,6 +41,7 @@ import {
   type CliError,
   type CliResultStats,
   type CompressionStats,
+  type EdgeCaseResult,
   EdgeType,
 } from '../../types.js';
 import type { Baseline } from '../../persistence/types/baseline.js';
@@ -59,15 +68,16 @@ export interface AnalyzeOptions {
  * Execute analyze command
  *
  * Performs full repository analysis and creates baseline for future updates.
+ * Handles edge cases (empty/single-file/test-only) gracefully with exit code 0.
  *
  * @param cwd - Project root directory
  * @param options - Command options (compress defaults to true)
- * @returns AnalyzeResult on success, CliError on failure
+ * @returns AnalyzeResult on success, CliError on failure, EdgeCaseResult for edge cases
  */
 export async function analyzeCommand(
   cwd: string,
   options?: AnalyzeOptions
-): Promise<AnalyzeResult | CliError> {
+): Promise<AnalyzeResult | CliError | EdgeCaseResult> {
   const startTime = Date.now();
 
   // Compression is enabled by default (6.1-6.3)
@@ -99,17 +109,29 @@ export async function analyzeCommand(
   const projectRoot = validation.path.absolutePath;
 
   // ========================================
-  // Step 2: Run Full Analysis
+  // Step 2: Detect Edge Cases
+  // ========================================
+  const specialCase = detectSpecialCases(projectRoot);
+  const edgeCaseResult = handleEdgeCase(specialCase, startTime);
+
+  // Return early for empty/single-file cases (skip full analysis)
+  // For test-only: log warning but proceed with normal analysis
+  if (edgeCaseResult && edgeCaseResult.kind !== 'test-only') {
+    return edgeCaseResult;
+  }
+
+  // ========================================
+  // Step 3: Run Full Analysis (normal or test-only)
   // ========================================
   const analysis = await analyzeFull(projectRoot);
 
   // ========================================
-  // Step 3: Calculate Statistics
+  // Step 4: Calculate Statistics
   // ========================================
   const stats = calculateStats(analysis.stats, analysis.graph);
 
   // ========================================
-  // Step 4: Prepare Baseline
+  // Step 5: Prepare Baseline
   // ========================================
   const headCommit = await getHeadCommit(projectRoot);
   const timestamp = Date.now();
@@ -131,7 +153,7 @@ export async function analyzeCommand(
   };
 
   // ========================================
-  // Step 5: Save Baseline (with compression)
+  // Step 6: Save Baseline (with compression)
   // ========================================
   await ensureCodegraphDir(projectRoot);
 
@@ -141,7 +163,7 @@ export async function analyzeCommand(
   await saveBaseline(baseline, projectRoot, { compress });
 
   // ========================================
-  // Step 6: Calculate Compression Stats
+  // Step 7: Calculate Compression Stats
   // ========================================
   let compressionStats: CompressionStats | undefined;
   if (compress) {
@@ -166,14 +188,20 @@ export async function analyzeCommand(
   }
 
   // ========================================
-  // Step 7: Save HEAD Commit
+  // Step 8: Save HEAD Commit
   // ========================================
   const lastCommitPath = getLastCommitPath(projectRoot);
   await writeFile(lastCommitPath, headCommit, 'utf-8');
 
   // ========================================
-  // Step 8: Return Result
+  // Step 9: Return Result
   // ========================================
+  // Add test-only warning if applicable
+  const warnings = analysis.warnings;
+  if (edgeCaseResult?.kind === 'test-only') {
+    warnings.unshift(edgeCaseResult.warning!);
+  }
+
   const result: AnalyzeResult = {
     success: true,
     stats,
@@ -184,7 +212,7 @@ export async function analyzeCommand(
     },
     compressionStats,
     durationMs: Date.now() - startTime,
-    warnings: analysis.warnings,
+    warnings,
     nextSuggested: [
       'codegraph update',
       'codegraph scope --all',
@@ -197,6 +225,71 @@ export async function analyzeCommand(
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+/**
+ * Handle edge cases detected before full analysis
+ *
+ * WHY: Edge cases are valid states, not errors. CLI should exit 0 with
+ * user-friendly output. Returns null for 'normal' and 'test-only' cases
+ * (test-only proceeds with analysis but logs warning).
+ *
+ * @param specialCase - Detection result from detectSpecialCases()
+ * @param startTime - Start timestamp for duration calculation
+ * @returns EdgeCaseResult for empty/single-file, null for normal/test-only
+ */
+function handleEdgeCase(
+  specialCase: SpecialCaseResult,
+  startTime: number
+): EdgeCaseResult | null {
+  const durationMs = Date.now() - startTime;
+
+  switch (specialCase.kind) {
+    case 'empty': {
+      const result = handleEmptyProject();
+      return {
+        success: true,
+        kind: 'empty',
+        message: result.message,
+        suggestions: result.suggestions,
+        durationMs,
+      };
+    }
+
+    case 'single-file': {
+      // Single file: no layer inference possible
+      const filePath = specialCase.sourceFiles[0];
+      const result = handleSingleFileProject(filePath, [], []);
+      return {
+        success: true,
+        kind: 'single-file',
+        message: `Analyzing single file: ${filePath}. No architecture layers needed.`,
+        file: result.filePath,
+        externalDeps: result.externalDeps,
+        durationMs,
+      };
+    }
+
+    case 'test-only': {
+      // Test-only: proceed with analysis, but add warning
+      return {
+        success: true,
+        kind: 'test-only',
+        message: 'Proceeding with analysis of test-only project.',
+        warning: `Warning: Only test files found, treating as normal project. Found ${specialCase.testFiles.length} test files.`,
+        testFiles: specialCase.testFiles,
+        durationMs,
+      };
+    }
+
+    case 'normal':
+      // Normal project: proceed with standard analysis
+      return null;
+
+    default:
+      // Exhaustive check - TypeScript ensures all cases handled
+      throw new Error(`Unknown project kind: ${specialCase.kind}`);
+  }
+}
 
 /**
  * Calculate CLI result statistics from analysis stats and graph
