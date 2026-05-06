@@ -11,6 +11,14 @@ import ts from 'typescript';
 export type { ParserResult };
 
 /**
+ * Import kind - distinguishes type-only imports from value imports
+ *
+ * Type-only imports (`import type { X }`) are erased at compile time
+ * and don't create runtime dependencies. Value imports create runtime deps.
+ */
+export type ImportKind = 'type-only' | 'value';
+
+/**
  * Extracted import information (raw parsed data)
  *
  * This represents the raw import data extracted during parsing.
@@ -34,6 +42,9 @@ export interface ParsedImportInfo {
 
   /** Import specifier metadata (default, named:x, namespace, wildcard, dynamic, empty) */
   importSpecifier: string;
+
+  /** Import kind - type-only or value (from import type syntax) */
+  importKind: ImportKind;
 }
 
 /**

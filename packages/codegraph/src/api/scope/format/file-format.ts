@@ -44,7 +44,11 @@ export function formatFileOutput(
   content += `### Imports (${imports.length})\n`;
   if (imports.length > 0) {
     for (const imp of imports) {
-      content += `- ${imp.from} (${imp.type})\n`;
+      // WHY: Per design.md Decision 6, show kind marker to distinguish type-only imports.
+      // Format: `- 'path' [type-only]` or `- 'path' [value]`
+      // External imports are always value (runtime dependencies).
+      const kindMarker = imp.kind === 'type-only' ? ' [type-only]' : '';
+      content += `- '${imp.from}'${kindMarker}\n`;
     }
   } else {
     content += '- none (leaf file)\n';

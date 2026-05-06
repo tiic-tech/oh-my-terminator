@@ -41,6 +41,20 @@ export interface ModifiedInfo {
 }
 
 /**
+ * Import kind - distinguishes type-only imports from value imports
+ *
+ * WHY: TypeScript 3.8+ introduced `import type` syntax. Type-only imports
+ * are erased at compile time and don't create runtime dependencies.
+ * This distinction is crucial for:
+ * - Dependency score calculation (exclude type imports)
+ * - Layer inference accuracy (type imports shouldn't penalize)
+ * - Scope analysis (users benefit from seeing type/value distinction)
+ *
+ * @see design.md D1: Import Kind Metadata Field
+ */
+export type ImportKind = 'type-only' | 'value';
+
+/**
  * Export symbol information for CLI JSON output
  */
 export interface ExportInfo {
@@ -54,6 +68,9 @@ export interface ExportInfo {
 
 /**
  * Import relationship information for CLI JSON output
+ *
+ * WHY kind field: Per design.md Decision 4, scope output should include import kind
+ * to distinguish type-only imports from value imports.
  */
 export interface ImportInfo {
   /** Source path or package name */
@@ -62,6 +79,8 @@ export interface ImportInfo {
   type: 'static' | 'dynamic' | 're-export';
   /** Imported specifiers (empty for namespace imports) */
   specifiers: string[];
+  /** Import kind: type-only (erased at compile) or value (runtime dependency) */
+  kind: ImportKind;
 }
 
 /**

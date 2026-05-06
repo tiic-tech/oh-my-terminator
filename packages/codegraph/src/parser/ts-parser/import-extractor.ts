@@ -50,6 +50,9 @@ export function extractImports(
         const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
         const resolvedPath = resolveSpecifier(specifier, sourceFile.fileName);
         const importSpecifier = getImportSpecifierType(node, sourceFile);
+        // Detect type-only imports: import type { X } from './types'
+        // TypeScript Compiler API provides isTypeOnly on ImportClause
+        const isTypeOnly = node.importClause?.isTypeOnly ?? false;
 
         imports.push({
           sourceFile: relativePath,
@@ -58,6 +61,7 @@ export function extractImports(
           line,
           importType: 'import',
           importSpecifier,
+          importKind: isTypeOnly ? 'type-only' : 'value',
         });
       }
       return; // Don't traverse into import declarations
@@ -70,6 +74,9 @@ export function extractImports(
         const line = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
         const resolvedPath = resolveSpecifier(specifier, sourceFile.fileName);
         const importSpecifier = getExportSpecifierType(node, sourceFile);
+        // Detect type-only re-exports: export type { X } from './types'
+        // TypeScript Compiler API provides isTypeOnly on ExportDeclaration
+        const isTypeOnly = node.isTypeOnly;
 
         imports.push({
           sourceFile: relativePath,
@@ -78,6 +85,7 @@ export function extractImports(
           line,
           importType: 're-export',
           importSpecifier,
+          importKind: isTypeOnly ? 'type-only' : 'value',
         });
       }
       return; // Don't traverse into export declarations
@@ -100,6 +108,8 @@ export function extractImports(
             line,
             importType: 'dynamic',
             importSpecifier: 'dynamic',
+            // Dynamic imports have no type-only concept - always value
+            importKind: 'value',
           });
         } else if (arg) {
           // Variable argument - create placeholder
@@ -111,6 +121,8 @@ export function extractImports(
             line,
             importType: 'dynamic',
             importSpecifier: 'dynamic',
+            // Dynamic imports have no type-only concept - always value
+            importKind: 'value',
           });
         }
       }

@@ -5,6 +5,7 @@
  */
 
 import { CodeGraph, NodeType, EdgeType, type GraphNode } from '../../types.js';
+import type { ImportInfo, ImportKind } from '../types/index.js';
 
 /**
  * Extract export symbols from a FILE node
@@ -64,6 +65,68 @@ export function extractImports(graph: CodeGraph, fileNode: GraphNode): string[] 
   }
 
   return Array.from(imports).sort();
+}
+
+/**
+ * Extract imports with kind metadata from a FILE node's outEdges
+ *
+ * WHY: Per design.md Decision 5, new function avoids breaking changes.
+ * Existing extractImports() returns paths only, this returns full ImportInfo.
+ *
+ * Handles IMPORTS, RE_EXPORTS, and DYNAMIC_IMPORTS edges.
+ * - IMPORTS/RE_EXPORTS: Extract importKind from edge metadata
+ * - DYNAMIC_IMPORTS: Always 'value' (no type-only concept for dynamic imports)
+ * - External imports: Always 'value' (external packages are runtime deps)
+ *
+ * @param graph - CodeGraph instance
+ * @param fileNode - FILE node to extract from
+ * @returns Array of ImportInfo objects (deduplicated by path, sorted)
+ */
+export function extractImportsWithKind(graph: CodeGraph, fileNode: GraphNode): ImportInfo[] {
+  if (!fileNode) return [];
+
+  // Use map to deduplicate by path, keeping first occurrence
+  const importsMap = new Map<string, ImportInfo>();
+  const outEdges = graph.outEdges.get(fileNode.id) || [];
+
+  for (const edge of outEdges) {
+    if (
+      edge.type === EdgeType.IMPORTS ||
+      edge.type === EdgeType.RE_EXPORTS ||
+      edge.type === EdgeType.DYNAMIC_IMPORTS
+    ) {
+      const targetNode = graph.getNode(edge.to);
+      if (targetNode) {
+        // Skip if already seen (deduplicate by path)
+        if (importsMap.has(targetNode.path)) continue;
+
+        // Determine import type from edge type
+        const importType: 'static' | 'dynamic' | 're-export' =
+          edge.type === EdgeType.DYNAMIC_IMPORTS ? 'dynamic' :
+          edge.type === EdgeType.RE_EXPORTS ? 're-export' : 'static';
+
+        // Determine import kind from edge metadata
+        // WHY: Edge metadata contains importKind from parser extraction.
+        // - IMPORTS/RE_EXPORTS edges have importKind from isTypeOnly check
+        // - DYNAMIC_IMPORTS edges have no importKind (always runtime)
+        // - EXTERNAL targets always 'value' (no type-only for external packages)
+        let importKind: ImportKind = 'value';
+        if (targetNode.type !== NodeType.EXTERNAL) {
+          importKind = edge.metadata?.importKind ?? 'value';
+        }
+
+        importsMap.set(targetNode.path, {
+          from: targetNode.path,
+          type: importType,
+          specifiers: [],
+          kind: importKind,
+        });
+      }
+    }
+  }
+
+  // Sort by path
+  return Array.from(importsMap.values()).sort((a, b) => a.from.localeCompare(b.from));
 }
 
 /**

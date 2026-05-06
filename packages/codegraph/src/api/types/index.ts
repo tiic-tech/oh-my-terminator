@@ -29,6 +29,7 @@ export type {
   ImportedByInfo,
   ScopeResult,
   ScopeError,
+  ImportKind,
 } from './scope-types.js';
 
 // QuickBrief Types (C7)

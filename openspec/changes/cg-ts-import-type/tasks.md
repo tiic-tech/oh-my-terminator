@@ -1,32 +1,32 @@
 ## 1. Parser Type Extension
 
-- [ ] 1.1 Add `ImportKind` type to `packages/codegraph/src/parser/ts-parser/types.ts`
-- [ ] 1.2 Add `importKind` field to `ParsedImportInfo` interface
-- [ ] 1.3 Add unit tests for ImportKind type definition
+- [x] 1.1 Add `ImportKind` type to `packages/codegraph/src/parser/ts-parser/types.ts`
+- [x] 1.2 Add `importKind` field to `ParsedImportInfo` interface
+- [x] 1.3 Add unit tests for ImportKind type definition
 
 ## 2. Import Extractor Modification
 Target: `packages/codegraph/tests/unit/parser/ts-parser/import-extractor.test.ts`
 
-- [ ] 2.1 Detect `importClause.isTypeOnly` in `import-extractor.ts`
-- [ ] 2.2 Set `importKind` based on `isTypeOnly` value
-- [ ] 2.3 Handle side-effect imports (default to 'value')
-- [ ] 2.4 Add unit tests for type-only import detection
-- [ ] 2.5 Add unit tests for regular import detection
-- [ ] 2.6 Add unit tests for mixed imports (type + value)
+- [x] 2.1 Detect `importClause.isTypeOnly` in `import-extractor.ts`
+- [x] 2.2 Set `importKind` based on `isTypeOnly` value
+- [x] 2.3 Handle side-effect imports (default to 'value')
+- [x] 2.4 Add unit tests for type-only import detection
+- [x] 2.5 Add unit tests for regular import detection
+- [x] 2.6 Add unit tests for mixed imports (type + value)
 
 ## 3. Edge Metadata Update
 
-- [ ] 3.1 Update `edge-generator.ts` to include `importKind` in IMPORTS edge metadata
-- [ ] 3.2 Update `edge-generator.ts` to include `importKind` in RE_EXPORTS edge metadata
+- [x] 3.1 Update `edge-generator.ts` to include `importKind` in IMPORTS edge metadata
+- [x] 3.2 Update `edge-generator.ts` to include `importKind` in RE_EXPORTS edge metadata
   > Note: Regular re-exports (export { X } from './types') only. `export type { X } from './types'` syntax not in MVP scope - those edges default to importKind='value'.
-- [ ] 3.3 Add unit tests for edge metadata with importKind
+- [x] 3.3 Add unit tests for edge metadata with importKind
 
 ## 4. Scope Query Display
 
-- [ ] 4.1 Update scope command to display import kind in output
-- [ ] 4.2 Add `kind` field to import list in ScopeResult
-- [ ] 4.3 Add unit tests for scope query with type imports
-- [ ] 4.4 Update scope Markdown output to show type/value distinction
+- [x] 4.1 Update scope command to display import kind in output
+- [x] 4.2 Add `kind` field to import list in ScopeResult
+- [x] 4.3 Add unit tests for scope query with type imports
+- [x] 4.4 Update scope Markdown output to show type/value distinction
 
 ## 5. Integration Tests
 Target: `packages/codegraph/tests/e2e/import-type.test.ts`

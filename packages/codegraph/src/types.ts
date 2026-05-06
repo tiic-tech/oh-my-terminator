@@ -102,6 +102,20 @@ export interface ModuleMetadata {
 }
 
 /**
+ * Import kind metadata for IMPORTS edges
+ *
+ * WHY: TypeScript 3.8+ introduced `import type` syntax. Type-only imports
+ * are erased at compile time and don't create runtime dependencies.
+ * This distinction is crucial for:
+ * - Dependency score calculation (exclude type imports)
+ * - Layer inference accuracy (type imports shouldn't penalize)
+ * - Scope analysis (users benefit from seeing type/value distinction)
+ *
+ * @see design.md D1: Import Kind Metadata Field
+ */
+export type ImportKind = 'type-only' | 'value';
+
+/**
  * Metadata for GraphEdge
  *
  * Contains context about the relationship
@@ -113,6 +127,8 @@ export interface EdgeMetadata {
   isDynamic?: boolean;
   /** Import specifier (e.g., "default", "named:formatDate") */
   importSpecifier?: string;
+  /** Import kind: type-only (erased at compile) or value (runtime dependency) */
+  importKind?: ImportKind;
   /** Co-change count in git history */
   coChangeCount?: number;
 }

@@ -10,12 +10,11 @@ import {
   type ScopeResult,
   type ScopeError,
   type ExportInfo,
-  type ImportInfo,
   type ImportedByInfo,
   ErrorCode,
 } from '../types/index.js';
 import { normalizeTarget } from './normalize.js';
-import { extractExports, extractImports, extractImportedBy } from './extract.js';
+import { extractExports, extractImportedBy, extractImportsWithKind } from './extract.js';
 import { findTestFile, aggregateComplexity, checkDeprecated, getLastModified } from './metadata.js';
 import { formatScopeOutput } from './format/index.js';
 import { createScopeError } from './errors.js';
@@ -65,7 +64,7 @@ export function getScope(graph: CodeGraph, target: string): ScopeResult | ScopeE
 
   // Extract data
   const exportStrings = extractExports(graph, fileNode);
-  const importPaths = extractImports(graph, fileNode);
+  const imports = extractImportsWithKind(graph, fileNode);  // Use new function with kind metadata
   const importedByPaths = extractImportedBy(graph, fileNode);
   const testFile = findTestFile(graph, fileNode);
   const complexity = aggregateComplexity(graph, fileNode, moduleNode);
@@ -78,11 +77,8 @@ export function getScope(graph: CodeGraph, target: string): ScopeResult | ScopeE
     return { name, kind, id: `MODULE:${fileNode.path}#${name}` };
   });
 
-  const imports: ImportInfo[] = importPaths.map((path) => ({
-    from: path,
-    type: 'static',
-    specifiers: [],
-  }));
+  // imports already has correct structure from extractImportsWithKind()
+  // No need to map - it returns ImportInfo[] directly
 
   const importedBy: ImportedByInfo[] = importedByPaths.map((file) => ({
     file,

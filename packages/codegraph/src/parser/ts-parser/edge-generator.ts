@@ -51,6 +51,7 @@ export function generateImportEdge(info: ParsedImportInfo): GraphEdge {
     metadata: {
       line: info.line,
       importSpecifier: info.importSpecifier,
+      importKind: info.importKind,
     },
   };
 }
@@ -69,12 +70,16 @@ export function generateReExportEdge(info: ParsedImportInfo): GraphEdge {
     metadata: {
       line: info.line,
       importSpecifier: info.importSpecifier,
+      importKind: info.importKind,
     },
   };
 }
 
 /**
  * Generate a DYNAMIC_IMPORTS edge from import info
+ *
+ * WHY: Dynamic imports have no importKind - no type-only concept for dynamic imports.
+ * This is per design.md Non-Goals: "Change dynamic import handling (no type-only concept for dynamic)"
  *
  * @param info - Parsed import information (must have importType 'dynamic')
  * @returns GraphEdge with DYNAMIC_IMPORTS type
@@ -87,6 +92,7 @@ export function generateDynamicImportEdge(info: ParsedImportInfo): GraphEdge {
     metadata: {
       line: info.line,
       importSpecifier: 'dynamic',
+      // No importKind - dynamic imports are always value imports at runtime
     },
   };
 }
