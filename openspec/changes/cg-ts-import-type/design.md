@@ -101,6 +101,67 @@ const importsFromCount = valueImports.length;
 
 **Rationale**: Users benefit from seeing what's a type import vs value import.
 
+### Decision 5: ImportInfo Type and Extract Function Update
+
+**Chosen**: Create new function `extractImportsWithKind()` returning `ImportInfo[]`
+
+**Alternatives**:
+- Modify existing extractImports() - Breaking change for existing callers
+- Add separate metadata map - More complex, two data sources
+
+**Rationale**: New function avoids breaking changes. Existing callers continue using extractImports() for paths-only, new callers use extractImportsWithKind() for full metadata.
+
+**Implementation**:
+```typescript
+// New function in extract.ts
+export function extractImportsWithKind(graph: CodeGraph, fileNode: GraphNode): ImportInfo[] {
+  // Returns ImportInfo objects with kind field
+}
+
+// Existing function preserved
+export function extractImports(graph: CodeGraph, fileNode: GraphNode): string[] {
+  // Returns paths only (unchanged)
+}
+```
+
+### Decision 6: Scope Markdown Output Format
+
+**Chosen**: `[type-only]` suffix on import lines
+
+**Format**:
+```markdown
+## Imports
+- `./utils` [value]
+- `./types` [type-only]
+- `lodash` (external)
+```
+
+**Alternatives**:
+- Separate section for type imports - More verbose
+- JSON-style inline - Less readable
+
+**Rationale**: Minimal change to existing format. `[type-only]` suffix clearly indicates import kind.
+
+### Decision 7: ImportKind Detection Location
+
+**Chosen**: Add to import-extractor.ts, not utils.ts
+
+**Implementation**:
+```typescript
+// In import-extractor.ts, during import extraction
+const isTypeOnly = node.importClause?.isTypeOnly ?? false;
+imports.push({
+  // ... existing fields
+  importKind: isTypeOnly ? 'type-only' : 'value',
+});
+```
+
+**Alternatives**:
+- Add to getImportSpecifierType() in utils.ts - Function already complex
+- Create new getImportKind() function - Redundant, detection happens during extraction
+
+**Rationale**: Detection naturally happens during import extraction. Adding to import-extractor.ts keeps logic together.
+
 ## Risks / Trade-offs
 
 **Risk**: Mixed imports (`import { User, formatUser } from './types'` where User is type-only)

@@ -50,6 +50,12 @@ The system SHALL add `importKind` field to parsed import information.
 
 The system SHALL exclude type-only imports from dependency score calculations in layer inference.
 
+> **Note**: Type exclusion applies to `importsFrom` (outgoing imports) only. The `importedBy` count (incoming/reverse direction) still includes type-only importers because:
+> - importedBy tracks who imports THIS module (reverse dependency)
+> - importsFrom tracks what THIS module imports (forward dependency)
+> - Dependency score is calculated from importsFrom, so excluding type imports there is correct
+> - importedBy count is informational, not used in scoring
+
 #### Scenario: Type-only imports not counted
 - **WHEN** group has 5 value imports and 3 type-only imports
 - **THEN** dependency score uses `importsFrom = 5` (only value imports)

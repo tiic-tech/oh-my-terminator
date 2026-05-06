@@ -59,3 +59,13 @@ The parser SHALL extract import declarations from TypeScript source files and ge
 - **THEN** parser generates IMPORTS edge from source FILE to resolved FILE
 - **AND** edge metadata.importSpecifier is `"named:a,b,c"`
 - **AND** edge metadata.importKind is `"value"`
+
+### Requirement: ImportKind type definition
+
+The system SHALL define ImportKind as a standalone type for type consistency across modules.
+
+#### Scenario: ImportKind type exported
+- **WHEN** parser types are imported from the parser module
+- **THEN** ImportKind type is available as a named export
+- **AND** ImportKind is defined as `type ImportKind = 'type-only' | 'value'`
+- **AND** ImportKind is used in IMPORTS edge metadata type definitions

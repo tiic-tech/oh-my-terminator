@@ -34,3 +34,9 @@ The system SHALL extract all imports from outEdges including IMPORTS, RE_EXPORTS
 - **WHEN** file imports from `lodash`
 - **THEN** system returns `"lodash"` in imports list (EXTERNAL reference)
 - **AND** import has `kind: 'value'` (external imports are always value imports)
+
+#### Scenario: ImportInfo interface with kind field
+- **WHEN** import is returned in imports list
+- **THEN** ImportInfo interface includes `kind: ImportKind` field
+- **AND** kind field is required (not optional)
+- **AND** kind defaults to 'value' for non-type imports (backward compatibility)
