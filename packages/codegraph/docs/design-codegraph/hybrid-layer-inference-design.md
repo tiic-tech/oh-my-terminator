@@ -27,13 +27,22 @@
 
 **当前状态**: C1-C10已完成，C11-C12进行中
 
-### 1.2 本文档定位
+### 1.2 M1剩余工作补充
 
-本文档是 **M2+ Layer推断改进** 的设计预研文档，不改变M1原有范围。
+基于E2E测试发现的问题，以下两项提前到M1：
+
+| 问题 | 原优先级 | 新优先级 | 解决方案 | 预估工时 |
+|------|---------|---------|----------|----------|
+| DEPTH_PRESETS | P2(M2) | **P1(M1)** | 自适应深度配置表替代硬编码 | 4h |
+| TypeScript import type | P2(M2) | **P1(M1)** | ImportClause.isTypeOnly检测 | 4h |
+
+**调整原因**: 这两项直接影响Layer推断质量和类型文件误判问题，是E2E测试发现的关键缺陷。
+
+**M1剩余工作总计**: C11(测试) + C12(文档) + P1-DEPTH_PRESETS + P1-import-type = 约22h
 
 ---
 
-## 2. 核心架构设计（设计预研）
+## 2. 核心架构设计（M1 P1实现）
 
 ### 2.1 五阶段推断管道
 
@@ -89,14 +98,15 @@
 
 **重要澄清**: 以下项目的实现状态经过代码审计确认
 
-| 问题 | 设计文档声称 | 实际代码状态 | 真实状态 |
-|------|------------|-------------|----------|
-| P0-stderr分离 | "已实现" | 仅json-formatter.ts注释"caller handles" | **仅文档设计** - 无实际stderr分离代码 |
-| P0-CLI输出修复 | "已实现" | fix-e2e-report-all-issues已归档，CLI命令已修复 | ✅ **已实现** |
-| P0-空项目处理 | "已实现handleEmptyProject()" | analyzer.ts有基本空文件检查，但**无此命名函数** | ⚠️ **部分实现** - 基本检查存在，命名函数不存在 |
-| P0-单文件处理 | "已实现handleSingleFileProject()" | grep无匹配，**函数不存在** | ❌ **未实现** |
-| P0-测试文件排除 | "已实现excludeTestFiles()预过滤" | bfs-phases.ts有isTestFile()，但非预过滤 | ⚠️ **部分实现** - isTestFile()存在，excludeTestFiles()不存在 |
-| P2-DEPTH_PRESETS | "设计完成" | 代码用LAYER_THRESHOLD=2硬编码 | **仅文档设计** - 配置表未实现 |
+| 问题 | 设计文档声称 | 实际代码状态 | 真实状态 | 新优先级 |
+|------|------------|-------------|----------|----------|
+| P0-stderr分离 | "已实现" | 仅json-formatter.ts注释"caller handles" | **仅文档设计** - 无实际stderr分离代码 | P0 |
+| P0-CLI输出修复 | "已实现" | fix-e2e-report-all-issues已归档，CLI命令已修复 | ✅ **已实现** | - |
+| P0-空项目处理 | "已实现handleEmptyProject()" | analyzer.ts有基本空文件检查，但**无此命名函数** | ⚠️ **部分实现** - 基本检查存在，命名函数不存在 | P0 |
+| P0-单文件处理 | "已实现handleSingleFileProject()" | grep无匹配，**函数不存在** | ❌ **未实现** | P0 |
+| P0-测试文件排除 | "已实现excludeTestFiles()预过滤" | bfs-phases.ts有isTestFile()，但非预过滤 | ⚠️ **部分实现** - isTestFile()存在，excludeTestFiles()不存在 | P0 |
+| **P1-DEPTH_PRESETS** | "设计完成" | 代码用LAYER_THRESHOLD=2硬编码 | **仅文档设计** - 配置表未实现 | **M1剩余工作** |
+| **P1-import type** | "M2规划" | Parser未使用isTypeOnly | **仅文档设计** - TS Compiler API能力未利用 | **M1剩余工作** |
 
 ### 3.2 关键代码证据
 
@@ -117,28 +127,30 @@ function isTestFile(filePath: string): boolean {
 
 ## 4. Milestone Scope Management
 
-### 4.1 M1交付目标（不变）
+### 4.1 M1剩余工作（更新）
 
-**参考**: develop_changes_plan.md定义的C1-C12完整MVP
+**M1交付目标**: C1-C12 + P1补充项
 
-- C1-C10: ✅ 已完成
-- C11-C12: ⚠️ 进行中（测试覆盖率、文档）
+| 任务 | 类型 | 预估工时 | 开发状态 |
+|------|------|----------|----------|
+| C11: 测试覆盖率 | [TEST] | 2天 | ⚠️ 进行中 |
+| C12: 文档 | [DOC] | 1天 | ⚠️ 进行中 |
+| **P1: DEPTH_PRESETS** | [CORE] | 4h | 仅设计文档 |
+| **P1: TypeScript import type** | [PARSER] | 4h | 仅设计文档 |
 
-**本设计文档不修改M1范围**
+**M1剩余工时**: 约22h（含E2E测试验证）
 
-### 4.2 M2+ Scope（本设计文档范围）
+### 4.2 M2+ Scope（后续里程碑）
 
 | 问题 | 优先级 | 解决方案 | Milestone | 开发状态 |
 |------|--------|----------|-----------|----------|
 | P1-Layer推断改进 | **M2** | Phase 1-5完整实现 | M2 (Week 1-2) | 仅设计文档 |
 | P1-Plugin系统 | **M2** | LanguagePluginRegistry | M2 (Week 3-4) | 仅设计文档 |
-| P2-DEPTH_PRESETS | **M2** | 自适应深度配置表 | M2 Week 1 | 仅设计文档 |
-| P2-TypeScript import type | **M2** | ImportClause.isTypeOnly | M2 Week 5 | 仅设计文档 |
 | P2-Violation处理策略 | **M3** | ViolationLevel + Remediation | M3 (Week 6-7) | 仅设计文档 |
 | P3-其他语言Plugin | **M4** | Python/Go/Rust/Java | M4 (Week 8-10) | 仅设计文档 |
 | P4-跨语言FFI | **M5** | FFI boundary detection | M5 (Week 11+) | 仅设计文档 |
 
-**澄清**: 本文档所有"解决方案"章节均为**设计预研**，非已实现代码。
+**注意**: P1-DEPTH_PRESETS和P1-import type已提前到M1，不再属于M2范围。
 
 ---
 
@@ -210,39 +222,38 @@ function detectSpecialCases(projectRoot: string): SpecialCaseResult {
 
 ---
 
-## 6. M2实现路径
+## 6. M1 P1实现路径
 
-### 6.1 关键文件路径树（规划）
+### 6.1 关键文件路径树（M1剩余工作）
 
 ```
 packages/codegraph/src/
 ├── parser/
 │   └── ts-parser/
-│       └── import-extractor.ts       # [M2扩展] isTypeOnly字段
-│
-├── plugins/                          # [M2新建]
-│   ├── registry.ts                   # Plugin Registry
-│   ├── types.ts                      # Plugin类型定义
-│   └── typescript-plugin.ts          # TS Plugin
+│       └── import-extractor.ts       # [M1 P1扩展] isTypeOnly字段
 │
 ├── api/
 │   └── layers/
 │       └── inference/
-│           └── core.ts               # [M2扩展] DEPTH_PRESETS配置
+│           └── core.ts               # [M1 P1扩展] DEPTH_PRESETS配置
 │
-└── config/
-    └── type-config-loader.ts         # [M2新建] 配置加载
+└── config/                           # [M2新建]
+    └── type-config-loader.ts         # Plugin配置加载（暂不实现）
 ```
 
-### 6.2 工时估算
+### 6.2 M1 P1工时估算
 
 | Phase | Milestone | 预估工时 | 开发状态 |
 |-------|-----------|----------|----------|
-| DEPTH_PRESETS配置 | M2 | 4h | 仅设计 |
-| TS Parser扩展 | M2 | 4h | 仅设计 |
+| **P1-DEPTH_PRESETS配置** | **M1** | **4h** | **待开发** |
+| **P1-TS import type检测** | **M1** | **4h** | **待开发** |
 | Plugin Registry | M2 | 8h | 仅设计 |
 | Layer assignment集成 | M2 | 8h | 仅设计 |
-| **总计M2** | - | **46h** | 仅设计 |
+| 其他语言Plugin | M4 | 12h | 仅设计 |
+
+**M1 P1开发顺序**: 
+1. DEPTH_PRESETS → 替换硬编码LAYER_THRESHOLD
+2. import type → 扩展ParsedImportInfo接口
 
 ---
 
@@ -265,7 +276,7 @@ packages/codegraph/src/
 
 ---
 
-**文档版本**: v5.0 (修正版)
-**更新日期**: 2026-05-05
-**状态**: 设计预研文档，所有解决方案为设计而非已实现代码
-**对齐**: develop_changes_plan.md M1定义(C1-C12)
+**文档版本**: v6.0 (P1优先级调整)
+**更新日期**: 2026-05-06
+**状态**: P1-DEPTH_PRESETS和P1-import type已提前到M1剩余工作
+**对齐**: develop_changes_plan.md M1定义(C1-C12) + P1补充项
