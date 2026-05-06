@@ -10,6 +10,7 @@ export {
   buildGroupToLayerMap,
   buildGroupSummaries,
   type GroupScore,
+  type InferenceContext,
 } from './core.js';
 
 // Violation detection
@@ -50,8 +51,39 @@ export {
 // Dependency score calculation (Phase 2: Dependency Score Calculation)
 export {
   calculateDependencyScore,
+  type DependencyScoreResult,
+} from './dependency-score.js';
+
+// Cycle detection (Phase 2: Dependency Score Calculation)
+export {
   detectCycles,
   calculateCyclePenalty,
-  type DependencyScoreResult,
   type CycleInfo,
-} from './dependency-score.js';
+} from './cycle-detection.js';
+
+// Import analysis (Phase 2: Dependency Score Calculation)
+export {
+  countTypeOnlyImports,
+  countDynamicImports,
+} from './import-analysis.js';
+
+// Path utilities (shared helper for group extraction)
+export { extractGroupFromPath } from './path-utils.js';
+
+// Confidence calculation (Phase 4: Layer Assignment with Confidence)
+export {
+  calculateConfidence,
+  calculateGroupVariance,
+  countAmbiguousPairs,
+  CONFIDENCE_CONSTANTS,
+  type ConfidenceInputs,
+} from './confidence.js';
+
+// Fallback suggestions (Phase 5: Fallback & Suggestions)
+export {
+  generateSuggestions,
+  SUGGESTION_CONSTANTS,
+  type Suggestion,
+  type SuggestionType,
+  type SuggestionContext,
+} from './fallback.js';

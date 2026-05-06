@@ -32,13 +32,16 @@
 | C9 | cg-cli-analyze-update | archive/2026-05-05-cg-cli-analyze-update | ✅ 已完成 |
 | - | rebuild-baseline-with-compression | archive/2026-05-04-rebuild-baseline-with-compression | ✅ 已完成 |
 | - | fix-e2e-report-all-issues | archive/2026-05-05-fix-e2e-report-all-issues | ✅ 已完成 |
+| P0 | cg-edge-case-handler | archive/2026-05-06-cg-edge-case-handler | ✅ 已完成 (2026-05-06归档) |
+| P1 | cg-depth-presets | archive/2026-05-06-cg-depth-presets | ✅ 已完成 (2026-05-06归档) |
+| P1 | cg-ts-import-type | archive/2026-05-06-cg-ts-import-type | ✅ 已完成 (2026-05-06归档) |
 
 ### 1.2 未归档的Change
 
 | Change ID | Change名称 | 实现状态 | 备注 |
 |-----------|-----------|---------|------|
 | C10 | cg-cli-query-commands | ✅ 代码已实现 | 无归档记录，需补充归档 |
-| C11 | cg-mvp-test-coverage | ⚠️ 进行中 | 841测试通过，覆盖率报告缺失 |
+| C11 | cg-mvp-test-coverage | ⚠️ 进行中 | **883测试通过**，覆盖率报告缺失 |
 | C12 | cg-mvp-documentation | ⚠️ 部分完成 | README.md(21KB)存在，docs目录存在 |
 
 ### 1.3 代码实现验证
@@ -46,27 +49,29 @@
 ```bash
 # CLI命令文件已存在（C10实现验证）
 ls packages/codegraph/src/cli/commands/
-# 输出: analyze.ts, impact.ts, layers.ts, scope.ts, update.ts, migrate.ts
+# 输出: analyze.ts, impact.ts, layers.ts, scope.ts, update.ts, migrate.ts, compression-stats.ts
 
 # 注意: brief.ts 不存在（C10规划但未实现）
 
 # 测试状态（C11部分实现）
-npm test -- --coverage
-# 输出: 841 tests passing, coverage summary未显示百分比
+cd packages/codegraph && npm test
+# 输出: 883 tests passing, coverage summary未显示百分比
 
 # 文档状态（C12部分实现）
 ls packages/codegraph/README.md
 # 输出: 21KB comprehensive README
 
-# 硬编码验证（P1任务未实现）
-grep "LAYER_THRESHOLD" packages/codegraph/src/api/layers/inference/core.ts
-# 输出: const LAYER_THRESHOLD = 2;  # DEPTH_PRESETS未实现
+# P0任务已实现验证 (2026-05-06归档)
+grep -r "handleEmptyProject\|handleSingleFileProject\|excludeTestFiles" packages/codegraph/src/
+# 输出: 有匹配 (cg-edge-case-handler已实现)
 
-grep "isTypeOnly" packages/codegraph/src/
-# 输出: 无匹配  # TypeScript import type未实现
+# P1-DEPTH_PRESETS已实现验证 (2026-05-06归档)
+grep "DEPTH_PRESETS" packages/codegraph/src/api/layers/inference/
+# 输出: 有匹配 (cg-depth-presets已实现，动态阈值替换硬编码)
 
-grep "handleEmptyProject\|handleSingleFileProject\|excludeTestFiles" packages/codegraph/src/
-# 输出: 无匹配  # P0任务未实现
+# P1-import type已实现验证 (2026-05-06归档)
+grep "isTypeOnly" packages/codegraph/src/parser/ts-parser/
+# 输出: 有匹配 (cg-ts-import-type已实现)
 ```
 
 ---
@@ -78,9 +83,11 @@ grep "handleEmptyProject\|handleSingleFileProject\|excludeTestFiles" packages/co
 | 任务ID | 任务名称 | 设计文档声称 | 实际代码状态 | 真实状态 | 需新Change |
 |--------|---------|-------------|-------------|----------|-----------|
 | P0-stderr分离 | stderr输出分离 | "已实现" | 仅json-formatter.ts注释 | 仅文档设计 | ❌ 可合并到C11 |
-| P0-空项目处理 | handleEmptyProject() | "已实现" | analyzer.ts有基本检查，无命名函数 | 部分实现 | ✅ cg-edge-case-handler |
-| P0-单文件处理 | handleSingleFileProject() | "已实现" | 函数不存在 | 未实现 | ✅ cg-edge-case-handler |
-| P0-测试文件排除 | excludeTestFiles()预过滤 | "已实现" | bfs-phases.ts有isTestFile()，非预过滤 | 部分实现 | ✅ cg-edge-case-handler |
+| P0-空项目处理 | handleEmptyProject() | "已实现" | **已实现** | ✅ 已完成 | ✅ cg-edge-case-handler (归档) |
+| P0-单文件处理 | handleSingleFileProject() | "已实现" | **已实现** | ✅ 已完成 | ✅ cg-edge-case-handler (归档) |
+| P0-测试文件排除 | excludeTestFiles()预过滤 | "已实现" | **已实现** | ✅ 已完成 | ✅ cg-edge-case-handler (归档) |
+
+> **更新说明 (2026-05-06)**: P0-空项目/单文件/测试文件排除任务已通过 `cg-edge-case-handler` change 完成并归档。
 
 ### 2.2 P0任务详细分析
 
@@ -94,18 +101,22 @@ grep "handleEmptyProject\|handleSingleFileProject\|excludeTestFiles" packages/co
 
 **建议**: 合并到 `cg-mvp-test-coverage` (C11) 的CLI测试验证中，无需独立change。
 
-#### P0-空项目/单文件处理
+#### P0-空项目/单文件处理 ✅ 已完成
 
-**现状**: `analyzer.ts` 有基本空文件检查，但无命名函数；单文件处理完全缺失。
+> **2026-05-06更新**: 通过 `cg-edge-case-handler` change 已实现完整edge case处理模块。
 
-**解决方案**: 创建统一edge case处理模块：
-```typescript
-// 设计代码 - 待实现
-function detectSpecialCases(projectRoot: string): SpecialCaseResult {
-  const sourceFiles = findSourceFiles(projectRoot);
-  if (sourceFiles.length === 0) return { type: 'empty' };
-  if (sourceFiles.length === 1) return { type: 'single-file' };
-  return { type: 'normal', sourceFiles };
+**归档位置**: `openspec/changes/archive/2026-05-06-cg-edge-case-handler/`
+
+**交付文件**:
+```
+packages/codegraph/src/analyzer/
+├── edge-case-detector.ts    # 特殊场景检测
+├── empty-project-handler.ts # 空项目处理
+├── single-file-handler.ts   # 单文件处理
+└── test-file-excluder.ts    # 测试文件预过滤
+```
+
+#### ~~P0-空项目/单文件处理~~ (已删除，原为待实现内容)
 }
 ```
 
@@ -133,16 +144,48 @@ function excludeTestFiles(files: string[]): string[] {
 
 | 任务ID | 任务名称 | 预估工时 | 设计状态 | 代码状态 | 需新Change |
 |--------|---------|---------|---------|---------|-----------|
-| P1-Layer推断改进 Phase 1 | Source Root Discovery | 3h | 设计完成 | 未实现 | ✅ cg-layer-inference-pipeline |
-| P1-Layer推断改进 Phase 2 | Dependency Score | 4h | 设计完成 | 未实现 | ✅ cg-layer-inference-pipeline |
-| P1-Layer推断改进 Phase 3 | DEPTH_PRESETS配置表 | 2h | 设计完成 | LAYER_THRESHOLD=2硬编码 | ✅ cg-depth-presets |
-| P1-Layer推断改进 Phase 4 | Layer Assignment | 4h | 设计完成 | 未实现 | ✅ cg-layer-inference-pipeline |
-| P1-Layer推断改进 Phase 5 | Fallback & 预过滤 | 3h | 设计完成 | 未实现 | ✅ cg-layer-inference-pipeline |
-| P1-TypeScript import type | ImportClause.isTypeOnly | 4h | 设计完成 | Parser未使用 | ✅ cg-ts-import-type |
+| P1-Layer推断改进 Phase 1 | Source Root Discovery | 3h | 设计完成 | **未实现** | ⚠️ cg-layer-inference-pipeline |
+| P1-Layer推断改进 Phase 2 | Dependency Score | 4h | 设计完成 | **未实现** | ⚠️ cg-layer-inference-pipeline |
+| P1-Layer推断改进 Phase 3 | DEPTH_PRESETS配置表 | 2h | 设计完成 | **已实现** | ✅ cg-depth-presets (归档) |
+| P1-Layer推断改进 Phase 4 | Layer Assignment | 4h | 设计完成 | **未实现** | ⚠️ cg-layer-inference-pipeline |
+| P1-Layer推断改进 Phase 5 | Fallback & 预过滤 | 3h | 设计完成 | **未实现** | ⚠️ cg-layer-inference-pipeline |
+| P1-TypeScript import type | ImportClause.isTypeOnly | 4h | 设计完成 | **已实现** | ✅ cg-ts-import-type (归档) |
+
+> **更新说明 (2026-05-06)**: 
+> - P1-Phase 3 (DEPTH_PRESETS) 已通过 `cg-depth-presets` change 完成并归档。
+> - P1-TypeScript import type 已通过 `cg-ts-import-type` change 完成并归档。
+> - P1-Phase 1/2/4/5 (Layer Inference Pipeline) 仍待实现。
 
 ### 3.2 P1任务详细分析
 
-#### P1-Layer推断改进 (Phase 1-5)
+#### P1-Layer推断改进 Phase 3 ✅ 已完成
+
+> **2026-05-06更新**: 通过 `cg-depth-presets` change 已实现动态阈值配置表。
+
+**归档位置**: `openspec/changes/archive/2026-05-06-cg-depth-presets/`
+
+**交付文件**:
+```
+packages/codegraph/src/api/layers/inference/
+├── depth-presets.ts         # DEPTH_PRESETS配置表
+├── project-scale-detector.ts # 项目规模检测
+└── core.ts                  # 动态阈值选择逻辑
+```
+
+#### P1-TypeScript import type ✅ 已完成
+
+> **2026-05-06更新**: 通过 `cg-ts-import-type` change 已实现import type检测。
+
+**归档位置**: `openspec/changes/archive/2026-05-06-cg-ts-import-type/`
+
+**交付文件**:
+```
+packages/codegraph/src/parser/ts-parser/
+├── types.ts              # ImportKind类型定义
+├── import-extractor.ts   # isTypeOnly检测扩展
+```
+
+#### P1-Layer推断改进 (Phase 1/2/4/5) ⚠️ 待实现
 
 **核心问题**: `LAYER_THRESHOLD = 2` 硬编码无依据，Layer推断质量影响C8 API核心功能。
 
@@ -186,52 +229,45 @@ if (importClause.isTypeOnly) {
 
 ### 4.1 Change拆分总表
 
-| Change名称 | 类型 | 覆盖任务 | 预估工时 | 优先级 | 依赖 |
-|-----------|------|---------|---------|--------|------|
-| cg-edge-case-handler | [CORE] | P0-空项目/单文件/测试排除 | 4h | P0 | C1, C5 |
-| cg-depth-presets | [CORE] | P1-Phase 3 | 2h | P1 | C8 |
-| cg-layer-inference-pipeline | [CORE] | P1-Phase 1/2/4/5 | 14h | P1 | cg-depth-presets |
-| cg-ts-import-type | [PARSER] | P1-import type | 4h | P1 | C3 |
-| cg-cli-query-archive | [CLI] | C10归档 | 1h | P2 | 无 |
-| cg-mvp-test-coverage | [TEST] | C11完善 | 4h | P2 | 所有P0/P1 |
-| cg-mvp-documentation | [DOC] | C12完善 | 2h | P2 | 所有P0/P1 |
+| Change名称 | 类型 | 覆盖任务 | 预估工时 | 优先级 | 状态 | 归档位置 |
+|-----------|------|---------|---------|--------|------|---------|
+| cg-edge-case-handler | [CORE] | P0-空项目/单文件/测试排除 | 4h | P0 | ✅ 已完成 | archive/2026-05-06-cg-edge-case-handler |
+| cg-depth-presets | [CORE] | P1-Phase 3 | 2h | P1 | ✅ 已完成 | archive/2026-05-06-cg-depth-presets |
+| cg-layer-inference-pipeline | [CORE] | P1-Phase 1/2/4/5 | 14h | P1 | ⚠️ 待实现 | - |
+| cg-ts-import-type | [PARSER] | P1-import type | 4h | P1 | ✅ 已完成 | archive/2026-05-06-cg-ts-import-type |
+| cg-cli-query-archive | [CLI] | C10归档 | 1h | P2 | ⚠️ 待实现 | - |
+| cg-mvp-test-coverage | [TEST] | C11完善 | 4h | P2 | ⚠️ 待完善 | - |
+| cg-mvp-documentation | [DOC] | C12完善 | 2h | P2 | ⚠️ 待完善 | - |
 
-**总工时**: 约31h（不含C10归档）
+> **更新说明 (2026-05-06)**:
+> - 已完成3个changes (P0/P1)，剩余4个changes待实现/完善
+> - **剩余总工时**: 约21h (14+1+4+2)
 
 ### 4.2 各Change详细设计
 
-#### Change 1: cg-edge-case-handler [CORE]
+#### Change 1: cg-edge-case-handler [CORE] ✅ 已完成
+
+> **2026-05-06归档**: 已通过验证并归档到 `archive/2026-05-06-cg-edge-case-handler/`
 
 **名称**: `cg-edge-case-handler`
 
 **目标**: 处理空项目、单文件项目、测试文件预过滤等边缘场景
 
-**范围**:
+**范围**: (已实现)
 - `detectSpecialCases()` 函数：检测空项目/单文件/正常项目
 - `handleEmptyProject()` 函数：空项目友好提示
 - `handleSingleFileProject()` 函数：单文件简化分析
 - `excludeTestFiles()` 函数：预过滤测试文件
 - CLI命令集成：analyze/update命令边缘场景处理
 
-**依赖**: C1(图结构), C5(分析流程)
-
-**预计工期**: 4h
-
-**验证标准**:
-- 空项目执行analyze输出友好提示
-- 单文件项目正确分析
-- 测试文件在分析入口预过滤（而非遍历时）
-- 单元测试覆盖所有边缘场景
-
-**交付文件**:
+**交付文件**: (已交付)
 ```
-packages/codegraph/src/
-├── analyzer/
-│   ├── edge-case-detector.ts    # 特殊场景检测
-│   ├── empty-project-handler.ts # 空项目处理
-│   ├── single-file-handler.ts   # 单文件处理
-│   └── test-file-excluder.ts    # 测试文件预过滤
-│   └── index.ts
+packages/codegraph/src/analyzer/
+├── edge-case-detector.ts    # 特殊场景检测
+├── empty-project-handler.ts # 空项目处理
+├── single-file-handler.ts   # 单文件处理
+└── test-file-excluder.ts    # 测试文件预过滤
+└── index.ts
 ├── cli/commands/
 │   └── analyze.ts               # 集成edge case处理
 │   └── update.ts                # 集成edge case处理
@@ -239,50 +275,31 @@ packages/codegraph/src/
 
 ---
 
-#### Change 2: cg-depth-presets [CORE]
+#### Change 2: cg-depth-presets [CORE] ✅ 已完成
+
+> **2026-05-06归档**: 已通过验证并归档到 `archive/2026-05-06-cg-depth-presets/`
 
 **名称**: `cg-depth-presets`
 
 **目标**: 替换硬编码 `LAYER_THRESHOLD=2`，实现自适应深度配置表
 
-**范围**:
+**范围**: (已实现)
 - `DEPTH_PRESETS` 配置表定义
 - 项目规模检测函数（文件数统计）
 - 动态阈值选择逻辑
 - 配置扩展机制（`.codegraph/config.json`）
 
-**依赖**: C8(getArchitectureLayers)
-
-**预计工期**: 2h
-
-**验证标准**:
-- 小型项目（<50文件）threshold=5
-- 中型项目（51-200）threshold=3
-- 大型项目（201-500）threshold=2
-- 企业级项目（>500）threshold=1
-- 单元测试验证阈值选择正确性
-
-**配置表设计**:
-```typescript
-const DEPTH_PRESETS = {
-  SMALL:     { maxFiles: 50,   suggestedDepth: 1, threshold: 5 },
-  MEDIUM:    { maxFiles: 200,  suggestedDepth: 2, threshold: 3 },
-  LARGE:     { maxFiles: 500,  suggestedDepth: 3, threshold: 2 },
-  ENTERPRISE: { maxFiles: 2000, suggestedDepth: 4, threshold: 1 },
-};
-```
-
-**交付文件**:
+**交付文件**: (已交付)
 ```
 packages/codegraph/src/api/layers/inference/
-├── core.ts                  # 替换LAYER_THRESHOLD为动态选择
+├── core.ts                  # 动态阈值选择逻辑
 ├── depth-presets.ts         # DEPTH_PRESETS配置表
 └── project-scale-detector.ts # 项目规模检测
 ```
 
 ---
 
-#### Change 3: cg-layer-inference-pipeline [CORE]
+#### Change 3: cg-layer-inference-pipeline [CORE] ⚠️ 待实现
 
 **名称**: `cg-layer-inference-pipeline`
 
@@ -329,27 +346,32 @@ packages/codegraph/src/api/layers/inference/
 
 ---
 
-#### Change 4: cg-ts-import-type [PARSER]
+#### Change 4: cg-ts-import-type [PARSER] ✅ 已完成
+
+> **2026-05-06归档**: 已通过验证并归档到 `archive/2026-05-06-cg-ts-import-type/`
 
 **名称**: `cg-ts-import-type`
 
 **目标**: 利用TypeScript Compiler API检测 `import type` 语句
 
-**范围**:
+**范围**: (已实现)
 - `ImportClause.isTypeOnly` 检测
 - IMPORTS边metadata扩展（`importKind: 'type-only'`）
 - 类型导入与值导入分离统计
 - CLI输出展示类型导入信息
 
-**依赖**: C3(ts-parser-imports)
+**交付文件**: (已交付)
+```
+packages/codegraph/src/parser/ts-parser/
+├── types.ts              # ImportKind类型定义
+├── import-extractor.ts   # 扩展isTypeOnly检测
+```
 
-**预计工期**: 4h
+**测试覆盖**: 5 E2E tests, 29 total tests added
 
-**验证标准**:
-- `import type { Foo } from './bar'` 正确标记
-- 类型导入不计入依赖score（仅值导入计入）
-- `scope`命令展示类型导入信息
-- 单元测试覆盖所有import type场景
+---
+
+#### Change 5: cg-cli-query-archive [CLI] ⚠️ 待实现
 
 **交付文件**:
 ```
@@ -433,58 +455,59 @@ packages/codegraph/src/parser/ts-parser/
 
 ## 5. Change创建顺序建议
 
+> **2026-05-06更新**: Phase A和Phase B已完成，当前应执行Phase C
+
 ### 5.1 拓扑顺序（按依赖关系）
 
 ```
-Phase A: P0边缘处理（独立）
+✅ Phase A: P0边缘处理（已完成 2026-05-06）
 ┌─────────────────────────────────────────────────────────────┐
-│  1. cg-edge-case-handler [CORE]                              │
+│  1. cg-edge-case-handler [CORE] ✅                            │
 │     ├─ handleEmptyProject()                                  │
 │     ├─ handleSingleFileProject()                             │
 │     └─ excludeTestFiles()                                    │
-│     预估: 4h                                                  │
+│     归档: archive/2026-05-06-cg-edge-case-handler            │
 └─────────────────────────────────────────────────────────────┘
 
-Phase B: P1基础层（可并行）
+✅ Phase B: P1基础层（已完成 2026-05-06）
 ┌─────────────────────────────────────────────────────────────┐
-│  2a. cg-depth-presets [CORE]        2b. cg-ts-import-type   │
+│  2a. cg-depth-presets [CORE] ✅      2b. cg-ts-import-type ✅│
 │      ├─ 替换硬编码                   ├─ Parser扩展           │
 │      ├─ 配置表                       ├─ isTypeOnly检测       │
-│      预估: 2h                        预估: 4h                │
-│      依赖: C8                        依赖: C3                │
-│                                                             │
-│  注: 2a和2b无依赖关系，可并行开发                             │
+│      归档: 2026-05-06-cg-depth-presets  归档: 2026-05-06-cg-ts-import-type │
 └─────────────────────────────────────────────────────────────┘
 
-Phase C: P1核心层（依赖Phase B）
+⚠️ Phase C: P1核心层（待实现）
 ┌─────────────────────────────────────────────────────────────┐
-│  3. cg-layer-inference-pipeline [CORE]                       │
+│  3. cg-layer-inference-pipeline [CORE] ⚠️                    │
 │     ├─ Phase 1: Source Root Discovery                        │
 │     ├─ Phase 2: Dependency Score                             │
 │     ├─ Phase 4: Layer Assignment                             │
 │     ├─ Phase 5: Fallback                                     │
 │     预估: 14h                                                 │
-│     依赖: cg-depth-presets                                    │
+│     依赖: cg-depth-presets ✅                                 │
+│                                                             │
+│  ⮕ 建议下一步执行此change                                     │
 └─────────────────────────────────────────────────────────────┘
 
-Phase D: C10归档（独立）
+⚠️ Phase D: C10归档（待实现）
 ┌─────────────────────────────────────────────────────────────┐
-│  4. cg-cli-query-archive [CLI]                               │
+│  4. cg-cli-query-archive [CLI] ⚠️                            │
 │     ├─ 验证C10实现                                           │
 │     ├─ 补充归档文档                                           │
 │     预估: 1h                                                  │
 │     依赖: 无                                                  │
 │                                                             │
-│  注: 可与Phase A/B/C并行执行                                  │
+│  注: 可与Phase C并行执行                                      │
 └─────────────────────────────────────────────────────────────┘
 
-Phase E: 测试与文档（依赖所有前序）
+⚠️ Phase E: 测试与文档（依赖所有前序）
 ┌─────────────────────────────────────────────────────────────┐
-│  5. cg-mvp-test-coverage [TEST]                              │
+│  5. cg-mvp-test-coverage [TEST] ⚠️                           │
 │     预估: 4h                                                  │
-│     依赖: Phase A, B, C                                       │
+│     依赖: Phase C                                             │
 │                                                             │
-│  6. cg-mvp-documentation [DOC]                               │
+│  6. cg-mvp-documentation [DOC] ⚠️                            │
 │     预估: 2h                                                  │
 │     依赖: Phase A, B, C                                       │
 │                                                             │
@@ -494,15 +517,18 @@ Phase E: 测试与文档（依赖所有前序）
 
 ### 5.2 执行建议表
 
-| 执行阶段 | Change | 工时 | 并行度 | 备注 |
-|---------|--------|------|--------|------|
-| Week 1 Day 1 | cg-edge-case-handler | 4h | 串行 | P0优先级高 |
-| Week 1 Day 2-3 | cg-depth-presets + cg-ts-import-type | 6h | 并行(≤3) | P1基础层 |
-| Week 1 Day 4-5 | cg-layer-inference-pipeline | 14h | 串行 | P1核心层，工作量最大 |
-| Week 2 Day 1 | cg-cli-query-archive | 1h | 并行 | 可提前执行 |
-| Week 2 Day 2 | cg-mvp-test-coverage + cg-mvp-documentation | 6h | 并行(≤3) | 测试与文档 |
+> **2026-05-06更新**: Phase A/B已完成，剩余工时21h
 
-**总工期**: 约31h，预计2周完成（含E2E验证）
+| 执行阶段 | Change | 工时 | 并行度 | 状态 | 备注 |
+|---------|--------|------|--------|------|------|
+| ✅ Week 1 Day 1 | cg-edge-case-handler | 4h | 串行 | ✅ 已完成 | 归档 2026-05-06 |
+| ✅ Week 1 Day 2-3 | cg-depth-presets + cg-ts-import-type | 6h | 并行 | ✅ 已完成 | 归档 2026-05-06 |
+| ⚠️ Week 1 Day 4-5 | cg-layer-inference-pipeline | 14h | 串行 | ⚠️ 待执行 | **建议下一步** |
+| ⚠️ Week 2 Day 1 | cg-cli-query-archive | 1h | 并行 | ⚠️ 待执行 | 可与Phase C并行 |
+| ⚠️ Week 2 Day 2 | cg-mvp-test-coverage + cg-mvp-documentation | 6h | 并行 | ⚠️ 待执行 | 测试与文档 |
+
+**已完成工时**: 10h (4+6)
+**剩余总工时**: 约21h (14+1+4+2)
 
 ---
 
@@ -525,6 +551,8 @@ Phase E: 测试与文档（依赖所有前序）
 
 **建议**: C11在所有P0/P1 changes完成后执行，统一验证M1完整功能。
 
+> **2026-05-06状态**: P0/P1部分已完成(edge-case-handler/depth-presets/ts-import-type)，待完成layer-inference-pipeline
+
 ### 6.2 C12 (cg-mvp-documentation) 整合策略
 
 **原C12范围**（develop_changes_plan.md）:
@@ -534,37 +562,41 @@ Phase E: 测试与文档（依赖所有前序）
 - 架构简图
 
 **新C12范围扩展**:
-- P0/P1功能文档补充
-- Layer推断配置说明
-- Edge case处理说明
-- import type检测说明
+- P0/P1功能文档补充 (edge-case/depth-presets/import-type已实现，需文档)
+- Layer推断配置说明 (待layer-inference-pipeline完成)
+- Edge case处理说明 ✅ 已实现
+- import type检测说明 ✅ 已实现
 
 **建议**: C12在所有P0/P1 changes完成后执行，更新文档覆盖M1完整功能。
 
-### 6.3 M1剩余工作总结
+### 6.3 M1剩余工作总结 (2026-05-06更新)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    M1剩余工作全景                             │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  已完成C1-C10: 图结构、扫描、解析、API、CLI                   │
+│  ✅ 已完成C1-C10: 图结构、扫描、解析、API、CLI                   │
+│  ✅ 已完成P0: edge case handler (4h) - 归档 2026-05-06       │
+│  ✅ 已完成P1: depth presets (2h) - 归档 2026-05-06           │
+│  ✅ 已完成P1: import type (4h) - 归档 2026-05-06             │
 │                                                             │
-│  待完成:                                                     │
-│  ├─ P0: edge case handler (4h)                              │
-│  ├─ P1: depth presets (2h) + import type (4h)               │
-│  ├─ P1: layer inference pipeline (14h)                      │
+│  ⚠️ 待完成:                                                   │
+│  ├─ P1: layer inference pipeline (14h) ← 下一步              │
 │  ├─ C10归档: cli-query-archive (1h)                         │
 │  ├─ C11: test coverage完善 (4h)                             │
 │  └─ C12: documentation完善 (2h)                             │
 │                                                             │
-│  总计: 31h                                                   │
+│  已完成: 10h                                                 │
+│  剩余总计: 21h                                               │
+│                                                             │
+│  测试状态: 883 tests passing ✅                              │
 │                                                             │
 │  验收标准:                                                   │
-│  ├─ 测试覆盖率 ≥ 80%                                        │
-│  ├─ E2E测试全通过                                           │
-│  ├─ 文档覆盖所有M1功能                                       │
-│  └─ Layer推断质量提升（tests/不再误判）                      │
+│  ├─ 测试覆盖率 ≥ 80% ⚠️ (覆盖率报告待配置)                    │
+│  ├─ E2E测试全通过 ✅                                         │
+│  ├─ 文档覆盖所有M1功能 ⚠️                                    │
+│  └─ Layer推断质量提升 ⚠️ (待layer-inference-pipeline)        │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -590,27 +622,34 @@ cg-<功能名>
 
 ---
 
-## 附录 B: 关键代码证据
+## 附录 B: 关键代码证据 (2026-05-06更新)
 
-### B.1 硬编码证据
+### B.1 硬编码证据 ✅ 已修复
+
+> **2026-05-06更新**: `cg-depth-presets` change已替换硬编码为动态阈值
 
 ```typescript
 // packages/codegraph/src/api/layers/inference/core.ts
-const LAYER_THRESHOLD = 2;  # DEPTH_PRESETS未实现
+// 旧代码: const LAYER_THRESHOLD = 2;  # 已删除
+// 新代码: const threshold = selectThresholdByScale(projectScale);
 ```
 
-### B.2 import type未实现证据
+### B.2 import type已实现 ✅
+
+> **2026-05-06更新**: `cg-ts-import-type` change已实现
 
 ```bash
-grep -r "isTypeOnly" packages/codegraph/src/
-# 输出: 无匹配
+grep -r "isTypeOnly" packages/codegraph/src/parser/ts-parser/
+# 输出: 有匹配 (import-extractor.ts中实现)
 ```
 
-### B.3 edge case函数未实现证据
+### B.3 edge case函数已实现 ✅
+
+> **2026-05-06更新**: `cg-edge-case-handler` change已实现
 
 ```bash
-grep -r "handleEmptyProject\|handleSingleFileProject\|excludeTestFiles" packages/codegraph/src/
-# 输出: 无匹配
+grep -r "handleEmptyProject\|handleSingleFileProject\|excludeTestFiles" packages/codegraph/src/analyzer/
+# 输出: 有匹配 (edge-case-detector.ts等文件)
 ```
 
 ### B.4 CLI命令实现证据
@@ -623,8 +662,9 @@ ls packages/codegraph/src/cli/commands/
 
 ---
 
-**文档版本**: v1.0
+**文档版本**: v1.1 (2026-05-06更新)
 **创建日期**: 2026-05-05
+**最后更新**: 2026-05-06 (反映已完成changes)
 **关联文档**:
 - [hybrid-layer-inference-design.md](../../packages/codegraph/docs/design-codegraph/hybrid-layer-inference-design.md)
 - [develop_changes_plan.md](./develop_changes_plan.md)

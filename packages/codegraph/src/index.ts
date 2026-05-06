@@ -162,6 +162,14 @@ export {
   type LayersResult,
   type LayersError,
   type LayersOptions,
+  // C8 Inference Types (E2E testing)
+  type SourceRootResult,
+  type SourceRootCandidate,
+  type CycleInfo,
+  type ConfidenceInputs,
+  type Suggestion,
+  type SuggestionType,
+  type SuggestionContext,
   ErrorCode,
   // C7 Functions
   getScope,
@@ -204,4 +212,16 @@ export {
   formatLayersOutput,
   generateLayersWarnings,
   generateLayersNextSuggested,
+  // C8 Inference helpers (E2E testing)
+  detectSourceRoot,
+  detectCycles,
+  calculateCyclePenalty,
+  calculateConfidence,
+  generateSuggestions,
+  getProjectThreshold,
+  detectProjectScale,
+  SIGNAL_WEIGHTS,
+  EXCLUDED_DIRECTORIES,
+  CONFIDENCE_CONSTANTS,
+  SUGGESTION_CONSTANTS,
 } from './api/index.js';

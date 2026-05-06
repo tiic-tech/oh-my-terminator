@@ -51,9 +51,10 @@ export interface GroupStats {
 }
 
 /**
- * Layer assignment with groups
+ * Layer assignment with groups and confidence score
  *
  * C8-3: LAYER_THRESHOLD=2 for adjacent score merging.
+ * C8-4: Confidence (0-100) indicates layer assignment reliability.
  */
 export interface LayerAssignment {
   /** Layer number (1-based, 1=bottom/Foundation) */
@@ -62,6 +63,8 @@ export interface LayerAssignment {
   role: LayerRole | string;
   /** Groups assigned to this layer */
   groups: GroupStats[];
+  /** Confidence score (0-100, higher = more reliable assignment) */
+  confidence: number;
 }
 
 /**
@@ -116,6 +119,21 @@ export interface GroupSummary {
 }
 
 /**
+ * Agent-friendly suggestion format
+ *
+ * WHY: Structured format enables agents to parse and act on suggestions.
+ * Imported from inference/fallback.ts to maintain single source of truth.
+ */
+export interface Suggestion {
+  /** Suggestion category */
+  type: 'config' | 'manual-review' | 'structure';
+  /** Agent-friendly action prompt */
+  prompt: string;
+  /** Relevant project context */
+  context: string;
+}
+
+/**
  * Architecture layers result
  *
  * Contains inferred layers, violations, and health score.
@@ -137,6 +155,8 @@ export interface LayersResult {
   warnings?: string[];
   /** Suggested follow-up commands */
   nextSuggested?: string[];
+  /** Agent-friendly suggestions for low confidence */
+  suggestions?: Suggestion[];
   /** Agent-friendly Markdown output */
   content: string;
 }

@@ -1,17 +1,29 @@
 /**
  * C8: Architecture Layers - Core Inference
  *
- * WHY kept together (151 lines, exceeds 150 threshold):
+ * WHY kept together (~176 lines, exceeds 150 threshold):
  * - inferArchitectureLayers + buildGroupToLayerMap + buildGroupSummaries share GroupScore/GroupStats types
  * - buildGroupSummaries transforms GroupScore results from inferArchitectureLayers
+ * - Confidence calculation integrates with layer assignment (Phase 4)
  * - Splitting would fragment the layer inference core logic into <50 line files
  *
- * Contains layer assignment logic, score calculation, and group-to-layer mapping.
+ * ELASTIC EXCEPTION (coding-taste Rule 2): File exceeds 150 threshold.
+ * NOT split because: These functions form a tightly related cohesive unit - all
+ * layer inference logic (scoring, assignment, mapping) is used together.
+ * Splitting would produce files <50 lines each that fragment this cohesive unit.
+ *
+ * Contains layer assignment logic, score calculation, confidence, and group-to-layer mapping.
  */
 
 import type { DirectoryGroup } from '../grouping.js';
 import type { LayerAssignment, GroupStats, GroupSummary } from '../../types/index.js';
 import { LAYER_ROLE_NAMES } from '../../types/index.js';
+import {
+  calculateConfidence,
+  calculateGroupVariance,
+  countAmbiguousPairs,
+} from './confidence.js';
+import { detectCycles } from './dependency-score.js';
 
 /**
  * Default layer threshold for backward compatibility.
@@ -33,19 +45,43 @@ export interface GroupScore {
 }
 
 /**
+ * Context for layer inference (used for suggestions)
+ *
+ * WHY: Enables fallback suggestions without recalculating signals.
+ * Contains all factors needed for generateSuggestions().
+ */
+export interface InferenceContext {
+  /** Overall confidence score */
+  confidence: number;
+  /** Source root detection score */
+  sourceRootScore: number;
+  /** Number of detected cycles */
+  cycleCount: number;
+  /** Detected cycles with group names */
+  detectedCycles: string[][];
+  /** Count of ambiguous adjacent pairs */
+  ambiguousPairCount: number;
+  /** Total number of groups */
+  groupCount: number;
+}
+
+/**
  * Infer architecture layers from groups
  *
  * C8-3: Uses threshold for adjacent score merging.
+ * C8-4: Calculates confidence based on signal strength, consistency, and penalties.
  * Dynamic threshold adapts to project scale via caller.
  *
  * @param groups - Directory groups with import statistics
  * @param threshold - Score difference threshold for layer grouping (default: 2)
- * @returns Layer assignments and group scores
+ * @param sourceRootScore - Source root detection score for confidence calculation (default: 0)
+ * @returns Layer assignments with confidence, group scores, and inference context
  */
 export function inferArchitectureLayers(
   groups: Map<string, DirectoryGroup>,
-  threshold: number = DEFAULT_LAYER_THRESHOLD
-): { layers: LayerAssignment[]; groupScores: GroupScore[] } {
+  threshold: number = DEFAULT_LAYER_THRESHOLD,
+  sourceRootScore: number = 0
+): { layers: LayerAssignment[]; groupScores: GroupScore[]; context: InferenceContext } {
   // Calculate netScore for each group
   const groupScores: GroupScore[] = [];
 
@@ -72,6 +108,23 @@ export function inferArchitectureLayers(
   // Sort by netScore descending (high score = bottom layer)
   groupScores.sort((a, b) => b.netScore - a.netScore);
 
+  // C8-4: Calculate confidence inputs
+  const scores = groupScores.map(g => g.netScore);
+  const groupVariance = calculateGroupVariance(scores);
+  const ambiguousPairCount = countAmbiguousPairs(scores, threshold);
+
+  // Detect cycles for confidence penalty
+  const cycles = detectCycles(groups);
+  const cycleCount = cycles.length;
+
+  // Calculate overall confidence
+  const confidence = calculateConfidence({
+    sourceRootScore,
+    groupVariance,
+    cycleCount,
+    ambiguousPairCount,
+  });
+
   // Assign layers using threshold
   const layers: LayerAssignment[] = [];
   let currentLayer = 1;
@@ -87,6 +140,7 @@ export function inferArchitectureLayers(
         layer: currentLayer,
         role: LAYER_ROLE_NAMES[currentLayer] || `Layer ${currentLayer}`,
         groups: currentLayerGroups,
+        confidence,
       });
       currentLayer++;
       currentLayerGroups = [];
@@ -109,10 +163,21 @@ export function inferArchitectureLayers(
       layer: currentLayer,
       role: LAYER_ROLE_NAMES[currentLayer] || `Layer ${currentLayer}`,
       groups: currentLayerGroups,
+      confidence,
     });
   }
 
-  return { layers, groupScores };
+  // Build inference context for suggestions
+  const context: InferenceContext = {
+    confidence,
+    sourceRootScore,
+    cycleCount,
+    detectedCycles: cycles.map(c => c.groups),
+    ambiguousPairCount,
+    groupCount: groupScores.length,
+  };
+
+  return { layers, groupScores, context };
 }
 
 /**

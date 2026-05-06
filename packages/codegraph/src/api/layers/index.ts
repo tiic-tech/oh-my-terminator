@@ -2,8 +2,15 @@
  * C8: Architecture Layers - Main API Entry
  *
  * Provides getArchitectureLayers API for layer inference.
+ *
+ * ELASTIC EXCEPTION (coding-taste Rule 2): File ~224 lines, exceeds 150 threshold.
+ * NOT split because: Main API entry must orchestrate all phases together.
+ * Splitting would fragment the critical orchestration logic:
+ * - Source root detection → group creation → import stats → layer inference → suggestions
+ * All phases are used sequentially in getArchitectureLayers(), forming a cohesive unit.
  */
 
+import * as path from 'path';
 import { CodeGraph } from '../../graph.js';
 import { NodeType } from '../../types.js';
 import {
@@ -25,6 +32,8 @@ import {
   buildGroupSummaries,
   buildGroupToLayerMap,
   getProjectThreshold,
+  generateSuggestions,
+  detectSourceRoot,
 } from './inference/index.js';
 import {
   formatLayersOutput,
@@ -46,6 +55,27 @@ export {
   generateViolationSuggestion,
   buildGroupSummaries,
   buildGroupToLayerMap,
+} from './inference/index.js';
+// Re-export inference sub-modules for E2E testing
+export {
+  detectSourceRoot,
+  detectCycles,
+  calculateCyclePenalty,
+  calculateConfidence,
+  generateSuggestions,
+  getProjectThreshold,
+  detectProjectScale,
+  SIGNAL_WEIGHTS,
+  EXCLUDED_DIRECTORIES,
+  CONFIDENCE_CONSTANTS,
+  SUGGESTION_CONSTANTS,
+  type SourceRootResult,
+  type SourceRootCandidate,
+  type CycleInfo,
+  type ConfidenceInputs,
+  type Suggestion,
+  type SuggestionType,
+  type SuggestionContext,
 } from './inference/index.js';
 export {
   formatLayersOutput,
@@ -70,6 +100,40 @@ function createLayersError(
 }
 
 /**
+ * Get candidate directories for source root detection.
+ *
+ * WHY: Source root detection needs a list of candidate directories to score.
+ * We extract first-level subdirectories from FILE node paths.
+ */
+function getCandidateDirectories(graph: CodeGraph, projectRoot: string): string[] {
+  const candidates: Set<string> = new Set();
+
+  // Add project root itself as candidate
+  candidates.add(projectRoot);
+
+  // Extract first-level subdirectories from FILE nodes
+  for (const [, node] of graph.nodes) {
+    if (node.type === NodeType.FILE && node.path) {
+      // Get relative path from project root
+      const relativePath = node.path.startsWith(projectRoot)
+        ? node.path.slice(projectRoot.length + 1)
+        : node.path;
+
+      // Extract first-level directory
+      const parts = relativePath.split('/');
+      if (parts.length >= 1) {
+        const firstDir = parts[0];
+        if (firstDir) {
+          candidates.add(path.join(projectRoot, firstDir));
+        }
+      }
+    }
+  }
+
+  return Array.from(candidates);
+}
+
+/**
  * Architecture Layers Analysis API
  *
  * Infer architecture layers from import direction statistics.
@@ -83,7 +147,20 @@ export function getArchitectureLayers(
   options?: LayersOptions
 ): LayersResult | LayersError {
   const startTime = Date.now();
-  const sourceRoot = options?.sourceRoot ?? 'src';
+
+  // Determine source root: explicit > auto-detect > default 'src'
+  let sourceRoot = options?.sourceRoot ?? 'src';
+  let sourceRootScore = 0;
+
+  // C8-Phase1: Auto-detect source root when not explicitly provided
+  if (!options?.sourceRoot && options?.projectRoot) {
+    const candidates = getCandidateDirectories(graph, options.projectRoot);
+    const result = detectSourceRoot(candidates);
+    if (result.sourceRoot) {
+      sourceRoot = result.sourceRoot;
+      sourceRootScore = result.score;
+    }
+  }
 
   // Check for FILE nodes (C8-7: E005 for empty graph)
   let fileCount = 0;
@@ -116,7 +193,7 @@ export function getArchitectureLayers(
   } else if (options?.projectRoot) {
     layerThreshold = getProjectThreshold(options.projectRoot);
   }
-  const { layers, groupScores } = inferArchitectureLayers(groups, layerThreshold);
+  const { layers, groupScores, context } = inferArchitectureLayers(groups, layerThreshold, sourceRootScore);
 
   // Build group-to-layer mapping
   const groupToLayer = buildGroupToLayerMap(layers);
@@ -130,7 +207,10 @@ export function getArchitectureLayers(
   // Step 6: Build group summaries
   const groupSummaries = buildGroupSummaries(groupScores, groupToLayer);
 
-  // Step 7: Format output
+  // Step 7: Generate suggestions for low confidence
+  const suggestions = generateSuggestions(context.confidence, context);
+
+  // Step 8: Format output
   const content = formatLayersOutput(layers, violations, healthScore);
   const warnings = generateLayersWarnings(violations, layers);
   const nextSuggested = generateLayersNextSuggested(violations);
@@ -144,6 +224,7 @@ export function getArchitectureLayers(
     durationMs: Date.now() - startTime,
     warnings,
     nextSuggested,
+    suggestions,
     content,
   };
 }
