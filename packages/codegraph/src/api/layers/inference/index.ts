@@ -31,3 +31,9 @@ export {
   getThresholdForScale,
   type DepthPreset,
 } from './depth-presets.js';
+
+// Project scale detection
+export {
+  detectProjectScale,
+  getProjectThreshold,
+} from './project-scale-detector.js';

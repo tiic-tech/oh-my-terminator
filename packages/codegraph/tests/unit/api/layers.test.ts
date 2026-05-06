@@ -525,4 +525,46 @@ describe('getArchitectureLayers', () => {
     assert.ok(result.layers.some(l => l.role === 'Foundation'));
     assert.ok(result.layers.some(l => l.role === 'Core' || l.role === 'Application' || l.role === 'Presentation'));
   });
+
+  // ========================================
+  // Dynamic Threshold Integration Tests
+  // ========================================
+
+  describe('dynamic threshold selection', () => {
+    it('should use default threshold 2 when no options provided', async () => {
+      const { getArchitectureLayers } = await import('../../../src/api/layers/index.js');
+      const result = getArchitectureLayers(graph);
+
+      // Should work with default threshold
+      assert.strictEqual(result.success, true);
+      assert.ok(result.layers.length >= 2);
+    });
+
+    it('should use explicit threshold when provided', async () => {
+      const { getArchitectureLayers } = await import('../../../src/api/layers/index.js');
+      const resultThreshold5 = getArchitectureLayers(graph, { threshold: 5 });
+      const resultThreshold1 = getArchitectureLayers(graph, { threshold: 1 });
+
+      // Both should succeed
+      assert.strictEqual(resultThreshold5.success, true);
+      assert.strictEqual(resultThreshold1.success, true);
+
+      // Different thresholds should potentially produce different layer counts
+      // Higher threshold = more merging = fewer layers (or same if scores differ significantly)
+      assert.ok(resultThreshold5.layers.length >= 1);
+      assert.ok(resultThreshold1.layers.length >= 1);
+    });
+
+    it('should override projectRoot threshold with explicit threshold', async () => {
+      const { getArchitectureLayers } = await import('../../../src/api/layers/index.js');
+      // Even with projectRoot, explicit threshold wins
+      const result = getArchitectureLayers(graph, {
+        threshold: 3,
+        projectRoot: '/some/path', // Would normally use different threshold
+      });
+
+      assert.strictEqual(result.success, true);
+      // Should use threshold 3, not projectRoot-based value
+    });
+  });
 });

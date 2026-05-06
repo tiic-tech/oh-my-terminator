@@ -155,4 +155,8 @@ export interface LayersOptions {
   sourceRoot?: string;
   /** Warn on same-layer mutual imports (C8-11) */
   warnOnMutualImport?: boolean;
+  /** Project root directory for threshold calculation (optional) */
+  projectRoot?: string;
+  /** Explicit layer threshold (overrides projectRoot-based calculation) */
+  threshold?: number;
 }

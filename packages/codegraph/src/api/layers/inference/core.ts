@@ -13,11 +13,12 @@ import type { DirectoryGroup } from '../grouping.js';
 import type { LayerAssignment, GroupStats, GroupSummary } from '../../types/index.js';
 
 /**
- * Layer threshold for grouping adjacent scores
+ * Default layer threshold for backward compatibility.
  *
- * C8-3 Resolution: Groups with score difference <= 2 merge to same layer.
+ * WHY: Existing callers without explicit threshold get consistent behavior.
+ * Value matches DEPTH_PRESETS.LARGE.threshold (historical default).
  */
-const LAYER_THRESHOLD = 2;
+const DEFAULT_LAYER_THRESHOLD = 2;
 
 /**
  * Layer role names
@@ -43,10 +44,16 @@ export interface GroupScore {
 /**
  * Infer architecture layers from groups
  *
- * C8-3: Uses LAYER_THRESHOLD=2 for adjacent score merging.
+ * C8-3: Uses threshold for adjacent score merging.
+ * Dynamic threshold adapts to project scale via caller.
+ *
+ * @param groups - Directory groups with import statistics
+ * @param threshold - Score difference threshold for layer grouping (default: 2)
+ * @returns Layer assignments and group scores
  */
 export function inferArchitectureLayers(
-  groups: Map<string, DirectoryGroup>
+  groups: Map<string, DirectoryGroup>,
+  threshold: number = DEFAULT_LAYER_THRESHOLD
 ): { layers: LayerAssignment[]; groupScores: GroupScore[] } {
   // Calculate netScore for each group
   const groupScores: GroupScore[] = [];
@@ -84,7 +91,7 @@ export function inferArchitectureLayers(
     const scoreDiff = Math.abs(score.netScore - prevScore);
 
     // C8-3: Start new layer if score difference > threshold
-    if (scoreDiff > LAYER_THRESHOLD && currentLayerGroups.length > 0) {
+    if (scoreDiff > threshold && currentLayerGroups.length > 0) {
       layers.push({
         layer: currentLayer,
         role: LAYER_ROLES[currentLayer] || `Layer ${currentLayer}`,

@@ -71,6 +71,7 @@ export async function layersCommand(
   const layersOptions: LayersOptions = {
     sourceRoot: options?.sourceRoot ?? 'src',
     warnOnMutualImport: options?.warnOnMutualImport ?? false,
+    projectRoot: cwd,
   };
 
   // ========================================

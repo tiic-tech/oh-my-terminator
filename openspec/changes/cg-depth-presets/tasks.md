@@ -17,10 +17,10 @@
 
 ## 3. Core Module Update
 
-- [ ] 3.1 Remove hardcoded `LAYER_THRESHOLD = 2` from core.ts
-- [ ] 3.2 Import and call `getThresholdForScale(detectProjectScale(projectRoot))`
-- [ ] 3.3 Verify getArchitectureLayers uses dynamic threshold
-- [ ] 3.4 Add integration tests for threshold selection in layer inference
+- [x] 3.1 Remove hardcoded `LAYER_THRESHOLD = 2` from core.ts
+- [x] 3.2 Import and call `getThresholdForScale(detectProjectScale(projectRoot))`
+- [x] 3.3 Verify getArchitectureLayers uses dynamic threshold
+- [x] 3.4 Add integration tests for threshold selection in layer inference
 
 ## 4. Module Exports
 

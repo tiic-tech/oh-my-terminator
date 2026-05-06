@@ -24,6 +24,7 @@ import {
   calculateLayerHealthScore,
   buildGroupSummaries,
   buildGroupToLayerMap,
+  getProjectThreshold,
 } from './inference/index.js';
 import {
   formatLayersOutput,
@@ -108,7 +109,14 @@ export function getArchitectureLayers(
   computeImportDirectionStats(graph, groups, sourceRoot);
 
   // Step 3: Infer layers from import statistics
-  const { layers, groupScores } = inferArchitectureLayers(groups);
+  // Compute threshold: explicit > projectRoot-based > default (2)
+  let layerThreshold = 2; // Default fallback
+  if (options?.threshold !== undefined) {
+    layerThreshold = options.threshold;
+  } else if (options?.projectRoot) {
+    layerThreshold = getProjectThreshold(options.projectRoot);
+  }
+  const { layers, groupScores } = inferArchitectureLayers(groups, layerThreshold);
 
   // Build group-to-layer mapping
   const groupToLayer = buildGroupToLayerMap(layers);
