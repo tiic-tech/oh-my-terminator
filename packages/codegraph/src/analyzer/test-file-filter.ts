@@ -2,7 +2,7 @@
  * Test File Filter
  *
  * WHY: Pre-filtering reduces analysis workload and provides clear CLI feedback.
- * Pattern matching uses simple regex (no external deps) for glob-style patterns.
+ * Pattern matching delegated to glob-utils (single source of truth).
  *
  * Pattern types:
  * - '*.test.ts' → matches filename suffix
@@ -11,26 +11,7 @@
 
 import type { TestPatterns, FilterResult } from './types.js';
 import { DEFAULT_TEST_PATTERNS } from './types.js';
-
-/**
- * Convert glob pattern to regex matcher function.
- * WHY: No minimatch dependency - simple patterns can use regex.
- */
-function patternToMatcher(pattern: string): (path: string) => boolean {
-  // Directory patterns like 'tests/**' → match path prefix
-  if (pattern.endsWith('/**')) {
-    const prefix = pattern.slice(0, -3);
-    return (path) => path.startsWith(prefix + '/') || path === prefix;
-  }
-
-  // File patterns like '*.test.ts' → match filename suffix
-  // Extract the suffix part after '*'
-  const suffix = pattern.replace(/^\*/, '');
-  return (path) => {
-    const filename = path.split('/').pop() ?? path;
-    return filename.endsWith(suffix);
-  };
-}
+import { patternToMatcher } from '../cli/commands/glob-utils.js';
 
 /**
  * Check if a file path matches any test pattern.

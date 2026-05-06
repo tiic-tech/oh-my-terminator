@@ -31,19 +31,16 @@ import {
 } from '../../version.js';
 import {
   CliErrorCode,
-  NodeType,
   type UpdateResult,
   type CliError,
   type CompressionStats,
   type EdgeCaseResult,
 } from '../../types.js';
-import { CodeGraph } from '../../graph.js';
 import type { Baseline } from '../../persistence/types/baseline.js';
 import { reparseFiles } from '../reparser.js';
-import {
-  detectSpecialCases,
-  type SpecialCaseResult,
-} from '../../analyzer/index.js';
+import { detectSpecialCases, type SpecialCaseResult } from '../../analyzer/index.js';
+import { handleUpdateEdgeCase, removeFileFromGraph } from './update-helpers.js';
+import { calculateCompressionStats } from './compression-stats.js';
 
 // ============================================================================
 // Command Options
@@ -80,8 +77,7 @@ export async function updateCommand(
 ): Promise<UpdateResult | CliError | EdgeCaseResult> {
   const startTime = Date.now();
 
-  // Compression is enabled by default (6.11-6.12)
-  // Inherits analyze behavior: compress=true unless --no-compression
+  // WHY: Compression enabled by default (6.11-6.12), inherits analyze behavior
   const compress = options?.compress ?? true;
 
   // ========================================
@@ -105,7 +101,6 @@ export async function updateCommand(
     };
   }
 
-  // Use validated absolute path
   const projectRoot = validation.path.absolutePath;
 
   // ========================================
@@ -130,13 +125,11 @@ export async function updateCommand(
   // ========================================
   // Step 3: Detect Edge Cases
   // ========================================
-  // WHY: After file deletions, project might become empty/single-file.
-  // Check current state before proceeding with update.
+  // WHY: After file deletions, project might become empty/single-file
   const specialCase = detectSpecialCases(projectRoot);
   const edgeCaseResult = handleUpdateEdgeCase(specialCase, startTime);
 
-  // Return early for empty case (no files to update)
-  // For single-file/test-only: proceed with update but note the state
+  // WHY: Return early for empty case (no files to update)
   if (edgeCaseResult && edgeCaseResult.kind === 'empty') {
     return edgeCaseResult;
   }
@@ -148,7 +141,6 @@ export async function updateCommand(
   try {
     changes = await detectGitChanges(projectRoot);
   } catch (error) {
-    // detectGitChanges throws if lastCommit.txt missing - should not happen after loadBaseline
     const message = error instanceof Error ? error.message : String(error);
     return {
       success: false,
@@ -166,15 +158,8 @@ export async function updateCommand(
   if (!changes.hasChanges) {
     return {
       success: true,
-      changes: {
-        added: [],
-        removed: [],
-        modified: [],
-      },
-      delta: {
-        newNodes: 0,
-        removedNodes: 0,
-      },
+      changes: { added: [], removed: [], modified: [] },
+      delta: { newNodes: 0, removedNodes: 0 },
       durationMs: Date.now() - startTime,
       warnings: [],
     };
@@ -184,16 +169,15 @@ export async function updateCommand(
   // Step 6: Remove Changed/Deleted File Nodes
   // ========================================
   let removedNodes = 0;
-  const warnings: string[] = [];
+  let warnings: string[] = [];
 
-  // Files to remove entirely (DELETE)
   const deletedFiles = changes.changes.filter(c => c.type === 'DELETE');
+  const modifiedFiles = changes.changes.filter(c => c.type === 'MODIFY');
+
+  // WHY: Remove nodes for deleted and modified files before re-parse
   for (const change of deletedFiles) {
     removedNodes += removeFileFromGraph(graph, change.path);
   }
-
-  // Files to remove nodes for re-parse (MODIFY)
-  const modifiedFiles = changes.changes.filter(c => c.type === 'MODIFY');
   for (const change of modifiedFiles) {
     removedNodes += removeFileFromGraph(graph, change.path);
   }
@@ -201,9 +185,9 @@ export async function updateCommand(
   // ========================================
   // Step 7: Re-parse Added/Modified Files
   // ========================================
-  const filesToReparse = changes.changes.filter(
-    c => c.type === 'ADD' || c.type === 'MODIFY'
-  ).map(c => c.path);
+  const filesToReparse = changes.changes
+    .filter(c => c.type === 'ADD' || c.type === 'MODIFY')
+    .map(c => c.path);
 
   let newNodes = 0;
 
@@ -215,8 +199,9 @@ export async function updateCommand(
     });
 
     newNodes = reparseResult.nodesAdded;
+    // WHY: Immutable pattern - create new array instead of mutating
     if (reparseResult.warnings.length > 0) {
-      warnings.push(...reparseResult.warnings);
+      warnings = [...warnings, ...reparseResult.warnings];
     }
   }
 
@@ -238,7 +223,6 @@ export async function updateCommand(
     migrationHistory: baseline.migrationHistory,
   };
 
-  // Calculate original size estimate (uncompressed JSON)
   const originalSizeBytes = Buffer.byteLength(JSON.stringify(updatedBaseline), 'utf-8');
 
   await saveBaseline(updatedBaseline, projectRoot, { compress });
@@ -246,25 +230,10 @@ export async function updateCommand(
   // ========================================
   // Step 9: Calculate Compression Stats
   // ========================================
+  // WHY: Reuse compression-stats.ts - single source of truth for calculation
   let compressionStats: CompressionStats | undefined;
   if (compress) {
-    const { readFile } = await import('node:fs/promises');
-    const baselinePath = `.codegraph/baseline.json`;
-    const fullPath = `${projectRoot}/${baselinePath}`;
-    try {
-      const savedContent = await readFile(fullPath, 'utf-8');
-      const compressedSizeBytes = Buffer.byteLength(savedContent, 'utf-8');
-      const savingsPercent = originalSizeBytes > 0
-        ? Math.round(((originalSizeBytes - compressedSizeBytes) / originalSizeBytes) * 100)
-        : 0;
-      compressionStats = {
-        originalSizeBytes,
-        compressedSizeBytes,
-        savingsPercent,
-      };
-    } catch {
-      // If file read fails, skip compression stats
-    }
+    compressionStats = await calculateCompressionStats(projectRoot, originalSizeBytes);
   }
 
   // Update lastCommit.txt
@@ -274,9 +243,9 @@ export async function updateCommand(
   // ========================================
   // Step 10: Return Result
   // ========================================
-  // Add edge case warning if applicable
+  // WHY: Immutable pattern - prepend edge case warning without mutation
   if (edgeCaseResult && edgeCaseResult.kind === 'test-only') {
-    warnings.unshift(edgeCaseResult.warning!);
+    warnings = [edgeCaseResult.warning!, ...warnings];
   }
 
   const addedFiles = changes.changes.filter(c => c.type === 'ADD').map(c => c.path);
@@ -290,115 +259,9 @@ export async function updateCommand(
       removed: removedFiles,
       modified: modifiedFileList,
     },
-    delta: {
-      newNodes,
-      removedNodes,
-    },
+    delta: { newNodes, removedNodes },
     compressionStats,
     durationMs: Date.now() - startTime,
     warnings,
   };
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Handle edge cases for update command
- *
- * WHY: After file deletions, project might become empty/single-file.
- * Returns EdgeCaseResult for empty case (no files to update).
- * Returns null for normal/single-file/test-only to proceed with update.
- *
- * @param specialCase - Detection result from detectSpecialCases()
- * @param startTime - Start timestamp for duration calculation
- * @returns EdgeCaseResult for empty, null for other cases
- */
-function handleUpdateEdgeCase(
-  specialCase: SpecialCaseResult,
-  startTime: number
-): EdgeCaseResult | null {
-  const durationMs = Date.now() - startTime;
-
-  switch (specialCase.kind) {
-    case 'empty': {
-      // Project became empty after deletions
-      return {
-        success: true,
-        kind: 'empty',
-        message: 'No source files found. Project may have been cleared.',
-        suggestions: [
-          'Check if source files were accidentally deleted',
-          'Re-run codegraph analyze after restoring files',
-        ],
-        durationMs,
-      };
-    }
-
-    case 'single-file': {
-      // Single file: proceed with update but note the state
-      // No need to return early - update can still work
-      return {
-        success: true,
-        kind: 'single-file',
-        message: `Project now has single file: ${specialCase.sourceFiles[0]}`,
-        file: specialCase.sourceFiles[0],
-        durationMs,
-      };
-    }
-
-    case 'test-only': {
-      // Test-only: proceed with update, add warning to result
-      return {
-        success: true,
-        kind: 'test-only',
-        message: 'Project contains only test files.',
-        warning: `Warning: Only test files found (${specialCase.testFiles.length} files). Treating as normal project.`,
-        testFiles: specialCase.testFiles,
-        durationMs,
-      };
-    }
-
-    case 'normal':
-      // Normal project: proceed with standard update
-      return null;
-
-    default:
-      // Exhaustive check - TypeScript ensures all cases handled
-      throw new Error(`Unknown project kind: ${specialCase.kind}`);
-  }
-}
-
-/**
- * Remove FILE node and all MODULE sub-nodes for a file
- *
- * WHY: Part of incremental update - must clean old nodes before re-parse.
- *
- * @param graph - CodeGraph instance
- * @param filePath - Relative file path
- * @returns Number of nodes removed
- */
-function removeFileFromGraph(graph: CodeGraph, filePath: string): number {
-  let count = 0;
-  const fileId = `FILE:${filePath}`;
-
-  // Find and remove all MODULE nodes for this file
-  for (const [id, node] of graph.nodes) {
-    if (node.type === NodeType.MODULE && node.path === filePath) {
-      graph.removeNode(id);
-      count++;
-    }
-  }
-
-  // Remove edges for this file (imports, exports, contains)
-  graph.removeEdgesForFile(filePath);
-
-  // Remove FILE node if exists
-  if (graph.nodes.has(fileId)) {
-    graph.removeNode(fileId);
-    count++;
-  }
-
-  return count;
 }

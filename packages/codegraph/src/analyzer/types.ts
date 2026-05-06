@@ -62,9 +62,11 @@ export const DEFAULT_SOURCE_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.vue'];
 
 /**
  * Default test file patterns (glob-style)
- * WHY: Covers common test naming conventions across JS/TS ecosystem
+ * WHY: Covers common test naming conventions across JS/TS ecosystem.
+ * Override: TEST_PATTERNS env var (JSON array format) for edge cases.
+ * Example: TEST_PATTERNS='["*.test.ts","__tests__/**"]'
  */
-export const DEFAULT_TEST_PATTERNS = [
+const _DEFAULT_TEST_PATTERNS = [
   '*.test.ts',
   '*.test.tsx',
   '*.test.js',
@@ -80,3 +82,18 @@ export const DEFAULT_TEST_PATTERNS = [
   'test/**',
   'spec/**',
 ];
+
+export const DEFAULT_TEST_PATTERNS: string[] = (() => {
+  const envPatterns = process.env.TEST_PATTERNS;
+  if (!envPatterns) return _DEFAULT_TEST_PATTERNS;
+
+  // WHY: JSON.parse can fail on malformed env vars; fail-safe fallback
+  try {
+    const parsed = JSON.parse(envPatterns);
+    if (Array.isArray(parsed) && parsed.every((p) => typeof p === 'string')) {
+      return parsed;
+    }
+  } catch { /* fall back to defaults */ }
+
+  return _DEFAULT_TEST_PATTERNS;
+})();

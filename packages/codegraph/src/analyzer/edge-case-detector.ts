@@ -10,44 +10,26 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import {
-  type ProjectKind,
-  type SpecialCaseResult,
-  type DetectionOptions,
-  DEFAULT_SOURCE_EXTENSIONS,
-  DEFAULT_TEST_PATTERNS,
-} from './types.js';
+import { globToRegex } from '../cli/commands/glob-utils.js';
+import { type ProjectKind, type SpecialCaseResult, type DetectionOptions, DEFAULT_SOURCE_EXTENSIONS, DEFAULT_TEST_PATTERNS } from './types.js';
 
-/**
- * Detects special project cases that require non-standard analysis.
- *
- * WHY: Normal analysis assumes 2+ source files with test separation.
- * Edge cases need different strategies to avoid misleading metrics.
- *
- * @param projectRoot - Absolute or relative path to project directory
- * @param options - Override default extensions or test patterns
- * @returns Classification with source and test file lists
- */
+/** Detects special project cases requiring non-standard analysis. WHY: Edge cases need different strategies to avoid misleading metrics. */
 export function detectSpecialCases(
   projectRoot: string,
   options?: DetectionOptions
 ): SpecialCaseResult {
-  // Resolve to absolute path for consistent file handling
+  // WHY: Resolve to absolute path for consistent file handling
   const absoluteRoot = path.resolve(projectRoot);
 
-  // Use configured extensions or fall back to defaults
-  // WHY: Different stacks have different source file types (e.g., .svelte, .py)
+  // WHY: Different stacks have different source file types; use configured extensions or defaults
   const extensions = options?.extensions ?? DEFAULT_SOURCE_EXTENSIONS;
 
-  // Scan all files recursively
-  // WHY: Project structure varies; recursive scan ensures complete coverage
+  // WHY: Project structure varies; scan all files recursively for complete coverage
   const allFiles = scanFiles(absoluteRoot);
 
-  // Separate source and test files based on patterns
-  // WHY: Test files shouldn't count toward source complexity metrics
+  // WHY: Test files shouldn't count toward source complexity metrics; separate from source files
   const { sourceFiles, testFiles } = classifyFiles(allFiles, extensions, options?.testPatterns);
 
-  // Determine project kind based on source file count
   // WHY: Each kind needs different Layer inference strategy
   const kind = determineKind(sourceFiles, testFiles);
 
@@ -61,7 +43,6 @@ export function detectSpecialCases(
  * Performance: O(n) where n = total files in project tree.
  */
 function scanFiles(root: string): string[] {
-  // Check if directory exists to avoid ENOENT errors
   // WHY: Defensive check prevents crashes on invalid paths
   if (!fs.existsSync(root)) {
     return [];
@@ -69,17 +50,14 @@ function scanFiles(root: string): string[] {
 
   const files: string[] = [];
 
-  // Recursive readdir with file type filtering
   // WHY: Node 18+ recursive option eliminates manual traversal overhead
   const entries = fs.readdirSync(root, { recursive: true, withFileTypes: true });
 
   for (const entry of entries) {
-    // Skip directories (only collect files)
     if (!entry.isFile()) {
       continue;
     }
 
-    // Build relative path for consistent handling
     // WHY: Relative paths work across different project structures
     const relativePath = path.relative(root, path.join(entry.parentPath ?? root, entry.name));
     files.push(relativePath);
@@ -105,14 +83,12 @@ function classifyFiles(
   const testFiles: string[] = [];
 
   for (const file of files) {
-    // Check if file matches test pattern
     // WHY: Test patterns indicate non-production code
     if (isTestFile(file, patterns)) {
       testFiles.push(file);
       continue;
     }
 
-    // Check if file has source extension
     // WHY: Extension filtering excludes config, docs, assets from source count
     const ext = path.extname(file);
     if (extensions.includes(ext)) {
@@ -130,12 +106,10 @@ function classifyFiles(
  * Simple regex matching avoids heavy glob library overhead.
  */
 function isTestFile(file: string, patterns: string[]): boolean {
-  // Normalize path for consistent matching
   const normalized = file.replace(/\\/g, '/');
 
   for (const pattern of patterns) {
-    // Convert glob pattern to regex
-    // WHY: minimatch adds dependency; simple conversion suffices for known patterns
+    // WHY: minimatch adds dependency; globToRegex suffices for known patterns
     const regex = globToRegex(pattern);
     if (regex.test(normalized)) {
       return true;
@@ -143,35 +117,6 @@ function isTestFile(file: string, patterns: string[]): boolean {
   }
 
   return false;
-}
-
-/**
- * Convert glob-style pattern to regex.
- *
- * WHY: Known patterns are simple (asterisk-slash and dot-wildcards only).
- * Full glob parser would add 50+ lines and external dependency.
- *
- * LIMITATION: Only handles patterns from DEFAULT_TEST_PATTERNS.
- * Complex globs (nested braces, character classes) not supported.
- */
-function globToRegex(pattern: string): RegExp {
-  // Escape regex special chars except glob wildcards
-  // WHY: Prevent regex injection from pattern strings
-  let regexStr = pattern
-    .replace(/[.+^${}()|[\]\\]/g, '\\$&')  // Escape regex specials
-    .replace(/\*/g, '.*');                  // Convert * to regex wildcard
-
-  // Anchor pattern for full match
-  // WHY: Prevent partial matches (*.test.ts shouldn't match foo.test.ts.bak)
-  if (!pattern.endsWith('/**')) {
-    regexStr = '^' + regexStr + '$';
-  } else {
-    // Directory patterns match prefix (tests/** matches tests/foo/bar.ts)
-    // WHY: tests/** should match all files under tests directory
-    regexStr = '^' + regexStr.replace('/\\*\\*', '(/.*)?');
-  }
-
-  return new RegExp(regexStr);
 }
 
 /**
@@ -187,13 +132,11 @@ function determineKind(sourceFiles: string[], testFiles: string[]): ProjectKind 
   const sourceCount = sourceFiles.length;
 
   if (sourceCount === 0) {
-    // Only test files or truly empty
     // WHY: Test-only projects need special handling (test structure becomes "source")
     return testFiles.length > 0 ? 'test-only' : 'empty';
   }
 
   if (sourceCount === 1) {
-    // Single source file
     // WHY: No Layer hierarchy possible; force single-layer inference
     return 'single-file';
   }
