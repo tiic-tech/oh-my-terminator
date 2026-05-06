@@ -70,3 +70,5 @@ export type {
   LayersError,
   LayersOptions,
 } from './layers-types.js';
+
+export { LAYER_ROLE_NAMES } from './layers-types.js';

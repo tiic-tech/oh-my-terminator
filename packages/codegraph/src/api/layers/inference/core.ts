@@ -11,6 +11,7 @@
 
 import type { DirectoryGroup } from '../grouping.js';
 import type { LayerAssignment, GroupStats, GroupSummary } from '../../types/index.js';
+import { LAYER_ROLE_NAMES } from '../../types/index.js';
 
 /**
  * Default layer threshold for backward compatibility.
@@ -19,16 +20,6 @@ import type { LayerAssignment, GroupStats, GroupSummary } from '../../types/inde
  * Value matches DEPTH_PRESETS.LARGE.threshold (historical default).
  */
 const DEFAULT_LAYER_THRESHOLD = 2;
-
-/**
- * Layer role names
- */
-const LAYER_ROLES: Record<number, string> = {
-  1: 'Foundation',
-  2: 'Core',
-  3: 'Application',
-  4: 'Presentation',
-};
 
 /**
  * Score data for a group (internal type)
@@ -94,7 +85,7 @@ export function inferArchitectureLayers(
     if (scoreDiff > threshold && currentLayerGroups.length > 0) {
       layers.push({
         layer: currentLayer,
-        role: LAYER_ROLES[currentLayer] || `Layer ${currentLayer}`,
+        role: LAYER_ROLE_NAMES[currentLayer] || `Layer ${currentLayer}`,
         groups: currentLayerGroups,
       });
       currentLayer++;
@@ -116,7 +107,7 @@ export function inferArchitectureLayers(
   if (currentLayerGroups.length > 0) {
     layers.push({
       layer: currentLayer,
-      role: LAYER_ROLES[currentLayer] || `Layer ${currentLayer}`,
+      role: LAYER_ROLE_NAMES[currentLayer] || `Layer ${currentLayer}`,
       groups: currentLayerGroups,
     });
   }

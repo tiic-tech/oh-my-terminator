@@ -41,8 +41,10 @@ export function detectProjectScale(projectRoot: string): number {
   // WHY: Resolve to absolute path for consistent fs operations
   const absoluteRoot = path.resolve(projectRoot);
 
-  // WHY: Defensive check - non-existent paths return 0 instead of crashing
+  // WHY: Defensive check - non-existent paths return 0 instead of crashing.
+  // Warning helps users catch configuration errors early (e.g., wrong path).
   if (!fs.existsSync(absoluteRoot)) {
+    console.warn(`[codegraph] Warning: Project root does not exist: ${absoluteRoot}`);
     return 0;
   }
 

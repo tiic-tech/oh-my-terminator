@@ -24,6 +24,19 @@
 export type LayerRole = 'Foundation' | 'Core' | 'Application' | 'Presentation';
 
 /**
+ * Layer role names by layer number (single source of truth)
+ *
+ * WHY: Prevents duplication between type definition and runtime lookup.
+ * Used by layer inference to assign role names to layer numbers.
+ */
+export const LAYER_ROLE_NAMES: Record<number, LayerRole> = {
+  1: 'Foundation',
+  2: 'Core',
+  3: 'Application',
+  4: 'Presentation',
+};
+
+/**
  * Group statistics within a layer
  */
 export interface GroupStats {
