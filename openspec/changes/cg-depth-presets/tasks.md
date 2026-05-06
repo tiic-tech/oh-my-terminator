@@ -1,19 +1,19 @@
 ## 1. Configuration Module
 
-- [ ] 1.1 Create `packages/codegraph/src/api/layers/inference/depth-presets.ts` with DEPTH_PRESETS table
-- [ ] 1.2 Define 4 tiers: SMALL(50,5), MEDIUM(200,3), LARGE(500,2), ENTERPRISE(Infinity,1)
-- [ ] 1.3 Add unit tests for depth-presets configuration
+- [x] 1.1 Create `packages/codegraph/src/api/layers/inference/depth-presets.ts` with DEPTH_PRESETS table
+- [x] 1.2 Define 4 tiers: SMALL(50,5), MEDIUM(200,3), LARGE(500,2), ENTERPRISE(Infinity,1)
+- [x] 1.3 Add unit tests for depth-presets configuration
 
 ## 2. Scale Detection Module
 
-- [ ] 2.1 Create `packages/codegraph/src/api/layers/inference/project-scale-detector.ts`
-- [ ] 2.2 Implement `detectProjectScale(projectRoot)` - count src/ files (fallback to root)
-- [ ] 2.3 Implement `getThresholdForScale(fileCount)` - first-match-wins iteration
-- [ ] 2.4a Import test-file-filter module (excludeTestFiles from ../../analyzer/test-file-filter.js)
-- [ ] 2.4b Implement recursive glob for src/ files (pattern: **/*.{ts,tsx,js,jsx,vue})
-- [ ] 2.4c Apply test file exclusion (call excludeTestFiles before counting)
-- [ ] 2.4d Handle empty src fallback (count root, still exclude tests)
-- [ ] 2.5 Add unit tests for scale detection functions
+- [x] 2.1 Create `packages/codegraph/src/api/layers/inference/project-scale-detector.ts`
+- [x] 2.2 Implement `detectProjectScale(projectRoot)` - count src/ files (fallback to root)
+- [x] 2.3 Implement `getThresholdForScale(fileCount)` - first-match-wins iteration
+- [x] 2.4a Import test-file-filter module (excludeTestFiles from ../../analyzer/test-file-filter.js)
+- [x] 2.4b Implement recursive glob for src/ files (pattern: **/*.{ts,tsx,js,jsx,vue})
+- [x] 2.4c Apply test file exclusion (call excludeTestFiles before counting)
+- [x] 2.4d Handle empty src fallback (count root, still exclude tests)
+- [x] 2.5 Add unit tests for scale detection functions
 
 ## 3. Core Module Update
 

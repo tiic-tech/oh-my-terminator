@@ -23,3 +23,11 @@ export {
   calculateSeverity,
   generateViolationSuggestion,
 } from './suggestions.js';
+
+// Depth presets configuration
+export {
+  DEPTH_PRESETS,
+  PRESET_ORDER,
+  getThresholdForScale,
+  type DepthPreset,
+} from './depth-presets.js';
