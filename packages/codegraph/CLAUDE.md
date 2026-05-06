@@ -63,7 +63,20 @@ RED → GREEN → REFACTOR
 
 ---
 
-## 5. OpenSpec Artifacts (用户触发)
+## 5. OpenSpec Artifacts (用户触发 + 路径强制)
+
+**⚠️ CRITICAL: OpenSpec artifacts 路径规范**
+
+所有 OpenSpec artifacts **必须** 创建在 repo 根目录：
+```
+<repo>/openspec/changes/<change-name>/   # 正确路径 ✅
+<repo>/openspec/specs/<spec-name>/       # 正确路径 ✅
+```
+
+**严禁在 package 目录创建 openspec**：
+```
+packages/<pkg>/openspec/                  # 错误路径 ❌ 禁止！
+```
 
 **Agent 禁止创建 OpenSpec artifacts**
 
@@ -71,7 +84,8 @@ RED → GREEN → REFACTOR
 
 **禁止行为**:
 - ❌ 未经用户输入 `/opsx:*` 命令，擅自创建任何 openspec artifacts
-- ❌ 在 package 目录创建 openspec/（必须在 repo 根目录 `/openspec/changes/<change>/`）
+- ❌ 在 package 目录创建 openspec/（违反路径规范）
+- ❌ 使用相对路径创建 openspec（必须使用 repo 绝对路径）
 
 ---
 

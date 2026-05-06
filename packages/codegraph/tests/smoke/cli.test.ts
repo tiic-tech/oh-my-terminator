@@ -30,6 +30,9 @@ const PACKAGE_DIR = resolve(import.meta.dirname, '../../');
  *
  * WHY: Spawns actual process for real-world testing, not just importing module.
  * This catches issues like missing dependencies, import errors, etc.
+ *
+ * WHY shell: true: Required for pnpm resolution. Safe because args are
+ * hardcoded test inputs (e.g., ['--help']), not user-supplied.
  */
 async function runCLI(args: string[]): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   return new Promise((resolvePromise) => {
