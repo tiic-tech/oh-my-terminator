@@ -35,14 +35,17 @@
 | P0 | cg-edge-case-handler | archive/2026-05-06-cg-edge-case-handler | ✅ 已完成 (2026-05-06归档) |
 | P1 | cg-depth-presets | archive/2026-05-06-cg-depth-presets | ✅ 已完成 (2026-05-06归档) |
 | P1 | cg-ts-import-type | archive/2026-05-06-cg-ts-import-type | ✅ 已完成 (2026-05-06归档) |
+| C10 | cg-cli-query-archive | archive/2026-05-07-cg-cli-query-archive | ✅ 已完成 (2026-05-07归档) |
 
 ### 1.2 未归档的Change
 
 | Change ID | Change名称 | 实现状态 | 备注 |
 |-----------|-----------|---------|------|
-| C10 | cg-cli-query-commands | ✅ 代码已实现 | 无归档记录，需补充归档 |
-| C11 | cg-mvp-test-coverage | ⚠️ 进行中 | **883测试通过**，覆盖率报告缺失 |
+| - | - | - | **所有Change已归档** |
+| C11 | cg-mvp-test-coverage | ⚠️ 进行中 | **1006测试通过**，覆盖率报告缺失 |
 | C12 | cg-mvp-documentation | ⚠️ 部分完成 | README.md(21KB)存在，docs目录存在 |
+
+> **更新说明 (2026-05-07)**: C10 (cg-cli-query-commands) 已通过 cg-cli-query-archive change 完成验证并归档。
 
 ### 1.3 代码实现验证
 
@@ -55,7 +58,7 @@ ls packages/codegraph/src/cli/commands/
 
 # 测试状态（C11部分实现）
 cd packages/codegraph && npm test
-# 输出: 883 tests passing, coverage summary未显示百分比
+# 输出: 1006 tests passing, coverage summary未显示百分比
 
 # 文档状态（C12部分实现）
 ls packages/codegraph/README.md
@@ -569,7 +572,7 @@ packages/codegraph/src/parser/ts-parser/
 
 **建议**: C12在所有P0/P1 changes完成后执行，更新文档覆盖M1完整功能。
 
-### 6.3 M1剩余工作总结 (2026-05-06更新)
+### 6.3 M1剩余工作总结 (2026-05-07更新)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -580,23 +583,23 @@ packages/codegraph/src/parser/ts-parser/
 │  ✅ 已完成P0: edge case handler (4h) - 归档 2026-05-06       │
 │  ✅ 已完成P1: depth presets (2h) - 归档 2026-05-06           │
 │  ✅ 已完成P1: import type (4h) - 归档 2026-05-06             │
+│  ✅ 已完成P1: layer inference pipeline (14h) - 归档 2026-05-07│
+│  ✅ 已完成C10归档: cli-query-archive (1h) - 归档 2026-05-07  │
 │                                                             │
 │  ⚠️ 待完成:                                                   │
-│  ├─ P1: layer inference pipeline (14h) ← 下一步              │
-│  ├─ C10归档: cli-query-archive (1h)                         │
-│  ├─ C11: test coverage完善 (4h)                             │
+│  ├─ C11: test coverage完善 (4h) ← 下一步                      │
 │  └─ C12: documentation完善 (2h)                             │
 │                                                             │
-│  已完成: 10h                                                 │
-│  剩余总计: 21h                                               │
+│  已完成: 25h                                                 │
+│  剩余总计: 6h                                                │
 │                                                             │
-│  测试状态: 883 tests passing ✅                              │
+│  测试状态: 1006 tests passing ✅                              │
 │                                                             │
 │  验收标准:                                                   │
 │  ├─ 测试覆盖率 ≥ 80% ⚠️ (覆盖率报告待配置)                    │
 │  ├─ E2E测试全通过 ✅                                         │
 │  ├─ 文档覆盖所有M1功能 ⚠️                                    │
-│  └─ Layer推断质量提升 ⚠️ (待layer-inference-pipeline)        │
+│  └─ Layer推断质量提升 ✅ (layer-inference-pipeline已完成)     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
