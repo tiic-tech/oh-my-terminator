@@ -8,8 +8,13 @@
  * 1. Help flag shows help text with analyze and update commands
  * 2. Analyze command registered - analyze --help works
  * 3. Update command registered - update --help works
+ * 4. Scope command registered - scope --help works
+ * 5. Impact command registered - impact --help works
+ * 6. Layers command registered - layers --help works
+ * 7. Migrate command registered - migrate --help works
  *
  * @see tasks.md 6.9 - Write smoke test for CLI entry point
+ * @see cg-cli-query-archive - Verify CLI query commands registration
  */
 
 import { spawn } from 'child_process';
@@ -101,5 +106,32 @@ describe('CLI smoke tests', () => {
     assert.strictEqual(result.exitCode, 0, 'CLI should exit with 0 for update help');
     assert.ok(result.stdout.includes('--compress'), 'Help should show --compress flag');
     assert.ok(result.stdout.includes('--no-compression'), 'Help should show --no-compression flag');
+  });
+
+  it('shows scope command help with scope --help', async () => {
+    const result = await runCLI(['scope', '--help']);
+
+    assert.strictEqual(result.exitCode, 0, 'CLI should exit with 0 for scope help');
+    assert.ok(result.stdout.includes('scope'), 'Output should contain scope command');
+    assert.ok(result.stdout.includes('--json'), 'Help should show --json option');
+    assert.ok(result.stdout.includes('Usage'), 'Help should show usage section');
+  });
+
+  it('shows impact command help with impact --help', async () => {
+    const result = await runCLI(['impact', '--help']);
+
+    assert.strictEqual(result.exitCode, 0, 'CLI should exit with 0 for impact help');
+    assert.ok(result.stdout.includes('impact'), 'Output should contain impact command');
+    assert.ok(result.stdout.includes('--json'), 'Help should show --json option');
+    assert.ok(result.stdout.includes('Usage'), 'Help should show usage section');
+  });
+
+  it('shows layers command help with layers --help', async () => {
+    const result = await runCLI(['layers', '--help']);
+
+    assert.strictEqual(result.exitCode, 0, 'CLI should exit with 0 for layers help');
+    assert.ok(result.stdout.includes('layers'), 'Output should contain layers command');
+    assert.ok(result.stdout.includes('--json'), 'Help should show --json option');
+    assert.ok(result.stdout.includes('Usage'), 'Help should show usage section');
   });
 });
