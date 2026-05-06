@@ -9,7 +9,10 @@
 - [ ] 2.1 Create `packages/codegraph/src/api/layers/inference/project-scale-detector.ts`
 - [ ] 2.2 Implement `detectProjectScale(projectRoot)` - count src/ files (fallback to root)
 - [ ] 2.3 Implement `getThresholdForScale(fileCount)` - first-match-wins iteration
-- [ ] 2.4 Exclude test files from count (reuse test-file-filter patterns)
+- [ ] 2.4a Import test-file-filter module (excludeTestFiles from ../../analyzer/test-file-filter.js)
+- [ ] 2.4b Implement recursive glob for src/ files (pattern: **/*.{ts,tsx,js,jsx,vue})
+- [ ] 2.4c Apply test file exclusion (call excludeTestFiles before counting)
+- [ ] 2.4d Handle empty src fallback (count root, still exclude tests)
 - [ ] 2.5 Add unit tests for scale detection functions
 
 ## 3. Core Module Update

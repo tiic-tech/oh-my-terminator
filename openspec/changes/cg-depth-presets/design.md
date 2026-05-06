@@ -51,7 +51,7 @@ const DEPTH_PRESETS = {
 
 ### Decision 2: File Count Method
 
-**Chosen**: Count `.ts/.tsx/.js/.jsx/.vue` files in `src/` directory only
+**Chosen**: Count `.ts/.tsx/.js/.jsx/.vue` files in `src/` directory recursively (including all subdirectories)
 
 **Alternatives**:
 - All source files in project root: Includes tests, config files - noisy
