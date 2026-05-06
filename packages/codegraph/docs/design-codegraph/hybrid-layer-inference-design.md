@@ -29,45 +29,46 @@
 
 ### 1.2 M1剩余工作补充
 
-基于E2E测试发现的问题，以下两项提前到M1：
+基于E2E测试发现的问题，以下三项提前到M1：
 
 | 问题 | 原优先级 | 新优先级 | 解决方案 | 预估工时 |
 |------|---------|---------|----------|----------|
+| Layer推断改进 | P1(M2) | **P1(M1)** | Phase 1-5完整实现 | 16h |
 | DEPTH_PRESETS | P2(M2) | **P1(M1)** | 自适应深度配置表替代硬编码 | 4h |
 | TypeScript import type | P2(M2) | **P1(M1)** | ImportClause.isTypeOnly检测 | 4h |
 
-**调整原因**: 这两项直接影响Layer推断质量和类型文件误判问题，是E2E测试发现的关键缺陷。
+**调整原因**: Layer推断质量直接影响C8(getArchitectureLayers)API的核心功能，是M1 MVP的关键组件。
 
-**M1剩余工作总计**: C11(测试) + C12(文档) + P1-DEPTH_PRESETS + P1-import-type = 约22h
+**M1剩余工作总计**: C11(测试) + C12(文档) + P1-Layer推断改进 + P1-DEPTH_PRESETS + P1-import-type = 约54h
 
 ---
 
 ## 2. 核心架构设计（M1 P1实现）
 
-### 2.1 五阶段推断管道
+### 2.1 五阶段推断管道（M1完整实现）
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Hybrid Inference Pipeline                │
 ├─────────────────────────────────────────────────────────────┤
-│  Phase 1: Source Root Discovery                            │
+│  Phase 1: Source Root Discovery            [M1 P1]          │
 │    └─ 信号检测系统 (权重评分 + 排除列表)                      │
 │                                                             │
-│  Phase 2: Dependency Score Calculation                      │
+│  Phase 2: Dependency Score Calculation      [M1 P1]          │
 │    └─ 循环检测 + 外部排除 + 动态导入惩罚                      │
 │                                                             │
-│  Phase 3: Adaptive Depth Selection                          │
+│  Phase 3: Adaptive Depth Selection          [M1 P1]          │
 │    └─ DEPTH_PRESETS配置表 (基于项目规模)                     │
 │                                                             │
-│  Phase 4: Layer Assignment                                  │
+│  Phase 4: Layer Assignment                  [M1 P1]          │
 │    └─ 动态阈值 + 模糊匹配 + 置信度追踪                        │
 │                                                             │
-│  Phase 5: Fallback & Suggestions                            │
+│  Phase 5: Fallback & Suggestions            [M1 P1]          │
 │    └─ Agent Prompt + 预过滤器 + 默认降级                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**注意**: 上述架构为设计预研，**当前代码使用硬编码 LAYER_THRESHOLD = 2**
+**目标**: M1结束时，完整Hybrid Inference Pipeline替代当前硬编码实现。
 
 ### 2.2 Plugin架构（语言无关扩展）
 
@@ -135,22 +136,32 @@ function isTestFile(filePath: string): boolean {
 |------|------|----------|----------|
 | C11: 测试覆盖率 | [TEST] | 2天 | ⚠️ 进行中 |
 | C12: 文档 | [DOC] | 1天 | ⚠️ 进行中 |
+| **P1: Layer推断改进 (Phase 1-5)** | [CORE] | **16h** | 仅设计文档 |
 | **P1: DEPTH_PRESETS** | [CORE] | 4h | 仅设计文档 |
 | **P1: TypeScript import type** | [PARSER] | 4h | 仅设计文档 |
 
-**M1剩余工时**: 约22h（含E2E测试验证）
+**M1剩余工时**: 约54h（含E2E测试验证）
+
+**P1-Layer推断改进拆解**:
+
+| Phase | 内容 | 预估工时 |
+|-------|------|----------|
+| Phase 1 | Source Root Discovery (信号检测+排除列表) | 3h |
+| Phase 2 | Dependency Score (循环检测+外部排除) | 4h |
+| Phase 3 | Adaptive Depth (DEPTH_PRESETS) | 2h |
+| Phase 4 | Layer Assignment (动态阈值+模糊匹配) | 4h |
+| Phase 5 | Fallback & 预过滤器 | 3h |
 
 ### 4.2 M2+ Scope（后续里程碑）
 
 | 问题 | 优先级 | 解决方案 | Milestone | 开发状态 |
 |------|--------|----------|-----------|----------|
-| P1-Layer推断改进 | **M2** | Phase 1-5完整实现 | M2 (Week 1-2) | 仅设计文档 |
-| P1-Plugin系统 | **M2** | LanguagePluginRegistry | M2 (Week 3-4) | 仅设计文档 |
-| P2-Violation处理策略 | **M3** | ViolationLevel + Remediation | M3 (Week 6-7) | 仅设计文档 |
-| P3-其他语言Plugin | **M4** | Python/Go/Rust/Java | M4 (Week 8-10) | 仅设计文档 |
-| P4-跨语言FFI | **M5** | FFI boundary detection | M5 (Week 11+) | 仅设计文档 |
+| P1-Plugin系统 | **M2** | LanguagePluginRegistry | M2 (Week 1-2) | 仅设计文档 |
+| P2-Violation处理策略 | **M3** | ViolationLevel + Remediation | M3 (Week 3-4) | 仅设计文档 |
+| P3-其他语言Plugin | **M4** | Python/Go/Rust/Java | M4 (Week 5-7) | 仅设计文档 |
+| P4-跨语言FFI | **M5** | FFI boundary detection | M5 (Week 8+) | 仅设计文档 |
 
-**注意**: P1-DEPTH_PRESETS和P1-import type已提前到M1，不再属于M2范围。
+**注意**: Layer推断改进(Phase 1-5)、DEPTH_PRESETS、import type已全部提前到M1，M2仅保留Plugin系统。
 
 ---
 
@@ -230,30 +241,41 @@ function detectSpecialCases(projectRoot: string): SpecialCaseResult {
 packages/codegraph/src/
 ├── parser/
 │   └── ts-parser/
-│       └── import-extractor.ts       # [M1 P1扩展] isTypeOnly字段
+│       └── import-extractor.ts       # [M1 P1] isTypeOnly字段扩展
 │
 ├── api/
 │   └── layers/
 │       └── inference/
-│           └── core.ts               # [M1 P1扩展] DEPTH_PRESETS配置
+│           ├── core.ts               # [M1 P1] DEPTH_PRESETS配置
+│           ├── source-root.ts        # [M1 P1] Phase 1 信号检测
+│           ├── dependency-score.ts   # [M1 P1] Phase 2 循环检测
+│           ├── layer-assignment.ts   # [M1 P1] Phase 4 动态阈值
+│           └── fallback.ts           # [M1 P1] Phase 5 预过滤器
 │
 └── config/                           # [M2新建]
-    └── type-config-loader.ts         # Plugin配置加载（暂不实现）
+    └── type-config-loader.ts         # Plugin配置加载（M2）
 ```
 
-### 6.2 M1 P1工时估算
+### 6.2 M1 P1工时估算（详细拆解）
 
 | Phase | Milestone | 预估工时 | 开发状态 |
 |-------|-----------|----------|----------|
-| **P1-DEPTH_PRESETS配置** | **M1** | **4h** | **待开发** |
-| **P1-TS import type检测** | **M1** | **4h** | **待开发** |
+| **Phase 1: Source Root Discovery** | **M1** | **3h** | **待开发** |
+| **Phase 2: Dependency Score** | **M1** | **4h** | **待开发** |
+| **Phase 3: DEPTH_PRESETS** | **M1** | **2h** | **待开发** |
+| **Phase 4: Layer Assignment** | **M1** | **4h** | **待开发** |
+| **Phase 5: Fallback & 预过滤** | **M1** | **3h** | **待开发** |
+| **TS import type扩展** | **M1** | **4h** | **待开发** |
 | Plugin Registry | M2 | 8h | 仅设计 |
-| Layer assignment集成 | M2 | 8h | 仅设计 |
 | 其他语言Plugin | M4 | 12h | 仅设计 |
 
 **M1 P1开发顺序**: 
-1. DEPTH_PRESETS → 替换硬编码LAYER_THRESHOLD
-2. import type → 扩展ParsedImportInfo接口
+1. Phase 3 (DEPTH_PRESETS) → 替换硬编码，最快见效
+2. Phase 1 (Source Root) → 修复tests/误判问题
+3. Phase 2 (Dependency Score) → 循环依赖处理
+4. TS import type → 类型文件检测
+5. Phase 4 (Layer Assignment) → 动态阈值优化
+6. Phase 5 (Fallback) → Edge Case处理
 
 ---
 
@@ -276,7 +298,7 @@ packages/codegraph/src/
 
 ---
 
-**文档版本**: v6.0 (P1优先级调整)
+**文档版本**: v7.0 (Layer推断完整移入M1)
 **更新日期**: 2026-05-06
-**状态**: P1-DEPTH_PRESETS和P1-import type已提前到M1剩余工作
-**对齐**: develop_changes_plan.md M1定义(C1-C12) + P1补充项
+**状态**: Phase 1-5完整实现已全部提前到M1，M2仅保留Plugin系统
+**对齐**: develop_changes_plan.md M1定义(C1-C12) + P1补充项(24h)
