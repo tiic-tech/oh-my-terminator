@@ -5,6 +5,12 @@
  * Project roots may have node_modules, dist, etc. but the real source is in src/, lib/, app/.
  * Weighted signal scoring provides reliable detection without hardcoding assumptions.
  *
+ * ELASTIC EXCEPTION (coding-taste Rule 2): File ~225 lines, exceeds 150 threshold.
+ * NOT split because: Source root detection functions form a tightly cohesive unit -
+ * detectSourceRoot + calculateScore + calculateConfidence + signal definitions are
+ * used together for source root detection. Splitting would fragment this cohesive unit
+ * and require consumers to import from multiple files for a single logical operation.
+ *
  * Signal scoring algorithm:
  * - PACKAGE_JSON presence: +10 (strong indicator of project root)
  * - TS_CONFIG presence: +8 (TypeScript project configuration)
