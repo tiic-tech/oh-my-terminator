@@ -37,3 +37,21 @@ export {
   detectProjectScale,
   getProjectThreshold,
 } from './project-scale-detector.js';
+
+// Source root discovery (Phase 1: Source Root Discovery)
+export {
+  SIGNAL_WEIGHTS,
+  EXCLUDED_DIRECTORIES,
+  detectSourceRoot,
+  type SourceRootResult,
+  type SourceRootCandidate,
+} from './source-root.js';
+
+// Dependency score calculation (Phase 2: Dependency Score Calculation)
+export {
+  calculateDependencyScore,
+  detectCycles,
+  calculateCyclePenalty,
+  type DependencyScoreResult,
+  type CycleInfo,
+} from './dependency-score.js';
