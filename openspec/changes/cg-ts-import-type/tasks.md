@@ -31,10 +31,10 @@ Target: `packages/codegraph/tests/unit/parser/ts-parser/import-extractor.test.ts
 ## 5. Integration Tests
 Target: `packages/codegraph/tests/e2e/import-type.test.ts`
 
-- [ ] 5.1 Test file with `import type { X } from './types'`
-- [ ] 5.2 Test file with `import { X } from './types'`
-- [ ] 5.3 Test file with both type and value imports
-- [ ] 5.4 Verify IMPORTS edge has correct importKind
+- [x] 5.1 Test file with `import type { X } from './types'`
+- [x] 5.2 Test file with `import { X } from './types'`
+- [x] 5.3 Test file with both type and value imports
+- [x] 5.4 Verify IMPORTS edge has correct importKind
   > Verification: `expect(edge.metadata.importKind).toBe('type-only')` for import type statements
-- [ ] 5.5 Verify scope query displays import kind correctly
+- [x] 5.5 Verify scope query displays import kind correctly
   > Verification: Output contains `[type-only]` marker for type imports

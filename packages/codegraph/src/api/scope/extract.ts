@@ -78,14 +78,21 @@ export function extractImports(graph: CodeGraph, fileNode: GraphNode): string[] 
  * - DYNAMIC_IMPORTS: Always 'value' (no type-only concept for dynamic imports)
  * - External imports: Always 'value' (external packages are runtime deps)
  *
+ * BEHAVIOR: When same file has multiple imports from same target with different
+ * importKinds (e.g., `import type { X }` AND `import { Y }` from same file),
+ * returns BOTH ImportInfo entries to preserve the distinction.
+ *
  * @param graph - CodeGraph instance
  * @param fileNode - FILE node to extract from
- * @returns Array of ImportInfo objects (deduplicated by path, sorted)
+ * @returns Array of ImportInfo objects (sorted by path, then by kind)
  */
 export function extractImportsWithKind(graph: CodeGraph, fileNode: GraphNode): ImportInfo[] {
   if (!fileNode) return [];
 
-  // Use map to deduplicate by path, keeping first occurrence
+  // WHY: Use composite key (path + importKind) instead of just path.
+  // This preserves both type-only and value imports from the same source file.
+  // Example: `import type { User } from './types'; import { format } from './types';`
+  // should yield TWO ImportInfo entries: one for 'type-only', one for 'value'.
   const importsMap = new Map<string, ImportInfo>();
   const outEdges = graph.outEdges.get(fileNode.id) || [];
 
@@ -97,25 +104,25 @@ export function extractImportsWithKind(graph: CodeGraph, fileNode: GraphNode): I
     ) {
       const targetNode = graph.getNode(edge.to);
       if (targetNode) {
-        // Skip if already seen (deduplicate by path)
-        if (importsMap.has(targetNode.path)) continue;
-
         // Determine import type from edge type
         const importType: 'static' | 'dynamic' | 're-export' =
           edge.type === EdgeType.DYNAMIC_IMPORTS ? 'dynamic' :
           edge.type === EdgeType.RE_EXPORTS ? 're-export' : 'static';
 
         // Determine import kind from edge metadata
-        // WHY: Edge metadata contains importKind from parser extraction.
-        // - IMPORTS/RE_EXPORTS edges have importKind from isTypeOnly check
-        // - DYNAMIC_IMPORTS edges have no importKind (always runtime)
-        // - EXTERNAL targets always 'value' (no type-only for external packages)
         let importKind: ImportKind = 'value';
         if (targetNode.type !== NodeType.EXTERNAL) {
           importKind = edge.metadata?.importKind ?? 'value';
         }
 
-        importsMap.set(targetNode.path, {
+        // WHY: Composite key ensures both type-only and value imports
+        // from same target file are preserved separately.
+        const key = `${targetNode.path}:${importKind}`;
+
+        // Skip if exact same (path, kind) already seen
+        if (importsMap.has(key)) continue;
+
+        importsMap.set(key, {
           from: targetNode.path,
           type: importType,
           specifiers: [],
@@ -125,8 +132,13 @@ export function extractImportsWithKind(graph: CodeGraph, fileNode: GraphNode): I
     }
   }
 
-  // Sort by path
-  return Array.from(importsMap.values()).sort((a, b) => a.from.localeCompare(b.from));
+  // Sort by path first, then by kind (type-only before value for consistent ordering)
+  return Array.from(importsMap.values()).sort((a, b) => {
+    const pathCompare = a.from.localeCompare(b.from);
+    if (pathCompare !== 0) return pathCompare;
+    // type-only < value for stable ordering
+    return a.kind === 'type-only' ? -1 : 1;
+  });
 }
 
 /**
