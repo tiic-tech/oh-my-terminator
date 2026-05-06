@@ -24,13 +24,13 @@
 
 ## 4. Module Exports
 
-- [ ] 4.1 Export depth-presets and scale detector from inference/index.ts
-- [ ] 4.2 Ensure backward compatibility (API contract unchanged)
+- [x] 4.1 Export depth-presets and scale detector from inference/index.ts
+- [x] 4.2 Ensure backward compatibility (API contract unchanged)
 
 ## 5. E2E Validation
 
-- [ ] 5.1 Test small project (create 30-file temp project) - expect threshold=5
-- [ ] 5.2 Test medium project (150 files) - expect threshold=3
-- [ ] 5.3 Test large project (400 files) - expect threshold=2
-- [ ] 5.4 Test enterprise project (800 files) - expect threshold=1
-- [ ] 5.5 Verify existing layer inference tests still pass
+- [x] 5.1 Test small project (create 30-file temp project) - expect threshold=5
+- [x] 5.2 Test medium project (150 files) - expect threshold=3
+- [x] 5.3 Test large project (400 files) - expect threshold=2
+- [x] 5.4 Test enterprise project (800 files) - expect threshold=1
+- [x] 5.5 Verify existing layer inference tests still pass
