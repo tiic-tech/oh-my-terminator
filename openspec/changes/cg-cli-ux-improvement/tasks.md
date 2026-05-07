@@ -37,16 +37,16 @@
 
 - [x] 5.1 Add unit tests for `transformCACError()` function
 - [x] 5.2 Add unit tests for error code classification
-- [ ] 5.3 Add E2E test for unknown command error scenario
-- [ ] 5.4 Add E2E test for invalid flag error scenario
-- [ ] 5.5 Add E2E test for missing argument error scenario
-- [ ] 5.6 Add E2E test for path format hint display
+- [x] 5.3 Add E2E test for unknown command error scenario
+- [x] 5.4 Add E2E test for invalid flag error scenario
+- [x] 5.5 Add E2E test for missing argument error scenario
+- [x] 5.6 Add E2E test for path format hint display
   - **Scenario 1**: Wrong path format (`src/analyzer.ts`) → hint shown
   - **Scenario 2**: Correct format but file missing (`packages/codegraph/src/missing.ts`) → no hint
 
 ## 6. Verification
 
-- [ ] 6.1 Run all tests and verify 80%+ coverage
+- [x] 6.1 Run all tests and verify 80%+ coverage
 - [x] 6.2 Verify no raw stack traces displayed in text mode
 - [x] 6.3 Verify JSON output structure matches spec
-- [ ] 6.4 Run E2E Round4 validation to confirm P1 fixes
+- [x] 6.4 Run E2E Round4 validation to confirm P1 fixes

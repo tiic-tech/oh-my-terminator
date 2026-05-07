@@ -25,6 +25,10 @@ export function setupCliErrorHandler(cli: CAC, startTime: number): void {
     const userCommand = cli.args[0];
     if (!userCommand) return;
 
+    // WHY: Suppress CAC's automatic help output for unknown commands
+    // CAC shows help before emitting this event when help() is enabled
+    cli.unsetMatchedCommand();
+
     const isJsonMode = process.argv.includes('--json');
     const error = createUnknownCommandError(userCommand, cli, startTime);
 
