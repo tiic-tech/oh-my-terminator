@@ -38,7 +38,7 @@ import {
 } from '../../types.js';
 import type { Baseline } from '../../persistence/types/baseline.js';
 import { reparseFiles } from '../reparser.js';
-import { detectSpecialCases, type SpecialCaseResult } from '../../analyzer/index.js';
+import { detectSpecialCases } from '../../analyzer/index.js';
 import { handleUpdateEdgeCase, removeFileFromGraph } from './update-helpers.js';
 import { calculateCompressionStats } from './compression-stats.js';
 

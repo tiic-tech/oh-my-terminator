@@ -8,9 +8,9 @@
  * These helpers are ~80 lines total, keeping update.ts focused on orchestration.
  */
 
-import { NodeType } from '../../types.js';
+import { NodeType, type EdgeCaseResult } from '../../types.js';
 import type { CodeGraph } from '../../graph.js';
-import type { SpecialCaseResult, EdgeCaseResult } from '../../types.js';
+import type { SpecialCaseResult } from '../../analyzer/types.js';
 
 // ============================================================================
 // Edge Case Handling

@@ -40,7 +40,7 @@ export function excludeTestFiles(files: string[], patterns?: TestPatterns): Filt
   }
 
   // Build matcher functions once (performance: avoid repeated regex creation)
-  const matchers = activePatterns.map(patternToMatcher);
+  const matchers = activePatterns.map((pattern) => patternToMatcher(pattern));
 
   // Partition files into kept and filtered
   const kept: string[] = [];

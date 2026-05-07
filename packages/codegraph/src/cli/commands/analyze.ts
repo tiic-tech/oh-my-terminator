@@ -10,7 +10,7 @@
  * @see 09_c9_cli_analyze_update_spec.md Section 5.1-5.9
  */
 
-import { writeFile, readFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { analyzeFull } from '../../analyzer.js';
 import { detectSpecialCases } from '../../analyzer/index.js';
 import {
@@ -27,7 +27,6 @@ import { validateProject } from '../validation.js';
 import {
   type AnalyzeResult,
   type CliError,
-  type CompressionStats,
   type EdgeCaseResult,
 } from '../../types.js';
 import type { Baseline } from '../../persistence/types/baseline.js';

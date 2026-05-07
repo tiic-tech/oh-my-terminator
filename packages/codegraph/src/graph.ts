@@ -99,14 +99,16 @@ export class CodeGraph {
    * may reference nodes not yet added. Final validation happens at serialization.
    *
    * @param edge - The edge to add
+   * @param silent - Suppress warnings (use during deserialization)
    */
-  addEdge(edge: GraphEdge): void {
+  addEdge(edge: GraphEdge, silent = false): void {
     // Track missing nodes for debugging (no throw - intentional design)
     // WHY: Incremental graph building may add edges before nodes
-    if (!this.nodes.has(edge.from)) {
+    // WHY silent: CLI output should be clean; warnings only useful during development
+    if (!silent && !this.nodes.has(edge.from)) {
       console.warn(`[CodeGraph] Edge source not yet added: ${edge.from} (edge will be orphan until node added)`);
     }
-    if (!this.nodes.has(edge.to)) {
+    if (!silent && !this.nodes.has(edge.to)) {
       console.warn(`[CodeGraph] Edge target not yet added: ${edge.to} (edge will be orphan until node added)`);
     }
 
@@ -262,25 +264,11 @@ export class CodeGraph {
     // Restore nodes
     graph.nodes = new Map(data.nodes);
 
-    // Restore edges and rebuild indexes
+    // Restore edges and rebuild indexes (silent mode to suppress warnings)
+    // WHY silent: During deserialization, edges may reference nodes not yet indexed
+    // This is normal for serialized graphs; warnings only useful during development
     for (const edge of data.edges) {
-      graph.edges.push(edge);
-
-      // Rebuild outEdges
-      const outList = graph.outEdges.get(edge.from);
-      if (outList) {
-        outList.push(edge);
-      } else {
-        graph.outEdges.set(edge.from, [edge]);
-      }
-
-      // Rebuild inEdges
-      const inList = graph.inEdges.get(edge.to);
-      if (inList) {
-        inList.push(edge);
-      } else {
-        graph.inEdges.set(edge.to, [edge]);
-      }
+      graph.addEdge(edge, true);
     }
 
     // Restore metadata

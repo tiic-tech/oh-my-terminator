@@ -6,7 +6,7 @@ import { formatAnalyzeText, formatUpdateText, formatMigrateText, formatErrorText
 import { formatImpactJson, formatImpactText, formatImpactErrorJson, formatImpactErrorText } from '../src/cli/output/impact-formatter.js';
 import { formatScopeJson, formatScopeText, formatScopeErrorJson, formatScopeErrorText } from '../src/cli/output/scope-formatter.js';
 import { formatLayersJson, formatLayersText, formatLayersErrorJson, formatLayersErrorText } from '../src/cli/output/layers-formatter.js';
-import type { AnalyzeResult, UpdateResult, MigrateResult, CliError } from '../src/types.js';
+import type { AnalyzeResult, UpdateResult, MigrateResult, CliError, EdgeCaseResult } from '../src/types.js';
 import type { ImpactResult, ImpactError, ScopeResult, ScopeError, LayersResult, LayersError } from '../src/api/types/index.js';
 import { CliErrorCode } from '../src/types.js';
 
@@ -144,7 +144,34 @@ cli.help();
 // Parse
 cli.parse();
 
-function output(result: AnalyzeResult | UpdateResult, json?: boolean): void {
+function output(result: AnalyzeResult | UpdateResult | EdgeCaseResult | CliError, json?: boolean): void {
+  if (!result.success) {
+    // CliError
+    if (json) {
+      console.log(formatErrorJson(result as CliError));
+    } else {
+      console.error(formatErrorText(result as CliError));
+    }
+    return;
+  }
+
+  // Check for EdgeCaseResult (has 'kind' property)
+  if ('kind' in result) {
+    // EdgeCaseResult - format as analyze-like output
+    const edgeCase = result as EdgeCaseResult;
+    if (json) {
+      console.log(JSON.stringify(edgeCase));
+    } else {
+      console.log(`${edgeCase.kind}: ${edgeCase.message}`);
+      if (edgeCase.suggestions) {
+        console.log('Suggestions:');
+        edgeCase.suggestions.forEach((s: string) => console.log(`  - ${s}`));
+      }
+    }
+    return;
+  }
+
+  // AnalyzeResult or UpdateResult
   if (json) {
     if ('baseline' in result) {
       // AnalyzeResult
@@ -164,7 +191,18 @@ function output(result: AnalyzeResult | UpdateResult, json?: boolean): void {
   }
 }
 
-function outputMigrate(result: MigrateResult, json?: boolean): void {
+function outputMigrate(result: MigrateResult | CliError, json?: boolean): void {
+  if (!result.success) {
+    // CliError
+    if (json) {
+      console.log(formatErrorJson(result as CliError));
+    } else {
+      console.error(formatErrorText(result as CliError));
+    }
+    return;
+  }
+
+  // MigrateResult
   if (json) {
     console.log(formatMigrateJson(result));
   } else {
@@ -180,28 +218,22 @@ function outputImpact(result: ImpactResult | ImpactError, json?: boolean): void 
       console.log(formatImpactText(result));
     }
   } else {
+    // TypeScript doesn't narrow correctly in else block, need explicit cast
+    const errorResult = result as ImpactError;
     if (json) {
-      console.log(formatImpactErrorJson(result));
+      console.log(formatImpactErrorJson(errorResult));
     } else {
-      console.error(formatImpactErrorText(result));
+      console.error(formatImpactErrorText(errorResult));
     }
   }
 }
 
 function outputScope(result: ScopeResult | ScopeError | CliError, json?: boolean): void {
-  if (result.success) {
-    // ScopeResult
-    if (json) {
-      console.log(formatScopeJson(result as ScopeResult));
-    } else {
-      console.log(formatScopeText(result as ScopeResult));
-    }
-  } else {
+  if (!result.success) {
     // ScopeError or CliError
-    // CliError has error.code as CliErrorCode enum, ScopeError has error.code as string
     if (json) {
-      // Check if it's a ScopeError (string code) or CliError (enum code)
-      if ('suggestion' in result.error) {
+      // Check if it's a ScopeError (has 'error' with 'suggestion') or CliError (has 'error' with 'code' enum)
+      if ('error' in result && 'suggestion' in result.error) {
         // ScopeError
         console.log(formatScopeErrorJson(result as ScopeError));
       } else {
@@ -209,7 +241,7 @@ function outputScope(result: ScopeResult | ScopeError | CliError, json?: boolean
         console.log(formatErrorJson(result as CliError));
       }
     } else {
-      if ('suggestion' in result.error) {
+      if ('error' in result && 'suggestion' in result.error) {
         // ScopeError
         console.error(formatScopeErrorText(result as ScopeError));
       } else {
@@ -217,23 +249,23 @@ function outputScope(result: ScopeResult | ScopeError | CliError, json?: boolean
         console.error(formatErrorText(result as CliError));
       }
     }
+    return;
+  }
+
+  // ScopeResult
+  if (json) {
+    console.log(formatScopeJson(result as ScopeResult));
+  } else {
+    console.log(formatScopeText(result as ScopeResult));
   }
 }
 
 function outputLayers(result: LayersResult | LayersError | CliError, json?: boolean): void {
-  if (result.success) {
-    // LayersResult
-    if (json) {
-      console.log(formatLayersJson(result as LayersResult));
-    } else {
-      console.log(formatLayersText(result as LayersResult));
-    }
-  } else {
+  if (!result.success) {
     // LayersError or CliError
-    // CliError has error.code as CliErrorCode enum, LayersError has error.code as string
     if (json) {
-      // Check if it's a LayersError (string code with suggestion) or CliError (enum code)
-      if ('suggestion' in result.error) {
+      // Check if it's a LayersError (has 'error' with 'suggestion') or CliError (has 'error' with 'code' enum)
+      if ('error' in result && 'suggestion' in result.error) {
         // LayersError
         console.log(formatLayersErrorJson(result as LayersError));
       } else {
@@ -241,7 +273,7 @@ function outputLayers(result: LayersResult | LayersError | CliError, json?: bool
         console.log(formatErrorJson(result as CliError));
       }
     } else {
-      if ('suggestion' in result.error) {
+      if ('error' in result && 'suggestion' in result.error) {
         // LayersError
         console.error(formatLayersErrorText(result as LayersError));
       } else {
@@ -249,6 +281,14 @@ function outputLayers(result: LayersResult | LayersError | CliError, json?: bool
         console.error(formatErrorText(result as CliError));
       }
     }
+    return;
+  }
+
+  // LayersResult
+  if (json) {
+    console.log(formatLayersJson(result as LayersResult));
+  } else {
+    console.log(formatLayersText(result as LayersResult));
   }
 }
 

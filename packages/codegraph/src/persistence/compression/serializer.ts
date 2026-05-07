@@ -124,9 +124,11 @@ export function deserializeCompressed(data: CompressedBaseline): CodeGraph {
   }
 
   // Expand and add edges (handle both IMPORTS_BATCH and CompressedEdge)
+  // WHY silent=true: Suppress warnings during deserialization - orphan edges are normal
+  // for compressed baselines where some directory nodes may not exist as explicit nodes
   const edges = reconstructEdges(data.edges, data.pathTable);
   for (const edge of edges) {
-    graph.addEdge(edge);
+    graph.addEdge(edge, true);
   }
 
   // Set metadata
