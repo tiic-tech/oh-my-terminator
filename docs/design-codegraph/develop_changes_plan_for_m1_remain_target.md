@@ -43,15 +43,16 @@
 
 | Change ID | Change名称 | 实现状态 | 优先级 | 备注 |
 |-----------|-----------|---------|--------|------|
-| C12 | cg-mvp-documentation | ⚠️ 待完善 | P2 | README/API文档待更新 |
-| C13 | cg-complexity-calculation | 📋 待规划 | P1 | 复杂度计算实现（E2E报告反馈） |
-| C14 | cg-layer-naming-inference | 📋 待规划 | P2 | Layer命名推断（5/6/7→有意义名称） |
+| C13 | cg-complexity-calculation | ✅ 已完成 | P1 | 归档 2026-05-07 |
+| C14 | cg-layer-naming-inference | ✅ 已完成 | P2 | 归档 2026-05-07 |
 
-> **更新说明 (2026-05-07 E2E Round2)**: 
+> **更新说明 (2026-05-07 Session End)**: 
 > - C10 (cg-cli-query-archive) 已归档
 > - C11 (cg-mvp-test-coverage) 已完成验证，覆盖率 92.74% > 80%
+> - C13 (cg-complexity-calculation) 已归档 2026-05-07
+> - C14 (cg-layer-naming-inference) 已归档 2026-05-07
 > - stderr分离（cg-stderr-model）已归档
-> - **新增**: C13/C14 基于E2E第二轮测试反馈
+> - **E2E Round3**: 发现新问题（CLI UX + source-root检测）
 
 ### 1.3 代码实现验证
 
@@ -702,11 +703,483 @@ cg-<功能名>
 
 ---
 
-**文档版本**: v1.4 (2026-05-07 E2E Round2更新)
+**文档版本**: v1.5 (2026-05-07 E2E Round3更新)
 **创建日期**: 2026-05-05
-**最后更新**: 2026-05-07 (新增C13/C14任务规划，基于E2E第二轮测试反馈)
+**最后更新**: 2026-05-07 (E2E Round3发现，新增C15/C16任务规划)
 **关联文档**:
 - [hybrid-layer-inference-design.md](../../packages/codegraph/docs/design-codegraph/hybrid-layer-inference-design.md)
 - [develop_changes_plan.md](./develop_changes_plan.md)
 - [codegraph-e2e-experience-report-round2.md](../e2e-report/codegraph-e2e-experience-report-round2.md)
+- [codegraph-e2e-experience-report-round3.md](../e2e-report/codegraph-e2e-experience-report-round3.md)
 **用途**: 创建M1剩余工作OpenSpec change的依据
+
+---
+
+## 附录 C: E2E Round3测试反馈 (2026-05-07)
+
+### C.1 测试评分变化
+
+| Round | 评分 | 主要发现 | 状态 |
+|-------|------|----------|------|
+| Round1 | 8.65/10 | stdout噪音、jq失败 | ✅ 已解决 |
+| Round2 | 9.5/10 | JSON纯度达标、stderr分离 | ✅ 已验证 |
+| **Round3** | **7.5/10** | CLI UX问题、source-root检测失败 | 🔴 新问题 |
+
+### C.2 Round3发现的问题
+
+#### 🔴 P1问题（阻塞发布）
+
+| 问题 | 现象 | 根因分析 | 影响 |
+|------|------|----------|------|
+| **source-root默认值** | `layers`命令失败，需手动指定`--source-root packages/codegraph/src` | CLI默认值`'src'`阻止auto-detect触发 | Monorepo用户无法使用 |
+| **无效命令无提示** | `codegraph invalid-command` → 空输出 | CLI未捕获CACError | UX差，用户困惑 |
+| **错误显示堆栈** | `codegraph analyze --invalid-flag` → 原始Node.js堆栈 | CACError未包装 | 非专业用户无法理解 |
+
+#### 🟡 P2问题（影响体验）
+
+| 问题 | 现象 | 根因分析 | 影响 |
+|------|------|----------|------|
+| **路径格式不直观** | scope/impact需要完整路径`packages/codegraph/src/...` | 无路径提示帮助 | 用户不知道正确格式 |
+| **缺少参数堆栈** | 缺少必需参数 → 原始堆栈 | 同P1错误处理问题 | 同上 |
+
+### C.3 Round3通过项
+
+| 测试项 | 状态 | 备注 |
+|--------|------|------|
+| JSON/stderr分离 | ✅ PASS | stdout纯JSON，stderr含警告，jq兼容 |
+| C14语义命名 | ✅ PASS | Layer 5/6/7显示"API Layer"、"CLI Layer" |
+| Verbose输出 | ✅ PASS | Pattern匹配信息正确显示 |
+| analyze命令 | ✅ PASS | 1.5s执行，50%压缩 |
+| update命令 | ✅ PASS | 178ms增量更新 |
+| Performance | ✅ PASS | 所有命令<2s |
+
+---
+
+## 附录 D: Source-Root检测深度分析
+
+### D.1 用户讨论愿景回顾
+
+> **原始讨论**: 无论repo结构如何（规范repo `src/`、monorepo `packages/*/src`、不规范命名），codegraph都应该能检测或提供fallback情报给agent。
+
+### D.2 当前代码三层Bug分析
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Source-Root检测流程                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  CLI层 (layers.ts line 72)                                  │
+│  ├─ 默认值: sourceRoot: options?.sourceRoot ?? 'src'        │
+│  │  ❌ Bug: 硬编码'src'传入API                               │
+│  └─ 结果: auto-detect条件永远false                          │
+│                                                             │
+│  API层 (layers/index.ts line 156)                           │
+│  ├─ 条件: if (!options?.sourceRoot && options?.projectRoot) │
+│  │  ❌ Bug: 'src'已传入，条件不触发                          │
+│  └─ 结果: 直接使用默认值'src'                                │
+│                                                             │
+│  Candidate层 (getCandidateDirectories line 108)             │
+│  ├─ 逻辑: 从FILE nodes提取first-level subdirectories        │
+│  │  ❌ Bug: monorepo只得到['packages']                      │
+│  │  ❌ Bug: 无法检测packages/*/src深层结构                   │
+│  └─ 结果: 候选列表不包含真实source-root                      │
+│                                                             │
+│  detectSourceRoot (source-root.ts)                          │
+│  ├─ 设计: 加权信号评分 (src+15, package.json+10, tsconfig+8)│
+│  ├─ ✅ 评分算法正确                                          │
+│  └─ ❌ 问题: 输入candidates不正确，评分无用                  │
+│                                                             │
+│  情报输出                                                    │
+│  ├─ ❌ Bug: candidates/confidence不返回CLI                  │
+│  └─ ❌ Bug: agent无法获得决策情报                            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### D.3 与愿景差距对比
+
+| 愿景场景 | 当前实现 | Gap分析 |
+|----------|----------|---------|
+| **规范repo** `src/` | ✅ 理论可检测 | CLI Bug阻止触发，需修复默认值传递 |
+| **monorepo** `packages/*/src` | ❌ 完全失败 | Candidate生成不支持深层检测 |
+| **不规范repo** | ❌ 无情报 | confidence未暴露给用户/agent |
+| **给agent情报** | ❌ 情报链断裂 | 检测结果未返回上层 |
+
+### D.4 正确检测策略设计
+
+```typescript
+// 1. CLI层：不传默认值，让API决定
+// layers.ts
+sourceRoot: options?.sourceRoot  // 不设默认！
+
+// 2. API层：正确逻辑
+// layers/index.ts
+let sourceRoot = options?.sourceRoot;  // 用户显式传入
+if (!sourceRoot) {
+  // Auto-detect: 递归搜索候选
+  const candidates = discoverSourceRootCandidates(graph, projectRoot, {
+    maxDepth: 3,  // 支持 packages/*/src
+    signals: SIGNAL_WEIGHTS
+  });
+  const result = detectSourceRoot(candidates);
+  sourceRoot = result.sourceRoot || 'src';  // 最终fallback
+  
+  // 返回情报给上层（重要！）
+  layersOptions.sourceRootMeta = {
+    detected: result.sourceRoot !== 'src',
+    confidence: result.confidence,
+    candidates: result.candidates.slice(0, 5),  // Top 5候选
+  };
+}
+
+// 3. 深度搜索candidates
+// 新函数
+function discoverSourceRootCandidates(graph, root, options) {
+  // 从FILE nodes遍历，提取深层候选
+  // packages/codegraph/src/analyzer/index.ts
+  // → candidates: ['packages/codegraph/src', 'packages/codegraph']
+  
+  // 同时检测monorepo结构
+  // if (fs.existsSync('packages')) → 遍历packages/*/src
+}
+```
+
+### D.5 情报输出设计
+
+```typescript
+// LayersResult扩展
+interface LayersResult {
+  // 现有字段...
+  sourceRootMeta?: {
+    detected: boolean;      // 是否自动检测
+    confidence: number;     // 0-1置信度
+    candidates: CandidateInfo[];  // Top 5候选
+    fallbackUsed: boolean;  // 是否使用fallback
+  };
+}
+
+// CLI输出示例
+$ codegraph layers --verbose
+Architecture Layers
+
+Source Root: packages/codegraph/src (auto-detected, confidence: 0.9)
+  Candidates: packages/codegraph/src (33), packages/codegraph (18), ...
+
+Layer 1: Foundation...
+```
+
+---
+
+## 附录 E: 新Change规划 (C15/C16)
+
+### E.1 Change拆分总表（更新）
+
+| Change ID | Change名称 | 类型 | 覆盖问题 | 预估工时 | 优先级 | 状态 |
+|-----------|-----------|------|----------|---------|--------|------|
+| C12 | cg-mvp-documentation | [DOC] | M1文档完善 | 2h | P2 | ⚠️ 待执行 |
+| **C15** | **cg-cli-ux-improvement** | [CLI] | P1 CLI错误处理 + P2路径帮助 | 2-3h | **P1** | 📋 待规划 |
+| **C16** | **cg-source-root-auto-detect** | [CORE] | P1 source-root检测 + 情报输出 | 2-3h | **P1** | 📋 待规划 |
+
+**剩余总工时**: 约7-8h (C12+C15+C16)
+
+### E.2 C15: cg-cli-ux-improvement 详细规划
+
+**名称**: `cg-cli-ux-improvement`
+
+**目标**: 修复CLI错误处理，提供友好用户体验
+
+**覆盖问题**:
+- P1-2: 无效命令无提示
+- P1-3: 错误显示原始堆栈
+- P2-1: 路径格式不直观
+- P2-2: 缺少参数堆栈
+
+**实现方案**:
+
+```typescript
+// 1. CLI入口错误包装
+// bin/codegraph.ts
+cli.on('error', (error) => {
+  if (error instanceof CACError) {
+    // 转换为友好消息
+    const friendlyError = transformCACError(error);
+    outputError(friendlyError, options?.json);
+    return;
+  }
+  // 其他错误
+  outputError(error, options?.json);
+});
+
+// 2. CACError转换函数
+function transformCACError(error: CACError): CliError {
+  if (error.message.includes('Unknown option')) {
+    return {
+      code: 'E_CLI_INVALID_FLAG',
+      message: `Invalid flag '${extractFlag(error)}'. Available flags: --json, --source-root, --verbose`,
+    };
+  }
+  if (error.message.includes('Unknown command')) {
+    return {
+      code: 'E_CLI_INVALID_COMMAND',
+      message: `Unknown command '${extractCommand(error)}'. Available commands: analyze, update, layers, scope, impact`,
+    };
+  }
+  // ...
+}
+
+// 3. 路径格式帮助
+// commands/scope.ts / impact.ts
+if (!targetExists) {
+  return {
+    code: 'E_TARGET_NOT_FOUND',
+    message: `Target not found: ${target}. Try full path format: packages/<pkg>/src/<file>.ts`,
+    suggestion: 'Use --list-targets to see available targets',
+  };
+}
+```
+
+**交付文件**:
+```
+packages/codegraph/bin/
+├── codegraph.ts          # 错误包装入口
+├── error-transformer.ts  # CACError转换函数
+└── output-handlers.ts    # 错误输出处理
+
+packages/codegraph/src/cli/commands/
+├── scope.ts              # 路径格式帮助
+└── impact.ts             # 路径格式帮助
+```
+
+**验证标准**:
+- 无效命令显示可用命令列表
+- 无效flag显示可用flag列表
+- 路径错误提示正确格式
+- 无原始堆栈显示
+
+**预计工期**: 2-3h
+
+---
+
+### E.3 C16: cg-source-root-auto-detect 详细规划
+
+**名称**: `cg-source-root-auto-detect`
+
+**目标**: 重构source-root检测逻辑，支持多种repo结构 + 情报输出
+
+**覆盖问题**:
+- P1-1: source-root默认值阻止检测
+- 深层候选生成（monorepo支持）
+- 情报输出链（agent决策支持）
+
+**实现方案**:
+
+```typescript
+// 1. CLI层修复
+// commands/layers.ts
+const layersOptions: LayersOptions = {
+  sourceRoot: options?.sourceRoot,  // 不设默认！
+  // ...
+};
+
+// 2. API层重构
+// layers/index.ts
+export function getArchitectureLayers(graph, options) {
+  let sourceRoot = options?.sourceRoot;
+  let sourceRootMeta: SourceRootMeta | undefined;
+  
+  if (!sourceRoot) {
+    // 新增：深度候选发现
+    const candidates = discoverSourceRootCandidates(graph, projectRoot, {
+      maxDepth: 3,
+      monorepoPatterns: ['packages/*/src', 'apps/*/src'],
+    });
+    
+    const result = detectSourceRoot(candidates);
+    sourceRoot = result.sourceRoot || 'src';
+    
+    // 情报输出（关键！）
+    sourceRootMeta = {
+      detected: result.sourceRoot !== 'src',
+      confidence: result.confidence,
+      topCandidates: result.candidates.slice(0, 5),
+      fallbackUsed: result.confidence < 0.3,
+    };
+  }
+  
+  // 返回情报
+  return {
+    ...layersResult,
+    sourceRootMeta,
+  };
+}
+
+// 3. 深度候选发现函数
+// layers/inference/source-root-discovery.ts (NEW)
+export function discoverSourceRootCandidates(
+  graph: CodeGraph,
+  projectRoot: string,
+  options: DiscoveryOptions
+): string[] {
+  const candidates: Set<string> = new Set();
+  
+  // 3.1 从FILE nodes提取候选
+  for (const [, node] of graph.nodes) {
+    if (node.type === NodeType.FILE && node.path) {
+      // 深度提取: packages/codegraph/src/analyzer/...
+      // → ['packages/codegraph/src', 'packages/codegraph', 'src']
+      extractCandidatesFromPath(node.path, projectRoot, options.maxDepth)
+        .forEach(c => candidates.add(c));
+    }
+  }
+  
+  // 3.2 Monorepo结构检测
+  if (fs.existsSync(path.join(projectRoot, 'packages'))) {
+    const packages = fs.readdirSync(path.join(projectRoot, 'packages'));
+    packages.forEach(pkg => {
+      const pkgSrc = path.join(projectRoot, 'packages', pkg, 'src');
+      if (fs.existsSync(pkgSrc)) {
+        candidates.add(pkgSrc);
+      }
+    });
+  }
+  
+  // 3.3 标准结构检测
+  ['src', 'lib', 'app'].forEach(name => {
+    const dir = path.join(projectRoot, name);
+    if (fs.existsSync(dir)) {
+      candidates.add(dir);
+    }
+  });
+  
+  return Array.from(candidates);
+}
+
+// 4. 情报输出类型
+// types/layers-types.ts
+export interface SourceRootMeta {
+  /** 是否自动检测成功 */
+  detected: boolean;
+  /** 置信度 0-1 */
+  confidence: number;
+  /** Top 5候选及其得分 */
+  topCandidates: Array<{ path: string; score: number }>;
+  /** 是否使用fallback */
+  fallbackUsed: boolean;
+}
+```
+
+**交付文件**:
+```
+packages/codegraph/src/api/layers/
+├── index.ts                    # API层重构
+├── inference/
+│   ├── source-root.ts          # 现有评分逻辑（保持）
+│   ├── source-root-discovery.ts # NEW: 深度候选发现
+│   └── index.ts                # 导出
+
+packages/codegraph/src/api/types/
+├── layers-types.ts             # SourceRootMeta类型
+
+packages/codegraph/src/cli/commands/
+├── layers.ts                   # CLI层修复（不设默认值）
+
+packages/codegraph/src/cli/output/
+├── layers-formatter.ts         # 情报输出展示
+```
+
+**验证场景**:
+
+| 场景 | 输入 | 预期输出 |
+|------|------|----------|
+| 规范repo `src/` | 无sourceRoot参数 | `src/` (confidence: 0.9) |
+| Monorepo `packages/codegraph/src` | 无sourceRoot参数 | `packages/codegraph/src` (confidence: 0.85) |
+| 不规范repo `lib/` | 无sourceRoot参数 | `lib/` (confidence: 0.7) |
+| 深层monorepo `packages/*/src` | 无sourceRoot参数 | 自动选择第一个package |
+| 无匹配 | 无sourceRoot参数 | `src/` fallback (confidence: 0, fallbackUsed: true) |
+
+**JSON情报输出示例**:
+```json
+{
+  "success": true,
+  "sourceRootMeta": {
+    "detected": true,
+    "confidence": 0.85,
+    "topCandidates": [
+      { "path": "packages/codegraph/src", "score": 33 },
+      { "path": "packages/codegraph", "score": 18 }
+    ],
+    "fallbackUsed": false
+  },
+  "layers": [...]
+}
+```
+
+**预计工期**: 2-3h
+
+---
+
+### E.4 Change创建顺序建议（更新）
+
+```
+⚠️ Phase F: E2E Round3问题修复（新规划）
+┌─────────────────────────────────────────────────────────────┐
+│  7. cg-cli-ux-improvement [CLI] 📋 ← P1                      │
+│     ├─ CLI错误包装                                            │
+│     ├─ CACError友好转换                                       │
+│     ├─ 路径格式帮助                                           │
+│     预估: 2-3h                                                │
+│                                                             │
+│  8. cg-source-root-auto-detect [CORE] 📋 ← P1                │
+│     ├─ CLI默认值修复                                          │
+│     ├─ 深度候选发现                                           │
+│     ├─ 情报输出                                               │
+│     预估: 2-3h                                                │
+│                                                             │
+│  9. cg-mvp-documentation [DOC] ⚠️ ← P2                       │
+│     预估: 2h                                                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### E.5 执行建议表（更新）
+
+| 执行阶段 | Change | 工时 | 并行度 | 状态 | 备注 |
+|---------|--------|------|--------|------|------|
+| ✅ 已完成 | C1-C14 | 34h | - | ✅ | 全部归档 |
+| ⚠️ Phase F-1 | **cg-cli-ux-improvement** | 2-3h | 串行 | 📋 **推荐先执行** | P1阻塞问题 |
+| ⚠️ Phase F-2 | **cg-source-root-auto-detect** | 2-3h | 串行 | 📋 **推荐次执行** | P1阻塞问题 |
+| ⚠️ Phase F-3 | cg-mvp-documentation | 2h | 串行 | ⚠️ 最后执行 | M1文档 |
+
+**剩余总工时**: 约6-8h
+
+---
+
+### E.6 M1完整验收标准（更新）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    M1验收标准 (完整版)                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ✅ 已达成:                                                   │
+│  ├─ 测试覆盖率 ≥ 80% (92.74%)                                │
+│  ├─ E2E测试全通过 (1140 tests)                               │
+│  ├─ stderr分离验证 (stdout纯JSON)                            │
+│  ├─ JSON纯度验证 (jq兼容)                                     │
+│  ├─ 复杂度计算实现 (C13归档)                                  │
+│  └─ Layer命名推断实现 (C14归档)                               │
+│                                                             │
+│  ⚠️ 待达成:                                                   │
+│  ├─ CLI错误友好提示 (C15)                                     │
+│  ├─ Source-root自动检测 (C16)                                 │
+│  ├─ 情报输出给agent (C16)                                     │
+│  └─ 文档覆盖所有M1功能 (C12)                                  │
+│                                                             │
+│  📊 E2E评分追踪:                                              │
+│  ├─ Round1: 8.65/10                                          │
+│  ├─ Round2: 9.5/10 ✅                                        │
+│  ├─ Round3: 7.5/10 🔴 (新问题发现)                           │
+│  └─ 目标: Round4 ≥ 9.0/10 (修复C15/C16后)                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
