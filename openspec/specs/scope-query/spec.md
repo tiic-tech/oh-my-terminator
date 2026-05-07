@@ -113,19 +113,48 @@ The system SHALL find associated test files using metadata.testFile or naming co
 
 ### Requirement: Scope query returns complexity aggregation
 
-The system SHALL aggregate complexity from MODULE nodes. When no MODULE data exists, MUST return "unknown" (A6 resolution).
+The system SHALL aggregate complexity from MODULE nodes. When MODULE nodes have complexity metadata, MUST return calculated values instead of "unknown".
 
 #### Scenario: FILE complexity aggregation
 - **WHEN** file has MODULE nodes with complexity values 3, 5, 7
 - **THEN** system returns `{ level: "medium", value: 15 }`
+- **AND** level is derived from total value using threshold rules
 
 #### Scenario: MODULE complexity direct
-- **WHEN** MODULE node has `metadata.complexity = 8`
+- **WHEN** MODULE node has `metadata.complexity = { level: "medium", value: 8 }`
 - **THEN** system returns `{ level: "medium", value: 8 }`
 
 #### Scenario: No MODULE data
 - **WHEN** file has no MODULE nodes or no complexity metadata
 - **THEN** system returns `{ level: "unknown", value: 0 }`
+
+#### Scenario: Mixed MODULE complexity levels
+- **WHEN** file has MODULE nodes with levels ["low", "medium", "high"]
+- **THEN** system aggregates values and derives file-level level from total
+- **AND** does NOT average or max individual levels
+
+#### Scenario: Complexity threshold application for file aggregation
+- **WHEN** file-level total complexity is calculated
+- **THEN** system applies threshold rules: 1-5 = "low", 6-15 = "medium", 16-25 = "high", >=26 = "critical"
+
+#### Scenario: File with only class MODULE nodes
+- **WHEN** file has MODULE nodes with kind='class' only (no functions)
+- **THEN** system returns `{ level: "unknown", value: 0 }` (classes have no complexity)
+
+#### Scenario: File with mixed MODULE kinds
+- **WHEN** file has MODULE nodes: class (no complexity), function (complexity=8), variable (no complexity)
+- **THEN** system aggregates only function complexity
+- **AND** returns `{ level: "medium", value: 8 }`
+
+#### Scenario: Threshold boundary validation
+- **WHEN** file-level total is exactly 5
+- **THEN** level = "low" (upper boundary)
+- **WHEN** file-level total is exactly 6
+- **THEN** level = "medium" (lower boundary)
+- **WHEN** file-level total is exactly 15
+- **THEN** level = "medium" (upper boundary)
+- **WHEN** file-level total is exactly 16
+- **THEN** level = "high" (lower boundary)
 
 ### Requirement: Scope query returns deprecated status
 
@@ -181,7 +210,31 @@ The system SHALL return data in a format that maps to CLI JSON output (C10 integ
 
 #### Scenario: Error structure
 - **WHEN** target not found
-- **THEN** returns `success: false`, `error.code = "E001_TARGET_NOT_FOUND"`, `error.suggestion`## MODIFIED Requirements
+- **THEN** returns `success: false`, `error.code = "E001_TARGET_NOT_FOUND"`, `error.suggestion`
+
+### Requirement: Path format hint on target not found
+
+The system SHALL provide path format hints when target path does not match expected format.
+
+#### Scenario: Path format hint for FILE not found
+- **WHEN** user queries `getScope("FILE:src/analyzer/index.ts")` and target not found
+- **THEN** error message includes: `Hint: Use full path format: packages/<pkg>/src/<file>.ts`
+- **AND** suggestion mentions checking path relative to project root
+
+#### Scenario: Path format hint for plain path not found
+- **WHEN** user queries `getScope("src/analyzer/index.ts")` and target not found
+- **THEN** error message includes: `Hint: In monorepos, use packages/codegraph/src/analyzer/index.ts`
+- **AND** suggests checking actual file location
+
+#### Scenario: Path format hint suppression for valid format
+- **WHEN** user uses correct path format and target not found
+- **THEN** error message shows simple "Target not found" without format hint
+- **AND** indicates file may not exist in analyzed codebase
+
+#### Scenario: CLI error output with hint
+- **WHEN** scope command target not found via CLI
+- **THEN** stderr shows friendly error with path hint
+- **AND** JSON output includes `error.suggestion` field with hint## MODIFIED Requirements
 
 ### Requirement: Scope query returns complexity aggregation
 
