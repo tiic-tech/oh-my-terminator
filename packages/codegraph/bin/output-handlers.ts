@@ -174,8 +174,10 @@ export function outputScope(result: ScopeResult | ScopeError | CliError, json?: 
  *
  * Routes to appropriate formatter based on result type and json flag.
  * Handles both LayersError and CliError.
+ *
+ * @param verbose - Show matched patterns for inferred layer names
  */
-export function outputLayers(result: LayersResult | LayersError | CliError, json?: boolean): void {
+export function outputLayers(result: LayersResult | LayersError | CliError, json?: boolean, verbose?: boolean): void {
   const mode = detectMode({ json });
 
   if (!result.success) {
@@ -205,7 +207,7 @@ export function outputLayers(result: LayersResult | LayersError | CliError, json
   if (json) {
     routeOutput(formatLayersJson(result as LayersResult), mode);
   } else {
-    routeOutput(formatLayersText(result as LayersResult), mode);
+    routeOutput(formatLayersText(result as LayersResult, verbose), mode);
   }
 }
 

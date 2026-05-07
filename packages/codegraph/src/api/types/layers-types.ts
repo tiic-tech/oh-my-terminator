@@ -65,6 +65,15 @@ export interface LayerAssignment {
   groups: GroupStats[];
   /** Confidence score (0-100, higher = more reliable assignment) */
   confidence: number;
+  /** Naming inference info for verbose output (optional, layers 5+ only) */
+  namingInfo?: {
+    /** Pattern that matched for role inference */
+    pattern: string;
+    /** Whether pattern was anchored (^...$) for exact match */
+    isExactMatch: boolean;
+    /** Final priority after exact match boost */
+    finalPriority: number;
+  };
 }
 
 /**
@@ -192,4 +201,6 @@ export interface LayersOptions {
   projectRoot?: string;
   /** Explicit layer threshold (overrides projectRoot-based calculation) */
   threshold?: number;
+  /** Show matched patterns for inferred layer names (verbose mode) */
+  verbose?: boolean;
 }

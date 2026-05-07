@@ -115,17 +115,20 @@ cli.command('scope <target> [cwd]', 'Query scope for a file, module, or external
 cli.command('layers [cwd]', 'Show architecture layer inference')
   .option('--json', 'Output in JSON format')
   .option('--source-root <path>', 'Source root directory (default: src)')
+  .option('--verbose', 'Show matched patterns for inferred layer names')
   .example('codegraph layers')
   .example('codegraph layers --source-root packages/app/src')
+  .example('codegraph layers --verbose')
   .example('codegraph layers --json')
-  .action(async (cwd?: string, options?: { json?: boolean; sourceRoot?: string }) => {
+  .action(async (cwd?: string, options?: { json?: boolean; sourceRoot?: string; verbose?: boolean }) => {
     const workDir = cwd || process.cwd();
     try {
       const result = await layersCommand(workDir, {
         json: options?.json,
         sourceRoot: options?.sourceRoot,
+        verbose: options?.verbose,
       });
-      outputLayers(result, options?.json);
+      outputLayers(result, options?.json, options?.verbose);
     } catch (error) {
       outputError(error, options?.json);
     }

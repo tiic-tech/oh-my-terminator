@@ -11,6 +11,30 @@
 
 import type { CompressionOptions, CompressionConfig } from '../types.js';
 import { CliErrorCode } from '../types.js';
+import type { NamingRule } from '../api/layers/inference/naming-rules.js';
+import {
+  type NamingRulesValidationResult,
+  validateNamingRules,
+} from './naming-rules-config.js';
+
+// ============================================================================
+// Task 3.1: Full Config Schema (Combined Compression + NamingRules)
+// ============================================================================
+
+/**
+ * Full configuration schema combining compression and naming rules
+ *
+ * WHY: Single source of truth for all config options.
+ * Naming rules are optional - user can omit and get defaults.
+ *
+ * @see design.md Decision 4 - namingRules field added to config schema
+ */
+export interface CodeGraphConfig {
+  /** Compression options (required) */
+  compression: CompressionOptions;
+  /** Optional naming rules for layer inference (merged with defaults) */
+  namingRules?: NamingRule[];
+}
 
 // ============================================================================
 // Task 3.6: Default Compression Options
@@ -214,5 +238,81 @@ export function validateCompressionConfig(config: unknown): ValidationResult {
   return {
     success: true,
     config: validatedConfig,
+  };
+}
+
+// ============================================================================
+// Task 3.2: Full Config Validation (Compression + NamingRules)
+// ============================================================================
+
+/**
+ * Full config validation result with naming rules
+ */
+export interface FullValidationSuccess {
+  success: true;
+  config: CompressionConfig;
+  /** Validated naming rules (empty if no config) */
+  namingRules: NamingRule[];
+}
+
+export interface FullValidationFailure {
+  success: false;
+  error: {
+    code: CliErrorCode.E_INVALID_CONFIG;
+    message: string;
+  };
+}
+
+export type FullValidationResult = FullValidationSuccess | FullValidationFailure;
+
+/**
+ * Validate full configuration including naming rules
+ *
+ * WHY: Single validation entry point for all config options.
+ * Naming rules are validated separately and returned even if some are invalid.
+ *
+ * @param config - Unknown config object to validate
+ * @returns FullValidationResult with config and naming rules
+ *
+ * @example
+ * ```ts
+ * const result = validateFullConfig({
+ *   compression: { enabled: true },
+ *   namingRules: [{ pattern: '^api$', role: 'API Layer', priority: 15 }]
+ * });
+ * if (result.success) {
+ *   console.log(result.config.compression.enabled); // true
+ *   console.log(result.namingRules.length); // 1 + defaults
+ * }
+ * ```
+ */
+export function validateFullConfig(config: unknown): FullValidationResult {
+  // First validate compression config (required)
+  const compressionResult = validateCompressionConfig(config);
+
+  if (!compressionResult.success) {
+    // Return FullValidationFailure (same structure as ValidationFailure)
+    // TypeScript narrowing: compressionResult is ValidationFailure here
+    const failed = compressionResult as ValidationFailure;
+    return {
+      success: false,
+      error: failed.error,
+    };
+  }
+
+  // Validate naming rules (optional)
+  const cfg = config as Record<string, unknown>;
+  let namingRules: NamingRule[] = [];
+
+  if ('namingRules' in cfg) {
+    const rulesResult: NamingRulesValidationResult = validateNamingRules(cfg.namingRules);
+    namingRules = rulesResult.validRules;
+    // Invalid rules already logged via console.warn in validateNamingRules
+  }
+
+  return {
+    success: true,
+    config: compressionResult.config,
+    namingRules,
   };
 }

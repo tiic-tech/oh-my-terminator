@@ -87,3 +87,23 @@ export {
   type SuggestionType,
   type SuggestionContext,
 } from './fallback.js';
+
+// Naming rules for layer role inference
+export {
+  DEFAULT_NAMING_RULES,
+  type NamingRule,
+} from './naming-rules.js';
+
+// Layer role name inference (Decision 5 & 6)
+// Types and matching logic are in separate files for single responsibility
+export {
+  inferLayerRoleNames,
+  type LayerRoleResult,
+  type MatchedRuleInfo,
+} from './layer-naming.js';
+
+// Pattern matching helpers (exported for testing)
+export {
+  isAnchoredPattern,
+  matchGroupToRule,
+} from './pattern-matching.js';

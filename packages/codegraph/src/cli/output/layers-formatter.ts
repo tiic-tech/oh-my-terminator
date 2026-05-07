@@ -60,9 +60,10 @@ export function formatLayersErrorJson(error: LayersError): OutputResult {
  * Format LayersResult as OutputResult with human-readable text
  *
  * @param result - Layers analysis result from CLI layers command
+ * @param verbose - Show matched patterns for inferred layer names (optional)
  * @returns OutputResult with text primary content and warnings extracted
  */
-export function formatLayersText(result: LayersResult): OutputResult {
+export function formatLayersText(result: LayersResult, verbose?: boolean): OutputResult {
   const lines: string[] = [];
 
   // Header
@@ -72,7 +73,15 @@ export function formatLayersText(result: LayersResult): OutputResult {
   // Layers
   if (result.layers.length > 0) {
     for (const layer of result.layers) {
+      // Base layer info
       lines.push(`Layer ${layer.layer}: ${layer.role}`);
+
+      // Verbose: show naming info for inferred layers (layers 5+)
+      if (verbose && layer.namingInfo) {
+        const matchType = layer.namingInfo.isExactMatch ? 'exact' : 'partial';
+        lines.push(`  [Pattern: ${layer.namingInfo.pattern} (${matchType}, priority: ${layer.namingInfo.finalPriority})]`);
+      }
+
       for (const group of layer.groups) {
         lines.push(`  - ${group.name} (${group.fileCount} files)`);
       }

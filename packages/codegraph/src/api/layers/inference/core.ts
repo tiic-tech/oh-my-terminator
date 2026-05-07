@@ -24,6 +24,7 @@ import {
   countAmbiguousPairs,
 } from './confidence.js';
 import { detectCycles } from './dependency-score.js';
+import { inferLayerRoleNames } from './layer-naming.js';
 
 /**
  * Default layer threshold for backward compatibility.
@@ -63,6 +64,43 @@ export interface InferenceContext {
   ambiguousPairCount: number;
   /** Total number of groups */
   groupCount: number;
+}
+
+/**
+ * Determine layer role name with naming info
+ *
+ * WHY: Layers 1-4 use predefined names (LAYER_ROLE_NAMES), layers 5+ infer from group names.
+ * HOW: Pattern matching for semantic role names. Store naming info for verbose output.
+ *
+ * Extracted to file scope for testability (was nested inside inferArchitectureLayers).
+ *
+ * @param layerNum - Layer number (1-N)
+ * @param layerGroups - Groups in this layer
+ * @returns Object with role name and optional naming info for verbose display
+ */
+export function determineLayerRole(layerNum: number, layerGroups: GroupStats[]): { role: string; namingInfo?: LayerAssignment['namingInfo'] } {
+  // Layers 1-4: Use predefined names (historical convention)
+  if (layerNum <= 4 && LAYER_ROLE_NAMES[layerNum]) {
+    return { role: LAYER_ROLE_NAMES[layerNum] };
+  }
+
+  // Layers 5+: Infer semantic name from group names
+  const groupNames = layerGroups.map(g => g.name);
+  const result = inferLayerRoleNames(groupNames, layerNum);
+
+  // Extract naming info for verbose output (only when matchedRule exists)
+  if (result.matchedRule) {
+    return {
+      role: result.role,
+      namingInfo: {
+        pattern: result.matchedRule.pattern,
+        isExactMatch: result.matchedRule.isExactMatch,
+        finalPriority: result.matchedRule.finalPriority,
+      },
+    };
+  }
+
+  return { role: result.role };
 }
 
 /**
@@ -136,11 +174,13 @@ export function inferArchitectureLayers(
 
     // C8-3: Start new layer if score difference > threshold
     if (scoreDiff > threshold && currentLayerGroups.length > 0) {
+      const { role, namingInfo } = determineLayerRole(currentLayer, currentLayerGroups);
       layers.push({
         layer: currentLayer,
-        role: LAYER_ROLE_NAMES[currentLayer] || `Layer ${currentLayer}`,
+        role,
         groups: currentLayerGroups,
         confidence,
+        namingInfo,
       });
       currentLayer++;
       currentLayerGroups = [];
@@ -159,11 +199,13 @@ export function inferArchitectureLayers(
 
   // Add final layer
   if (currentLayerGroups.length > 0) {
+    const { role, namingInfo } = determineLayerRole(currentLayer, currentLayerGroups);
     layers.push({
       layer: currentLayer,
-      role: LAYER_ROLE_NAMES[currentLayer] || `Layer ${currentLayer}`,
+      role,
       groups: currentLayerGroups,
       confidence,
+      namingInfo,
     });
   }
 

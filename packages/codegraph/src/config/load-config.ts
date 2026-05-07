@@ -15,11 +15,20 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CompressionConfig } from '../types.js';
 import { CliErrorCode } from '../types.js';
+import type { NamingRule } from '../api/layers/inference/naming-rules.js';
 import {
   validateCompressionConfig,
+  validateFullConfig,
   DEFAULT_COMPRESSION_CONFIG,
   type ValidationResult,
+  type ValidationFailure,
+  type FullValidationResult,
+  type FullValidationFailure,
 } from './validate-config.js';
+import {
+  mergeNamingRules,
+  DEFAULT_MERGED_NAMING_RULES,
+} from './naming-rules-config.js';
 
 // ============================================================================
 // Task 3.2-3.3: Loading Result Types
@@ -137,11 +146,13 @@ export function loadCompressionConfig(projectPath: string): LoadResult {
 
   if (!validationResult.success) {
     // Validation failed - return error with context
+    // TypeScript narrowing: validationResult is ValidationFailure here
+    const failed = validationResult as ValidationFailure;
     return {
       success: false,
       error: {
         code: CliErrorCode.E_INVALID_CONFIG,
-        message: `Config validation failed: ${validationResult.error.message}`,
+        message: `Config validation failed: ${failed.error.message}`,
       },
     };
   }
@@ -150,5 +161,129 @@ export function loadCompressionConfig(projectPath: string): LoadResult {
   return {
     success: true,
     config: validationResult.config,
+  };
+}
+
+// ============================================================================
+// Task 3.1-3.3: Full Config Loading (Compression + NamingRules)
+// ============================================================================
+
+/**
+ * Result of loading full config when successful
+ */
+export interface FullLoadSuccess {
+  success: true;
+  config: CompressionConfig;
+  /** Merged naming rules (defaults + user rules) */
+  namingRules: NamingRule[];
+}
+
+/**
+ * Result of loading full config when failed
+ */
+export interface FullLoadFailure {
+  success: false;
+  error: {
+    code: CliErrorCode.E_INVALID_CONFIG;
+    message: string;
+  };
+}
+
+/**
+ * Full config loading result (discriminated union)
+ */
+export type FullLoadResult = FullLoadSuccess | FullLoadFailure;
+
+/**
+ * Load full configuration including naming rules
+ *
+ * Behavior:
+ * - If config file missing: return default config + default naming rules
+ * - If config file exists but invalid JSON: return error
+ * - If config file exists with invalid schema: return error
+ * - If config file valid: return validated config + merged naming rules
+ *
+ * @param projectPath - Absolute path to project root directory
+ * @returns FullLoadResult with success/failure discriminated union
+ *
+ * @example
+ * ```ts
+ * const result = loadFullConfig('/path/to/project');
+ * if (result.success) {
+ *   console.log(result.config.compression.enabled); // true
+ *   console.log(result.namingRules.length); // 12 (defaults) + user rules
+ * }
+ * ```
+ */
+export function loadFullConfig(projectPath: string): FullLoadResult {
+  const configFilePath = join(projectPath, CONFIG_FILE_PATH);
+
+  // Task 3.7: Missing config file returns defaults
+  if (!existsSync(configFilePath)) {
+    return {
+      success: true,
+      config: DEFAULT_COMPRESSION_CONFIG,
+      namingRules: DEFAULT_MERGED_NAMING_RULES,
+    };
+  }
+
+  // Read file contents
+  let rawContent: string;
+  try {
+    rawContent = readFileSync(configFilePath, 'utf-8');
+  } catch (readError) {
+    const message =
+      readError instanceof Error
+        ? `Failed to read config file: ${readError.message}`
+        : 'Failed to read config file';
+    return {
+      success: false,
+      error: {
+        code: CliErrorCode.E_INVALID_CONFIG,
+        message,
+      },
+    };
+  }
+
+  // Parse JSON
+  let parsedConfig: unknown;
+  try {
+    parsedConfig = JSON.parse(rawContent);
+  } catch (parseError) {
+    const message =
+      parseError instanceof Error
+        ? `Invalid JSON in config file: ${parseError.message}`
+        : 'Invalid JSON in config file';
+    return {
+      success: false,
+      error: {
+        code: CliErrorCode.E_INVALID_CONFIG,
+        message,
+      },
+    };
+  }
+
+  // Validate using full validation
+  const validationResult: FullValidationResult = validateFullConfig(parsedConfig);
+
+  if (!validationResult.success) {
+    // TypeScript narrowing: validationResult is FullValidationFailure here
+    const failed = validationResult as FullValidationFailure;
+    return {
+      success: false,
+      error: {
+        code: CliErrorCode.E_INVALID_CONFIG,
+        message: `Config validation failed: ${failed.error.message}`,
+      },
+    };
+  }
+
+  // Merge naming rules (defaults + user rules)
+  const mergedNamingRules = mergeNamingRules(validationResult.namingRules);
+
+  return {
+    success: true,
+    config: validationResult.config,
+    namingRules: mergedNamingRules,
   };
 }
