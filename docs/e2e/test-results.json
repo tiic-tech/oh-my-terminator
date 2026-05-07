@@ -1,0 +1,111 @@
+{
+  "agent": "E2E_Tester",
+  "status": "completed",
+  "test_summary": {
+    "flows_tested": 6,
+    "flows_passed": 5,
+    "flows_failed": 0
+  },
+  "issues": [
+    {
+      "id": 1,
+      "title": "types.ts Complexity Rating Incorrect",
+      "severity": "low",
+      "priority": "P2",
+      "type": "feature_gap"
+    },
+    {
+      "id": 2,
+      "title": "Blast Radius Algorithm May Confuse Users",
+      "severity": "low",
+      "priority": "P2",
+      "type": "ux_issue"
+    }
+  ],
+  "evaluation_results": {
+    "dependency_chain_completeness": "PASS",
+    "blast_radius_assessment": "PARTIAL_PASS",
+    "module_level_intelligence": "PASS",
+    "complexity_intelligence": "PARTIAL_PASS",
+    "refactoring_decision_support": "PASS"
+  },
+  "test_data": {
+    "scope_tests": [
+      {
+        "module": "import-extractor.ts",
+        "exports": 1,
+        "imports": 4,
+        "importedBy": 2,
+        "complexity": {"level": "high", "value": 16}
+      },
+      {
+        "module": "class.ts",
+        "exports": 2,
+        "imports": 9,
+        "importedBy": 2,
+        "complexity": {"level": "low", "value": 1}
+      },
+      {
+        "module": "analyzer.ts",
+        "exports": 1,
+        "imports": 5,
+        "importedBy": 8,
+        "complexity": {"level": "high", "value": 24}
+      },
+      {
+        "module": "types.ts",
+        "exports": 37,
+        "imports": 2,
+        "importedBy": 106,
+        "complexity": {"level": "unknown", "value": 0}
+      },
+      {
+        "module": "utils.ts",
+        "exports": 3,
+        "imports": 0,
+        "importedBy": 1,
+        "complexity": {"level": "high", "value": 19}
+      }
+    ],
+    "impact_tests": [
+      {
+        "module": "import-extractor.ts",
+        "blastRadius": "high",
+        "direct": 1,
+        "indirect": 10,
+        "total": 11
+      },
+      {
+        "module": "class.ts",
+        "blastRadius": "medium",
+        "direct": 2,
+        "indirect": 8,
+        "total": 10
+      },
+      {
+        "module": "types.ts",
+        "blastRadius": "high",
+        "direct": 67,
+        "indirect": 51,
+        "total": 118
+      },
+      {
+        "module": "utils.ts",
+        "blastRadius": "high",
+        "direct": 1,
+        "indirect": 11,
+        "total": 12
+      },
+      {
+        "module": "index.ts",
+        "blastRadius": "unknown",
+        "direct": 0,
+        "indirect": 0,
+        "total": 0
+      }
+    ]
+  },
+  "ready_for_release": true,
+  "report_path": "docs/e2e/e2e-report.md",
+  "screenshots_path": null
+}

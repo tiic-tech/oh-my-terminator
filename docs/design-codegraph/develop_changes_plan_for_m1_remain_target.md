@@ -38,6 +38,10 @@
 | P1 | cg-layer-inference-pipeline | archive/2026-05-07-cg-layer-inference-pipeline | ✅ 已完成 (2026-05-07归档) |
 | C10 | cg-cli-query-archive | archive/2026-05-07-cg-cli-query-archive | ✅ 已完成 (2026-05-07归档) |
 | C11 | cg-mvp-test-coverage | - | ✅ 已完成 (2026-05-07验证，92.74%覆盖率) |
+| C13 | cg-complexity-calculation | archive/2026-05-07-cg-complexity-calculation | ✅ 已完成 (2026-05-07归档) |
+| C14 | cg-layer-naming-inference | archive/2026-05-07-cg-layer-naming-inference | ✅ 已完成 (2026-05-07归档) |
+| C15 | cg-cli-ux-improvement | archive/2026-05-07-cg-cli-ux-improvement | ✅ 已完成 (2026-05-07归档) |
+| C16 | cg-source-root-auto-detect | archive/2026-05-08-cg-source-root-auto-detect | ✅ 已完成 (2026-05-08归档) |
 
 ### 1.2 待完成的Change
 
@@ -45,14 +49,21 @@
 |-----------|-----------|---------|--------|------|
 | C13 | cg-complexity-calculation | ✅ 已完成 | P1 | 归档 2026-05-07 |
 | C14 | cg-layer-naming-inference | ✅ 已完成 | P2 | 归档 2026-05-07 |
+| C15 | cg-cli-ux-improvement | ✅ 已完成 | P1 | 归档 2026-05-07 |
+| C16 | cg-source-root-auto-detect | ✅ 已完成 | P1 | 归档 2026-05-07 |
+| **P0-1** | cg-git-upward-search | 📋 待实现 | **P0 BLOCKING** | E2E Round4发现 |
+| **P0-2** | cg-layers-empty-error | 📋 待实现 | **P0 BLOCKING** | E2E Round4发现 |
+| **P1-1** | c17-cycle-detection | 📋 待实现 | **P1 Important** | E2E Round4发现 |
+| **P2-1** | cg-directory-scope | 📋 待实现 | **P2 Enhancement** | E2E Round4发现 |
+| **P2-2** | cg-path-resolution | 📋 待实现 | **P2 Enhancement** | E2E Round4发现 |
+| **P2-3** | cg-type-complexity | 📋 待实现 | **P2 Enhancement** | E2E Round4发现 |
 
-> **更新说明 (2026-05-07 Session End)**: 
-> - C10 (cg-cli-query-archive) 已归档
-> - C11 (cg-mvp-test-coverage) 已完成验证，覆盖率 92.74% > 80%
-> - C13 (cg-complexity-calculation) 已归档 2026-05-07
-> - C14 (cg-layer-naming-inference) 已归档 2026-05-07
-> - stderr分离（cg-stderr-model）已归档
-> - **E2E Round3**: 发现新问题（CLI UX + source-root检测）
+> **更新说明 (2026-05-08 Session)**: 
+> - C15/C16 已归档 (CLI UX + Source-Root Auto-Detect)
+> - **E2E Round4完成**: 发现P0/P1/P2新问题
+> - **P0阻塞**: Git向上搜索 + 空layers错误处理（必须修复后才能release）
+> - **情报准确性**: 100%匹配，Token效率47倍节省
+> - 详细报告见 `docs/e2e-report/codegraph-e2e-experience-report-round4.md`
 
 ### 1.3 代码实现验证
 
@@ -1179,7 +1190,291 @@ packages/codegraph/src/cli/output/
 │  ├─ Round1: 8.65/10                                          │
 │  ├─ Round2: 9.5/10 ✅                                        │
 │  ├─ Round3: 7.5/10 🔴 (新问题发现)                           │
-│  └─ 目标: Round4 ≥ 9.0/10 (修复C15/C16后)                    │
+│  ├─ Round4: 7.8/10 🔴 (P0阻塞问题发现)                       │
+│  └─ 目标: Round5 ≥ 9.0/10 (修复P0问题后)                    │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## F. E2E Round4 发现与新Change规划
+
+> **测试执行日期**: 2026-05-08  
+> **测试视角**: 代码开发Agent第一视角  
+> **测试目标**: 全面评估codegraph是否满足"少量token提供高质量开发情报"目标  
+> **版本**: Post-C15/C16 (CLI UX + Source-Root Auto-Detect)
+
+### F.1 E2E Round4 Executive Summary
+
+| 维度 | 评分 | 说明 |
+|------|------|------|
+| **情报准确性** | 10/10 | exports/imports/依赖链100%匹配实际代码 |
+| **Agent可解析性** | 9/10 | JSON结构清晰，易于程序化处理 |
+| **Token效率** | 10/10 | ~275 tokens vs ~13000 bytes源代码（**47倍节省**） |
+| **决策支持** | 7/10 | 基础情报充足，深度情报缺失 |
+| **能力边界** | 7/10 | FILE/MODULE支持完善，DIRECTORY缺失 |
+| **Auto-Detect** | 4/10 | **关键Bug**：Git检测失败、空layers返回 |
+| **总体评分** | **7.8/10** | 基础功能优秀，auto-detect有阻塞性问题 |
+
+**结论**: CodeGraph核心功能（scope/impact）已达到生产可用标准，但layers命令auto-detect存在阻塞性Bug。
+
+### F.2 Round4 发现的问题清单
+
+#### P0 阻塞问题 (BLOCKING RELEASE)
+
+| 问题 | 描述 | 复现 | 根因 |
+|------|------|------|------|
+| **Git检测失败** | 从子目录运行`layers`返回`E_NO_GIT_REPO` | `cd packages/codegraph && layers` | `isGitRepo(cwd)`不向上搜索`.git` |
+| **空layers误导** | 返回`{"layers":[], "healthScore":100}` | 项目根目录运行未指定source-root | 空groups返回success而非error |
+
+#### P1 重要问题 (AGENT UX)
+
+| 问题 | 描述 | 影响 |
+|------|------|------|
+| **循环依赖缺失** | scope/impact不包含循环依赖检测警告 | Agent无法提前识别危险依赖 |
+
+#### P2 增强问题 (FUTURE ITERATION)
+
+| 问题 | 描述 | 影响 |
+|------|------|------|
+| **DIRECTORY级不支持** | `scope packages/codegraph/src/api`返回错误 | 无法获取目录聚合情报 |
+| **相对路径不支持** | `scope analyzer/index.ts`返回错误 | UX不佳 |
+| **types复杂度unknown** | 纯类型文件返回`complexity: {level: "unknown", value: 0}` | 复杂度评估不完整 |
+
+### F.3 新Change定义
+
+#### Change: cg-git-upward-search (P0 BLOCKING)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-git-upward-search` |
+| **Priority** | P0 BLOCKING |
+| **Core Objective** | CLI命令支持从任意子目录运行，向上搜索Git仓库根目录 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `git/head-commit.ts`: 新增`findGitRepoRoot()`向上搜索`.git`目录
+2. `cli/validation.ts`: 修改`validateGitRepo()`先向上搜索再验证
+3. `cli/validation.ts`: `validateProject()`返回Git根目录路径
+4. 更新所有CLI命令使用返回的`gitRoot`
+
+**Acceptance Criteria**:
+- [ ] 从`packages/codegraph`运行`layers`命令成功
+- [ ] 从`.claude`运行`layers`命令成功
+- [ ] 从项目根目录运行行为不变
+- [ ] 非Git目录返回正确错误码
+- [ ] 单元测试覆盖向上搜索逻辑
+
+**Critical Files**:
+- `/packages/codegraph/src/cli/validation.ts`
+- `/packages/codegraph/src/git/head-commit.ts`
+- `/packages/codegraph/src/cli/commands/layers.ts`
+
+---
+
+#### Change: cg-layers-empty-error (P0 BLOCKING)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-layers-empty-error` |
+| **Priority** | P0 BLOCKING |
+| **Core Objective** | 无有效groups时返回明确错误而非误导性成功结果 |
+| **Estimated Work** | 1.5h |
+
+**Implementation Scope**:
+1. `api/types/index.ts`: 新增`ErrorCode.NO_VALID_GROUPS = 'E007'`
+2. `api/layers/index.ts`: 检测空groups返回LayersError
+3. `api/layers/inference/fallback.ts`: 新增低groupCount建议
+4. 更新CLI错误消息格式化
+
+**Acceptance Criteria**:
+- [ ] 无有效groups返回`success: false`
+- [ ] 错误包含actionable suggestion
+- [ ] 正常groups场景行为不变
+- [ ] 单元测试覆盖空groups检测
+
+**Critical Files**:
+- `/packages/codegraph/src/api/types/index.ts`
+- `/packages/codegraph/src/api/layers/index.ts`
+- `/packages/codegraph/src/cli/commands/layers.ts`
+
+---
+
+#### Change: c17-cycle-detection (P1 IMPORTANT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `c17-scope-impact-circular-dependency-detection` |
+| **Priority** | P1 Important |
+| **Core Objective** | scope/impact输出包含循环依赖检测警告 |
+| **Estimated Work** | 7h |
+
+**Implementation Scope**:
+
+| Category | File | Changes |
+|----------|------|---------|
+| NEW | `src/api/shared/cycle-detection-file.ts` | FILE-level cycle detection |
+| MODIFY | `src/api/impact/format.ts` | Enhanced warnings |
+| MODIFY | `src/api/impact/index.ts` | Integration |
+| MODIFY | `src/api/scope/index.ts` | Integration |
+| MODIFY | `src/api/types/common.ts` | FileCycleInfo type |
+
+**Algorithm**: DFS with recursion stack, severity: minor(2)/moderate(3)/critical(4+)
+
+**Critical Files**:
+- `/packages/codegraph/src/api/layers/inference/cycle-detection.ts` (reference)
+- `/packages/codegraph/src/api/impact/format.ts`
+- `/packages/codegraph/src/api/scope/index.ts`
+
+---
+
+#### Change: cg-directory-scope (P2 ENHANCEMENT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-directory-scope-support` |
+| **Priority** | P2 Enhancement |
+| **Core Objective** | 支持`scope DIRECTORY:path`查询目录聚合情报 |
+| **Estimated Work** | 4h |
+
+**Implementation Scope**:
+1. `api/scope/normalize.ts`: 添加DIRECTORY分支
+2. `api/scope/directory-aggregator.ts`: 聚合算法
+3. `api/types/scope-types.ts`: DirectoryScopeResult类型
+
+---
+
+#### Change: cg-path-resolution (P2 ENHANCEMENT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-path-smart-resolution` |
+| **Priority** | P2 Enhancement |
+| **Core Objective** | 支持相对路径和模糊路径匹配 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `api/scope/path-resolver.ts`: Glob搜索和路径解析
+2. `cli/utils/path-format.ts`: 改进错误提示显示候选路径
+
+---
+
+#### Change: cg-type-complexity (P2 ENHANCEMENT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-type-complexity-calculation` |
+| **Priority** | P2 Enhancement |
+| **Core Objective** | 为interface/type声明提供复杂度评分 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `parser/module-extractor/type-complexity.ts`: 类型复杂度计算器
+2. `parser/module-extractor/node-builder.ts`: buildMetadata集成
+
+### F.4 依赖关系图
+
+```
+P0 (BLOCKING - Must Complete First)
+├── cg-git-upward-search (2h)
+│   └── cg-layers-empty-error (1.5h) ← 依赖git fix才能测试
+│       └── Round5 E2E Verification
+│           └── Release codegraph v0.3.0
+│
+P1 (Important - Agent UX)
+└── c17-cycle-detection (7h) ← 独立，无依赖
+│
+P2 (Enhancement - Future)
+├── cg-type-complexity (2h) ← 独立
+├── cg-path-resolution (2h) ← 独立
+│   └── cg-directory-scope (4h) ← 依赖path resolution
+```
+
+### F.5 工时汇总
+
+| Priority | Change | Work | Dependencies |
+|----------|--------|------|--------------|
+| **P0** | cg-git-upward-search | 2h | None |
+| **P0** | cg-layers-empty-error | 1.5h | cg-git-upward-search |
+| **P1** | c17-cycle-detection | 7h | None |
+| **P2** | cg-directory-scope | 4h | cg-path-resolution |
+| **P2** | cg-path-resolution | 2h | None |
+| **P2** | cg-type-complexity | 2h | None |
+| **Total** | | **18.5h** | |
+
+### F.6 执行顺序建议
+
+| Phase | Change | Work | Status | Notes |
+|-------|--------|------|--------|-------|
+| **Phase 1** | cg-git-upward-search | 2h | 📋 PENDING | P0 blocking |
+| **Phase 1** | cg-layers-empty-error | 1.5h | 📋 PENDING | P0 blocking |
+| **Phase 1** | Round5 E2E | 0.5h | 📋 PENDING | Verification |
+| **Phase 2** | Release v0.3.0 | - | 📋 PENDING | If Round5 passes |
+| **Phase 3** | c17-cycle-detection | 7h | 📋 PENDING | P1 agent UX |
+| **Phase 4** | cg-type-complexity | 2h | 📋 PENDING | P2 quick win |
+| **Phase 4** | cg-path-resolution | 2h | 📋 PENDING | P2 UX |
+| **Phase 4** | cg-directory-scope | 4h | 📋 PENDING | P2 feature |
+
+### F.7 Release Strategy
+
+1. **Immediate**: Fix P0 issues (3.5h) → Round5 E2E → Release v0.3.0
+2. **Post-Release**: Implement c17-cycle-detection (P1)
+3. **v0.4.0**: P2 enhancements (directory scope, path resolution, type complexity)
+
+### F.8 验收标准更新
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    M1验收标准 (完整版 v2)                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ✅ 已达成:                                                   │
+│  ├─ 测试覆盖率 ≥ 80% (92.74%)                                │
+│  ├─ E2E测试全通过 (1140 tests)                               │
+│  ├─ stderr分离验证 (stdout纯JSON)                            │
+│  ├─ JSON纯度验证 (jq兼容)                                     │
+│  ├─ 复杂度计算实现 (C13归档)                                  │
+│  ├─ Layer命名推断实现 (C14归档)                               │
+│  ├─ CLI错误友好提示 (C15归档)                                 │
+│  ├─ Source-root自动检测 (C16归档)                            │
+│  ├─ 情报准确性 100% (E2E Round4验证)                         │
+│  └─ Token效率 47倍节省 (E2E Round4验证)                      │
+│                                                             │
+│  ⚠️ 待达成 (P0修复):                                          │
+│  ├─ Git向上搜索检测 (cg-git-upward-search)                   │
+│  ├─ 空layers错误处理 (cg-layers-empty-error)                 │
+│  └─ Round5 E2E评分 ≥ 9.0/10                                  │
+│                                                             │
+│  📋 后续迭代 (P1/P2):                                         │
+│  ├─ 循环依赖检测 (c17-cycle-detection)                       │
+│  ├─ DIRECTORY级scope (cg-directory-scope)                   │
+│  ├─ 智能路径匹配 (cg-path-resolution)                        │
+│  └─ 类型复杂度计算 (cg-type-complexity)                      │
+│                                                             │
+│  📊 E2E评分追踪:                                              │
+│  ├─ Round1: 8.65/10                                          │
+│  ├─ Round2: 9.5/10 ✅                                        │
+│  ├─ Round3: 7.5/10 🔴 (CLI UX问题)                          │
+│  ├─ Round4: 7.8/10 🔴 (P0阻塞问题发现)                       │
+│  └─ 目标: Round5 ≥ 9.0/10 (修复P0后)                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### F.9 参考资料
+
+| Document | Path |
+|----------|------|
+| E2E Round4 Report | `docs/e2e-report/codegraph-e2e-experience-report-round4.md` |
+| Layers E2E Report | `docs/e2e/e2e-report-cg-layers.md` |
+| Test Results | `docs/e2e/test-results.json` |
+| P0 Analysis Output | Background agent task output |
+| P1 Analysis Output | Background agent task output |
+| P2 Analysis Output | Background agent task output |
+
+---
+
+**文档版本**: v2.0 (包含E2E Round4发现)  
+**创建日期**: 2026-05-08  
+**最后更新**: 2026-05-08 Round4 findings integrated
