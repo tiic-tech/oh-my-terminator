@@ -140,7 +140,9 @@ M1 原始交付物：
 
 ### 3.2 Change 拆分方案
 
-#### Change 1: 核心图数据结构 [CORE]
+#### Change 1: 核心图数据结构 [CORE] ✅ 已完成
+
+> **归档**: `archive/2026-05-03-cg-core-graph-structure`
 
 **名称**: `cg-core-graph-structure`
 
@@ -170,7 +172,9 @@ packages/codegraph/src/
 
 ---
 
-#### Change 2: 文件系统扫描 [CORE]
+#### Change 2: 文件系统扫描 [CORE] ✅ 已完成
+
+> **归档**: `archive/2026-05-03-cg-file-system-scanner`
 
 **名称**: `cg-file-system-scanner`
 
@@ -201,7 +205,9 @@ packages/codegraph/src/
 
 ---
 
-#### Change 3: TS/JS 解析器 - 导入提取 [PARSER]
+#### Change 3: TS/JS 解析器 - 导入提取 [PARSER] ✅ 已完成
+
+> **归档**: `archive/2026-05-03-cg-ts-parser-imports`
 
 **名称**: `cg-ts-parser-imports`
 
@@ -246,7 +252,9 @@ packages/codegraph/src/
 
 ---
 
-#### Change 4: TS/JS 解析器 - 模块节点生成 [PARSER]
+#### Change 4: TS/JS 解析器 - 模块节点生成 [PARSER] ✅ 已完成
+
+> **归档**: `archive/2026-05-03-cg-ts-parser-modules`
 
 **名称**: `cg-ts-parser-modules`
 
@@ -305,7 +313,9 @@ packages/codegraph/src/parser/
 
 ---
 
-#### Change 5: 全量分析流程 [CORE]
+#### Change 5: 全量分析流程 [CORE] ✅ 已完成
+
+> **归档**: `archive/2026-05-03-cg-full-analysis-flow`
 
 **名称**: `cg-full-analysis-flow`
 
@@ -336,7 +346,9 @@ packages/codegraph/src/
 
 ---
 
-#### Change 6: 基线持久化 [CORE]
+#### Change 6: 基线持久化 [CORE] ✅ 已完成
+
+> **归档**: `archive/2026-05-03-cg-baseline-persistence`
 
 **名称**: `cg-baseline-persistence`
 
@@ -369,7 +381,9 @@ packages/codegraph/src/
 
 ---
 
-#### Change 7: 基础情报 API - Scope系列 [API]
+#### Change 7: 基础情报 API - Scope系列 [API] ✅ 已完成
+
+> **归档**: `archive/2026-05-03-cg-api-scope`
 
 **名称**: `cg-api-scope`
 
@@ -402,7 +416,9 @@ packages/codegraph/src/
 
 ---
 
-#### Change 8: 基础情报 API - Impact & Layers [API]
+#### Change 8: 基础情报 API - Impact & Layers [API] ✅ 已完成
+
+> **归档**: `archive/2026-05-05-cg-api-impact-layers`
 
 **名称**: `cg-api-impact-layers`
 
@@ -436,7 +452,9 @@ packages/codegraph/src/api/
 
 ---
 
-#### Change 9: CLI 命令 - 分析与更新 [CLI]
+#### Change 9: CLI 命令 - 分析与更新 [CLI] ✅ 已完成
+
+> **归档**: `archive/2026-05-05-cg-cli-analyze-update`
 
 **名称**: `cg-cli-analyze-update`
 
@@ -507,7 +525,9 @@ packages/codegraph/
 
 ---
 
-#### Change 10: CLI 命令 - 查询命令 [CLI]
+#### Change 10: CLI 命令 - 查询命令 [CLI] ✅ 已完成
+
+> **归档**: `archive/2026-05-07-cg-cli-query-archive`
 
 **名称**: `cg-cli-query-commands`
 
@@ -588,7 +608,9 @@ packages/codegraph/src/cli/commands/
 
 ---
 
-#### Change 11: 测试覆盖 [TEST]
+#### Change 11: 测试覆盖 [TEST] ✅ 已完成
+
+> **验证**: 2026-05-07 - 测试覆盖率 92.74% > 80% 目标
 
 **名称**: `cg-mvp-test-coverage`
 
@@ -627,7 +649,9 @@ packages/codegraph/
 
 ---
 
-#### Change 12: API 文档与示例 [DOC]
+#### Change 12: API 文档与示例 [DOC] ⚠️ 待完善
+
+> **状态**: M1唯一剩余任务
 
 **名称**: `cg-mvp-documentation`
 
@@ -661,22 +685,26 @@ packages/codegraph/
 
 ### 3.3 MVP Change 汇总表
 
-| Change | 名称 | 类型 | 工期 | 依赖 | 验证关键 |
-|--------|------|------|------|------|---------|
-| C1 | `cg-core-graph-structure` | [CORE] | 2天 | 无 | 图操作正确、索引一致 |
-| C2 | `cg-file-system-scanner` | [CORE] | 1天 | C1 | 扫描完整、忽略生效 |
-| C3 | `cg-ts-parser-imports` | [PARSER] | 2天 | C1,C2 | 导入关系正确、路径解析正确 |
-| C4 | `cg-ts-parser-modules` | [PARSER] | 2天 | C1,C3 | MODULE节点正确、复杂度合理 |
-| C5 | `cg-full-analysis-flow` | [CORE] | 1天 | C1-4 | 全量分析完整 |
-| C6 | `cg-baseline-persistence` | [CORE] | 1天 | C1,C5 | 持久化正确、加载一致 |
-| C7 | `cg-api-scope` | [API] | 1天 | C1,C6 | Scope输出正确 |
-| C8 | `cg-api-impact-layers` | [API] | 1天 | C1,C7 | 影响范围正确、分层合理 |
-| C9 | `cg-cli-analyze-update` | [CLI] | 1天 | C5,C6 | CLI可执行 |
-| C10 | `cg-cli-query-commands` | [CLI] | 1天 | C7,C8,C9 | 查询命令正确 |
-| C11 | `cg-mvp-test-coverage` | [TEST] | 2天 | C1-10 | 覆盖率≥80% |
-| C12 | `cg-mvp-documentation` | [DOC] | 1天 | C1-10 | 文档完整 |
+> **更新 (2026-05-07)**: C1-C11 已完成，仅剩 C12 文档任务
 
-**MVP 总工期**: 15天（含测试和文档），略超原 blueprint 的 10天估算，因增加了文档和更完整的测试覆盖。
+| Change | 名称 | 类型 | 工期 | 依赖 | 状态 | 验证关键 |
+|--------|------|------|------|------|------|---------|
+| C1 | `cg-core-graph-structure` | [CORE] | 2天 | 无 | ✅ | 图操作正确、索引一致 |
+| C2 | `cg-file-system-scanner` | [CORE] | 1天 | C1 | ✅ | 扫描完整、忽略生效 |
+| C3 | `cg-ts-parser-imports` | [PARSER] | 2天 | C1,C2 | ✅ | 导入关系正确、路径解析正确 |
+| C4 | `cg-ts-parser-modules` | [PARSER] | 2天 | C1,C3 | ✅ | MODULE节点正确、复杂度合理 |
+| C5 | `cg-full-analysis-flow` | [CORE] | 1天 | C1-4 | ✅ | 全量分析完整 |
+| C6 | `cg-baseline-persistence` | [CORE] | 1天 | C1,C5 | ✅ | 持久化正确、加载一致 |
+| C7 | `cg-api-scope` | [API] | 1天 | C1,C6 | ✅ | Scope输出正确 |
+| C8 | `cg-api-impact-layers` | [API] | 1天 | C1,C7 | ✅ | 影响范围正确、分层合理 |
+| C9 | `cg-cli-analyze-update` | [CLI] | 1天 | C5,C6 | ✅ | CLI可执行 |
+| C10 | `cg-cli-query-commands` | [CLI] | 1天 | C7,C8,C9 | ✅ | 查询命令正确 |
+| C11 | `cg-mvp-test-coverage` | [TEST] | 2天 | C1-10 | ✅ | 覆盖率92.74% > 80% |
+| C12 | `cg-mvp-documentation` | [DOC] | 1天 | C1-10 | ⚠️ | 文档完整 |
+
+**MVP 总工期**: 15天（含测试和文档）
+**M1 已完成**: C1-C11 (14天)
+**M1 剩余**: C12 文档 (1天)
 
 ---
 
@@ -727,50 +755,51 @@ packages/codegraph/
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    MVP Change 依赖图                          │
+│                    MVP Change 依赖图 (2026-05-07更新)          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│                    C1 [CORE]                                │
+│                    C1 [CORE] ✅                             │
 │                    图数据结构                                │
 │                        │                                    │
 │           ┌────────────┼────────────┐                      │
 │           │            │            │                      │
 │           ▼            ▼            ▼                      │
-│        C2 [CORE]    C3 [PARSER]   C7 [API]                 │
+│        C2 [CORE] ✅  C3 [PARSER] ✅  C7 [API] ✅            │
 │        文件扫描      导入提取      Scope API                │
 │           │            │            │                      │
 │           │            ▼            │                      │
-│           │        C4 [PARSER]      │                      │
+│           │        C4 [PARSER] ✅   │                      │
 │           │        MODULE节点        │                      │
 │           │            │            │                      │
 │           ▼            ▼            ▼                      │
-│        C5 [CORE]────────────────────────                   │
+│        C5 [CORE] ✅────────────────────────                │
 │        全量分析流程                                          │
 │           │                                                │
 │           ▼                                                │
-│        C6 [CORE]                                           │
+│        C6 [CORE] ✅                                         │
 │        基线持久化                                           │
 │           │                                                │
 │     ┌─────┴─────┐                                          │
 │     │           │                                          │
 │     ▼           ▼                                          │
-│  C8 [API]    C9 [CLI]                                      │
+│  C8 [API] ✅  C9 [CLI] ✅                                   │
 │  Impact/Layers  analyze/update                             │
 │     │           │                                          │
 │     └─────┬─────┘                                          │
 │           │                                                │
 │           ▼                                                │
-│        C10 [CLI]                                           │
+│        C10 [CLI] ✅                                         │
 │        查询命令                                             │
 │           │                                                │
 │     ┌─────┴─────┐                                          │
 │     │           │                                          │
 │     ▼           ▼                                          │
-│  C11 [TEST]  C12 [DOC]                                     │
-│  测试覆盖     文档                                          │
+│  C11 [TEST] ✅  C12 [DOC] ⚠️                               │
+│  92.74%覆盖    文档（唯一剩余）                               │
 │                                                             │
-│  执行顺序建议：                                              │
-│  C1 → C2 → C3 → C4 → C5 → C6 → C7 → C8 → C9 → C10 → C11/C12│
+│  执行状态：                                                  │
+│  ✅ C1-C11 已完成                                            │
+│  ⚠️ C12 待执行                                               │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -900,9 +929,11 @@ packages/codegraph/
 
 ---
 
-**文档版本**: v1.0
+**文档版本**: v1.1
 **创建日期**: 2026-05-03
+**最后更新**: 2026-05-07 (C1-C11完成，C12待执行)
 **关联文档**: 
 - [01_origin_blueprint.md](./01_origin_blueprint.md)
 - [02_scene_adaptation_engine.md](./02_scene_adaptation_engine.md)
+- [develop_changes_plan_for_m1_remain_target.md](./develop_changes_plan_for_m1_remain_target.md)
 **用途**: 创建 OpenSpec change 的依据
