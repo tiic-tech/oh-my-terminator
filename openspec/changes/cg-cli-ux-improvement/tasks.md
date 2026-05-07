@@ -7,8 +7,12 @@
 
 - [ ] 2.1 Create error transformer module at `src/cli/error-transformer.ts`
 - [ ] 2.2 Implement `transformCACError()` function for CACError classification
+  - **Pre-requisite**: Define CACError regex patterns (see design.md Decision 2)
+  - Patterns: UNKNOWN_COMMAND, UNKNOWN_OPTION, MISSING_ARG
 - [ ] 2.3 Implement command suggestion extraction for unknown command errors
+  - Use `cli.commands` map, filter built-in, sort alphabetically
 - [ ] 2.4 Implement flag suggestion extraction for invalid flag errors
+  - Use `command.options` array, flags are **command-specific**
 - [ ] 2.5 Implement missing argument detection and usage hint generation
 
 ## 3. CLI Entry Point Integration
@@ -17,12 +21,16 @@
 - [ ] 3.2 Integrate error transformer with entry point error handler
 - [ ] 3.3 Route transformed errors to stderr in text mode
 - [ ] 3.4 Route structured JSON errors to stdout in JSON mode
+  - **Detection**: `process.argv.includes('--json')` before error handling
+  - **Structure**: Include `durationMs` (total execution time) and `error.debug` (original error)
 
 ## 4. Path Format Hints
 
 - [ ] 4.1 Add path format hint to scope command error output
 - [ ] 4.2 Add path format hint to impact command error output
 - [ ] 4.3 Implement path format detection (monorepo vs standard)
+  - **Monorepo detection**: Check `packages/` directory exists at project root
+  - **Valid path regex**: `^packages/[a-z-]+/src/.+\.ts$` → suppress hint if matched
 - [ ] 4.4 Add suggestion field to scope/impact JSON error structure
 
 ## 5. Testing
@@ -33,6 +41,8 @@
 - [ ] 5.4 Add E2E test for invalid flag error scenario
 - [ ] 5.5 Add E2E test for missing argument error scenario
 - [ ] 5.6 Add E2E test for path format hint display
+  - **Scenario 1**: Wrong path format (`src/analyzer.ts`) → hint shown
+  - **Scenario 2**: Correct format but file missing (`packages/codegraph/src/missing.ts`) → no hint
 
 ## 6. Verification
 

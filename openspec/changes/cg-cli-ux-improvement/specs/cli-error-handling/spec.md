@@ -59,7 +59,9 @@ The system SHALL output structured JSON errors when `--json` flag is present.
 
 #### Scenario: JSON error format
 - **WHEN** error occurs with `--json` flag
-- **THEN** stdout receives: `{ "success": false, "error": { "code": "<code>", "message": "<message>" }, "durationMs": <ms> }`
+- **THEN** stdout receives: `{ "success": false, "error": { "code": "<code>", "message": "<message>", "debug": "<original-error>" }, "durationMs": <ms> }`
+- **AND** `error.debug` contains original error stack/message for debugging
+- **AND** `durationMs` reflects total CLI execution time (from entry point start)
 - **AND** stderr receives diagnostic message (if applicable)
 
 #### Scenario: JSON error to stdout only
@@ -73,11 +75,14 @@ The system SHALL provide suggestions when user input is incorrect.
 
 #### Scenario: Command suggestions
 - **WHEN** unknown command error occurs
-- **THEN** message includes list of available commands in alphabetical order
+- **THEN** message includes list of available commands in **alphabetical order**
+- **AND** commands are extracted from CAC `cli.commands` (excluding built-in: help, version)
 
 #### Scenario: Flag suggestions
 - **WHEN** invalid flag error occurs
-- **THEN** message includes list of valid flags for that command
+- **THEN** message includes list of valid flags for that **specific command**
+- **NOTE**: Available flags are command-specific (e.g., `analyze` has `--json`, `--verbose`, `--source-root`; `scope` has different flags)
+- **AND** flags are extracted from CAC `command.options` and sorted alphabetically
 
 #### Scenario: Usage hint
 - **WHEN** missing argument error occurs
@@ -92,8 +97,11 @@ The system SHALL provide an error transformer module for CACError handling.
 - **THEN** function returns `CliError` object with code, message, and suggestion fields
 
 #### Scenario: Non-CACError passthrough
-- **WHEN** error is not a CACError
+- **WHEN** error is not a CACError (e.g., analysis-level parsing error, import resolution failure)
 - **THEN** transformer wraps it as internal error with `E_CLI_INTERNAL` code
+- **AND** original error message is preserved in `error.debug` field (JSON mode)
+- **AND** text mode shows: `Internal error: <brief description>. Please report this issue.`
+- **NOTE**: CLI-layer only transforms CACError. Internal analysis errors pass through wrapped.
 
 ### Requirement: CLI entry point error handling
 
