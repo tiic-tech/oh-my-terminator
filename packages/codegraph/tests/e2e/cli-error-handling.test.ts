@@ -132,21 +132,15 @@ describe('CLI Error Handling E2E', () => {
   });
 
   describe('Path format hint', () => {
-    it('should show path hint for wrong path format in monorepo', () => {
-      // This test requires a monorepo fixture with packages/ directory
+    // TODO: Create monorepo-project fixture under tests/fixtures/ with packages/ directory
+    // This test requires: packages/subpkg/src/index.ts baseline
+    it.skip('should show path hint for wrong path format in monorepo', () => {
       const monorepoPath = path.join(FIXTURES_PATH, 'monorepo-project');
+      const result = runCli(['scope', 'src/utils.ts', '--cwd', monorepoPath]);
 
-      // If fixture doesn't exist, skip test
-      try {
-        const result = runCli(['scope', 'src/utils.ts', '--cwd', monorepoPath]);
-
-        // If baseline not found, that's expected - we're testing path hint logic
-        // which requires baseline first
-        // For now, just verify CLI doesn't crash
-        assert.ok(result.code === 0 || result.code === 1);
-      } catch {
-        // Fixture not available, skip
-      }
+      // If baseline not found, that's expected - we're testing path hint logic
+      // which requires baseline first
+      assert.ok(result.code === 0 || result.code === 1);
     });
   });
 

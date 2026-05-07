@@ -13,63 +13,25 @@
  * 6. Return structured result
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { validateProject } from '../validation.js';
 import { loadBaseline } from '../../persistence/index.js';
 import { getImpact } from '../../api/impact/index.js';
 import { CliErrorCode } from '../../types.js';
 import type { CliError } from '../../types.js';
 import type { ImpactResult, ImpactError, ImpactOptions } from '../../api/types/index.js';
-import { ErrorCode } from '../../api/types/index.js';
+import { addPathFormatHint } from '../utils/path-format.js';
 
 // ============================================================================
-// Path Format Detection
+// Constants
 // ============================================================================
 
 /**
- * Check if project is monorepo (has packages/ directory)
- *
- * WHY: Path format hints vary by project structure.
- * Monorepo uses packages/<pkg>/src/..., single-project uses src/...
+ * WHY: Default max files limit balances two concerns:
+ * 1. Agent token budgets: Large impact sets (>100 files) exceed LLM context limits
+ * 2. User comprehension: Humans struggle to process >30 items in a list
+ * 20 is a safe default that fits most agent workflows while remaining readable.
  */
-function isMonorepo(projectRoot: string): boolean {
-  return fs.existsSync(path.join(projectRoot, 'packages'));
-}
-
-/**
- * Check if path matches monorepo format
- *
- * WHY: If path already matches format, suppress hint (file doesn't exist but format correct).
- */
-function matchesMonorepoPathFormat(userPath: string): boolean {
-  return /^packages\/[a-z-]+\/src\/.+\.(ts|tsx|js|jsx)$/.test(userPath);
-}
-
-/**
- * Add path format hint to ImpactError if applicable
- *
- * WHY: Users often use wrong path format (e.g., src/utils.ts instead of packages/codegraph/src/utils.ts).
- */
-function addPathFormatHint(result: ImpactError, projectRoot: string, userPath: string): ImpactError {
-  // Only add hint for TARGET_NOT_FOUND errors
-  if (result.error.code !== ErrorCode.TARGET_NOT_FOUND) {
-    return result;
-  }
-
-  // Check if path format hint is needed
-  if (isMonorepo(projectRoot) && !matchesMonorepoPathFormat(userPath)) {
-    return {
-      ...result,
-      error: {
-        ...result.error,
-        suggestion: 'Hint: Use full path format: packages/<pkg>/src/<file>.ts',
-      },
-    };
-  }
-
-  return result;
-}
+const DEFAULT_MAX_FILES = 20;
 
 // ============================================================================
 // Command Options
@@ -120,9 +82,9 @@ export async function impactCommand(
 ): Promise<ImpactCommandResult> {
   const startTime = Date.now();
 
-  // Default options: maxFiles=20 for agent token budgets
+  // Default options: maxFiles from constant for agent token budgets
   const impactOptions: ImpactOptions = {
-    maxFiles: options?.maxFiles ?? 20,
+    maxFiles: options?.maxFiles ?? DEFAULT_MAX_FILES,
     includeTests: options?.includeTests ?? false,
     maxDepth: options?.maxDepth,
   };
@@ -187,15 +149,13 @@ export async function impactCommand(
   if (!impactResult.success) {
     const impactError = impactResult as ImpactError;
     const enhancedError = addPathFormatHint(impactError, projectRoot, target);
-    enhancedError.durationMs = Date.now() - startTime;
-    return enhancedError;
+    // WHY spread: Immutability - create new object instead of mutation
+    return { ...enhancedError, durationMs: Date.now() - startTime };
   }
 
   // ========================================
   // Step 6: Return Result
   // ========================================
-  // Override duration with CLI-measured value
-  impactResult.durationMs = Date.now() - startTime;
-
-  return impactResult;
+  // WHY spread: Immutability - create new object instead of mutation
+  return { ...impactResult, durationMs: Date.now() - startTime };
 }

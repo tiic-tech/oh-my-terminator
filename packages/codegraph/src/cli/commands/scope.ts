@@ -13,62 +13,12 @@
  * @see fix-e2e-report-all-issues tasks 2.1-2.2
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { loadBaseline } from '../../persistence/index.js';
 import { validateProject } from '../validation.js';
 import { CliErrorCode, type CliError } from '../../types.js';
 import { getScope } from '../../api/scope/index.js';
 import type { ScopeResult, ScopeError } from '../../api/types/index.js';
-import { ErrorCode } from '../../api/types/index.js';
-
-// ============================================================================
-// Path Format Detection
-// ============================================================================
-
-/**
- * Check if project is monorepo (has packages/ directory)
- *
- * WHY: Path format hints vary by project structure.
- * Monorepo uses packages/<pkg>/src/..., single-project uses src/...
- */
-function isMonorepo(projectRoot: string): boolean {
-  return fs.existsSync(path.join(projectRoot, 'packages'));
-}
-
-/**
- * Check if path matches monorepo format
- *
- * WHY: If path already matches format, suppress hint (file doesn't exist but format correct).
- */
-function matchesMonorepoPathFormat(userPath: string): boolean {
-  return /^packages\/[a-z-]+\/src\/.+\.(ts|tsx|js|jsx)$/.test(userPath);
-}
-
-/**
- * Add path format hint to ScopeError if applicable
- *
- * WHY: Users often use wrong path format (e.g., src/utils.ts instead of packages/codegraph/src/utils.ts).
- */
-function addPathFormatHint(result: ScopeError, projectRoot: string, userPath: string): ScopeError {
-  // Only add hint for TARGET_NOT_FOUND errors
-  if (result.error.code !== ErrorCode.TARGET_NOT_FOUND) {
-    return result;
-  }
-
-  // Check if path format hint is needed
-  if (isMonorepo(projectRoot) && !matchesMonorepoPathFormat(userPath)) {
-    return {
-      ...result,
-      error: {
-        ...result.error,
-        suggestion: 'Hint: Use full path format: packages/<pkg>/src/<file>.ts',
-      },
-    };
-  }
-
-  return result;
-}
+import { addPathFormatHint } from '../utils/path-format.js';
 
 // ============================================================================
 // Command Options
@@ -170,15 +120,13 @@ export async function scopeCommand(
   if (!scopeResult.success) {
     const scopeError = scopeResult as ScopeError;
     const enhancedError = addPathFormatHint(scopeError, projectRoot, target);
-    enhancedError.durationMs = Date.now() - startTime;
-    return enhancedError;
+    // WHY spread: Immutability - create new object instead of mutation
+    return { ...enhancedError, durationMs: Date.now() - startTime };
   }
 
   // ========================================
   // Step 5: Return Result
   // ========================================
-  // Override duration with CLI-measured value
-  scopeResult.durationMs = Date.now() - startTime;
-
-  return scopeResult;
+  // WHY spread: Immutability - create new object instead of mutation
+  return { ...scopeResult, durationMs: Date.now() - startTime };
 }

@@ -5,12 +5,35 @@
  * Transforms technical errors into friendly messages with suggestions.
  */
 
-import type { CAC } from 'cac';
+import type { CAC, Command } from 'cac';
 import { CliErrorCode, type CliError } from '../src/types.js';
 import { transformCACError, createUnknownCommandError, isCACError } from '../src/cli/error-transformer.js';
 import { routeOutput, detectMode } from '../src/cli/output/router.js';
 import { formatErrorJson } from '../src/cli/output/json-formatter.js';
 import { formatErrorText } from '../src/cli/output/error-text.js';
+
+/**
+ * Type guard: Check if value is an Error instance
+ *
+ * WHY: TypeScript's `unknown` type requires explicit narrowing.
+ * Using type guard instead of `as Error` casting ensures type safety.
+ */
+function isError(value: unknown): value is Error {
+  return value instanceof Error;
+}
+
+/**
+ * Type guard: Check if value is a CAC Command instance
+ *
+ * WHY: matchedCommand comes from CAC's internal state as `unknown`.
+ * Type guard validates the shape before using Command-specific methods.
+ * Checks for presence of `options` array which is unique to Command objects.
+ */
+function isCommand(value: unknown): value is Command {
+  if (value === null || value === undefined) return false;
+  const obj = value as Record<string, unknown>;
+  return Array.isArray(obj.options) && typeof obj.name === 'string';
+}
 
 /**
  * Setup CLI-level error handlers
@@ -47,9 +70,11 @@ export function handleCliError(error: unknown, cli: CAC, startTime: number, matc
 
   let cliError: CliError;
 
-  if (isCACError(error)) {
+  if (isCACError(error) && isError(error)) {
     // WHY: CACError needs transformation - technical message → friendly + suggestion
-    cliError = transformCACError(error as Error, cli, matchedCommand as import('cac').Command, startTime);
+    // isError type guard ensures safe access to Error properties
+    const command = isCommand(matchedCommand) ? matchedCommand : undefined;
+    cliError = transformCACError(error, cli, command, startTime);
   } else if (error instanceof Error) {
     // WHY: Other errors become internal errors with debug info
     cliError = {
