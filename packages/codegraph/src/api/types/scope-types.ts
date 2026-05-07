@@ -17,8 +17,9 @@
  * Complexity level classification
  *
  * A6 Resolution: Includes 'unknown' for cases where no MODULE data exists.
+ * Thresholds: low(1-5), medium(6-15), high(16-25), critical(26+)
  */
-export type ComplexityLevel = 'low' | 'medium' | 'high' | 'unknown';
+export type ComplexityLevel = 'low' | 'medium' | 'high' | 'critical' | 'unknown';
 
 /**
  * Complexity information with level and numeric value
@@ -140,13 +141,25 @@ export interface ScopeResult {
  * Scope query error result
  *
  * Returned when target not found or other errors occur.
+ *
+ * Error codes and suggested remediations:
+ * - E001: Target not found
+ *   → "Check file path with 'cg list files' or use format 'file:src/utils.ts'"
+ * - E002: Invalid target format
+ *   → "Use format: 'file:src/utils.ts' or 'module:src/utils.ts#functionName'"
+ * - E003: Graph not initialized
+ *   → "Run 'cg build' to create the code graph first"
+ * - E004: Module not found in file
+ *   → "Check exports with 'cg scope file:src/utils.ts' then use 'module:src/utils.ts#exportName'"
+ * - E005: Permission denied
+ *   → "Check file permissions or run with appropriate access rights"
  */
 export interface ScopeError {
   /** Operation success status (always false) */
   success: false;
   /** Error details */
   error: {
-    /** Error code (E001 for target not found) */
+    /** Error code (E001-E005) */
     code: string;
     /** Human-readable error message */
     message: string;

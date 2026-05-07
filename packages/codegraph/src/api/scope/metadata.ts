@@ -1,17 +1,45 @@
-/**
- * C7: Scope Query - Metadata Processing
- *
- * Find test files, aggregate complexity, check deprecated status.
- */
-
 import { CodeGraph, NodeType, type GraphNode } from '../../types.js';
 import { type ComplexityInfo, type ModifiedInfo } from '../types/index.js';
 
-/** Complexity thresholds for level classification */
+/** Complexity thresholds for level classification
+ *
+ * WHY adjusted from McCabe's original (10=medium, 20=high):
+ * - Modern JS patterns (async/await, optional chaining) add decision points
+ * - TypeScript generics and type guards increase apparent complexity
+ * - Lambda expressions and functional patterns are idiomatic, not "complex"
+ * - Empirical data: modern codebases average 8-12 CC per function
+ *
+ * Threshold rationale:
+ * - low (1-5): Simple, single-purpose, easy to test
+ * - medium (6-15): Acceptable, may need minor cleanup
+ * - high (16-25): Consider refactoring, test coverage critical
+ * - critical (26+): Strong refactoring candidate, risky to maintain
+ */
 const COMPLEXITY_THRESHOLDS = {
   LOW_MAX: 5,
   MEDIUM_MAX: 15,
+  HIGH_MAX: 25,
 } as const;
+
+/**
+ * Get MODULE nodes for a specific file path
+ *
+ * WHY extracted: Eliminates repeated graph iteration pattern across 4 functions.
+ * One Truth principle: Single source for module node filtering logic.
+ *
+ * @param graph - CodeGraph instance
+ * @param filePath - File path to filter by
+ * @returns Array of MODULE nodes for the file
+ */
+function getModuleNodesForFile(graph: CodeGraph, filePath: string): GraphNode[] {
+  const modules: GraphNode[] = [];
+  for (const [, node] of graph.nodes) {
+    if (node.type === NodeType.MODULE && node.path === filePath) {
+      modules.push(node);
+    }
+  }
+  return modules;
+}
 
 /**
  * Find associated test file for a FILE node
@@ -26,10 +54,8 @@ const COMPLEXITY_THRESHOLDS = {
  */
 export function findTestFile(graph: CodeGraph, fileNode: GraphNode): string | null {
   // Priority 1: Check MODULE nodes for metadata.testFile
-  for (const [, node] of graph.nodes) {
-    if (node.type !== NodeType.MODULE) continue;
-    if (node.path !== fileNode.path) continue;
-
+  const modules = getModuleNodesForFile(graph, fileNode.path);
+  for (const node of modules) {
     if (node.metadata?.testFile) {
       return node.metadata.testFile;
     }
@@ -86,10 +112,8 @@ export function aggregateComplexity(
   let totalComplexity = 0;
   let hasModuleData = false;
 
-  for (const [, node] of graph.nodes) {
-    if (node.type !== NodeType.MODULE) continue;
-    if (node.path !== fileNode.path) continue;
-
+  const modules = getModuleNodesForFile(graph, fileNode.path);
+  for (const node of modules) {
     if (node.metadata?.complexity !== undefined) {
       totalComplexity += node.metadata.complexity;
       hasModuleData = true;
@@ -106,11 +130,18 @@ export function aggregateComplexity(
 
 /**
  * Determine complexity level from numeric value
+ *
+ * HIGH Issue Fix: value=0 returns 'unknown' (no analysis), not 'low' (known simple)
+ * Rationale: 'low' implies measured simplicity; 'unknown' indicates absent data.
+ *
+ * Thresholds: low(1-5), medium(6-15), high(16-25), critical(26+), unknown(0)
  */
-function getComplexityLevel(value: number): 'low' | 'medium' | 'high' {
+function getComplexityLevel(value: number): 'low' | 'medium' | 'high' | 'critical' | 'unknown' {
+  if (value === 0) return 'unknown';
   if (value <= COMPLEXITY_THRESHOLDS.LOW_MAX) return 'low';
   if (value <= COMPLEXITY_THRESHOLDS.MEDIUM_MAX) return 'medium';
-  return 'high';
+  if (value <= COMPLEXITY_THRESHOLDS.HIGH_MAX) return 'high';
+  return 'critical';
 }
 
 /**
@@ -121,10 +152,8 @@ function getComplexityLevel(value: number): 'low' | 'medium' | 'high' {
  * @returns True if any export is deprecated
  */
 export function checkDeprecated(graph: CodeGraph, fileNode: GraphNode): boolean {
-  for (const [, node] of graph.nodes) {
-    if (node.type !== NodeType.MODULE) continue;
-    if (node.path !== fileNode.path) continue;
-
+  const modules = getModuleNodesForFile(graph, fileNode.path);
+  for (const node of modules) {
     if (node.metadata?.deprecated) {
       return true;
     }
@@ -145,10 +174,8 @@ export function getLastModified(graph: CodeGraph, fileNode: GraphNode): Modified
   let latestCommit: string | undefined;
   let maxFrequency = 0;
 
-  for (const [, node] of graph.nodes) {
-    if (node.type !== NodeType.MODULE) continue;
-    if (node.path !== fileNode.path) continue;
-
+  const modules = getModuleNodesForFile(graph, fileNode.path);
+  for (const node of modules) {
     if (node.metadata?.lastModifiedCommit) {
       latestCommit = node.metadata.lastModifiedCommit;
     }
