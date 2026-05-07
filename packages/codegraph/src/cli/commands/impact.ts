@@ -5,12 +5,15 @@
  * Uses BFS traversal on IMPORTS edges to determine blast radius.
  *
  * Flow:
- * 1. Validate project (path existence + git repo)
- * 2. Load baseline (graph must exist)
- * 3. Normalize target (add FILE: prefix if missing)
- * 4. Call getImpact API
- * 5. Add path format hint on error
- * 6. Return structured result
+ * 1. Resolve source root (precedence: explicit > auto-detect > error)
+ * 2. Validate project (path existence + git repo)
+ * 3. Load baseline (graph must exist)
+ * 4. Normalize target (add FILE: prefix if missing)
+ * 5. Call getImpact API
+ * 6. Add path format hint on error
+ * 7. Return structured result
+ *
+ * @see openspec/changes/cg-source-root-auto-detect/design.md D1-D6
  */
 
 import { validateProject } from '../validation.js';
@@ -20,6 +23,7 @@ import { CliErrorCode } from '../../types.js';
 import type { CliError } from '../../types.js';
 import type { ImpactResult, ImpactError, ImpactOptions } from '../../api/types/index.js';
 import { addPathFormatHint } from '../utils/path-format.js';
+import { resolveSourceRoot } from '../utils/resolve-source-root.js';
 
 // ============================================================================
 // Constants
@@ -45,6 +49,10 @@ const DEFAULT_MAX_FILES = 20;
 export interface ImpactCommandOptions extends ImpactOptions {
   /** Output as JSON (for programmatic consumption) */
   json?: boolean;
+  /** Explicit source root directory (overrides auto-detection) */
+  sourceRoot?: string;
+  /** Disable automatic source root detection (requires --source-root) */
+  noAutoDetect?: boolean;
 }
 
 // ============================================================================
@@ -72,7 +80,7 @@ export type ImpactCommandResult = ImpactResult | ImpactError | CliError;
  *
  * @param cwd - Project root directory
  * @param target - Target file path (with or without FILE: prefix)
- * @param options - Command options (maxFiles, includeTests, maxDepth)
+ * @param options - Command options (maxFiles, includeTests, maxDepth, sourceRoot)
  * @returns ImpactResult on success, CliError on failure
  */
 export async function impactCommand(
@@ -90,9 +98,25 @@ export async function impactCommand(
   };
 
   // ========================================
+  // Step 0: Resolve source root (precedence: explicit > auto-detect > error)
+  // ========================================
+  const sourceRootResult = await resolveSourceRoot({
+    sourceRoot: options?.sourceRoot,
+    noAutoDetect: options?.noAutoDetect,
+    cwd,
+  });
+
+  if (!sourceRootResult.success) {
+    // WHY: Return CliError directly - durationMs already set by resolveSourceRoot
+    return sourceRootResult;
+  }
+
+  const projectRoot = sourceRootResult.path;
+
+  // ========================================
   // Step 1: Validate Project (Path + Git)
   // ========================================
-  const validation = await validateProject(cwd);
+  const validation = await validateProject(projectRoot);
 
   if (!validation.path.isValid) {
     return {
@@ -111,12 +135,12 @@ export async function impactCommand(
   }
 
   // Use validated absolute path
-  const projectRoot = validation.path.absolutePath;
+  const validatedRoot = validation.path.absolutePath;
 
   // ========================================
   // Step 2: Load Baseline
   // ========================================
-  const loadResult = await loadBaseline(projectRoot);
+  const loadResult = await loadBaseline(validatedRoot);
 
   if (!loadResult.success || !loadResult.graph) {
     return {
@@ -148,7 +172,7 @@ export async function impactCommand(
   // WHY: If target not found and path format is wrong, show hint
   if (!impactResult.success) {
     const impactError = impactResult as ImpactError;
-    const enhancedError = addPathFormatHint(impactError, projectRoot, target);
+    const enhancedError = addPathFormatHint(impactError, validatedRoot, target);
     // WHY spread: Immutability - create new object instead of mutation
     return { ...enhancedError, durationMs: Date.now() - startTime };
   }

@@ -225,3 +225,17 @@ export {
   CONFIDENCE_CONSTANTS,
   SUGGESTION_CONSTANTS,
 } from './api/index.js';
+
+// Core module: Source Root Auto-Detection
+export {
+  // Constants
+  PROJECT_MARKERS,
+  MARKER_PRIORITY,
+  GENERIC_MARKER,
+  MAX_SEARCH_DEPTH,
+  // Types
+  type DetectionResult,
+  type DetectorOptions,
+  // Default options
+  DEFAULT_DETECTOR_OPTIONS,
+} from './core/index.js';

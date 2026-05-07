@@ -410,6 +410,12 @@ export enum CliErrorCode {
   E_CLI_TARGET_NOT_FOUND = 'E_CLI_TARGET_NOT_FOUND',
   /** Unexpected internal error (fallback for non-CACError) */
   E_CLI_INTERNAL = 'E_CLI_INTERNAL',
+
+  // --- Source Root Detection Error Codes ---
+  /** Source root not found during auto-detection */
+  E_SOURCE_ROOT_NOT_FOUND = 'E_SOURCE_ROOT_NOT_FOUND',
+  /** Auto-detection disabled but no explicit --source-root provided */
+  E_AUTO_DETECT_DISABLED = 'E_AUTO_DETECT_DISABLED',
 }
 
 /**

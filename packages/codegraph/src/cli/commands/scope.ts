@@ -5,12 +5,14 @@
  * Enables developers to inspect FILE, MODULE, or EXTERNAL nodes.
  *
  * Flow:
- * 1. Validate project (path existence + git repo + commits)
- * 2. Load baseline
- * 3. Call getScope(graph, target)
- * 4. Return structured result with path format hints on error
+ * 1. Resolve source root (precedence: explicit > auto-detect > error)
+ * 2. Validate project (path existence + git repo + commits)
+ * 3. Load baseline
+ * 4. Call getScope(graph, target)
+ * 5. Return structured result with path format hints on error
  *
  * @see fix-e2e-report-all-issues tasks 2.1-2.2
+ * @see openspec/changes/cg-source-root-auto-detect/design.md D1-D6
  */
 
 import { loadBaseline } from '../../persistence/index.js';
@@ -19,6 +21,7 @@ import { CliErrorCode, type CliError } from '../../types.js';
 import { getScope } from '../../api/scope/index.js';
 import type { ScopeResult, ScopeError } from '../../api/types/index.js';
 import { addPathFormatHint } from '../utils/path-format.js';
+import { resolveSourceRoot } from '../utils/resolve-source-root.js';
 
 // ============================================================================
 // Command Options
@@ -32,6 +35,10 @@ export interface ScopeOptions {
   json?: boolean;
   /** Include all imports/exports (not filtered) */
   all?: boolean;
+  /** Explicit source root directory (overrides auto-detection) */
+  sourceRoot?: string;
+  /** Disable automatic source root detection (requires --source-root) */
+  noAutoDetect?: boolean;
 }
 
 // ============================================================================
@@ -67,9 +74,25 @@ export async function scopeCommand(
   const startTime = Date.now();
 
   // ========================================
+  // Step 0: Resolve source root (precedence: explicit > auto-detect > error)
+  // ========================================
+  const sourceRootResult = await resolveSourceRoot({
+    sourceRoot: _options?.sourceRoot,
+    noAutoDetect: _options?.noAutoDetect,
+    cwd,
+  });
+
+  if (!sourceRootResult.success) {
+    // WHY: Return CliError directly - durationMs already set by resolveSourceRoot
+    return sourceRootResult;
+  }
+
+  const projectRoot = sourceRootResult.path;
+
+  // ========================================
   // Step 1: Validate Project (Path + Git)
   // ========================================
-  const validation = await validateProject(cwd);
+  const validation = await validateProject(projectRoot);
 
   if (!validation.path.isValid) {
     return {
@@ -88,12 +111,12 @@ export async function scopeCommand(
   }
 
   // Use validated absolute path
-  const projectRoot = validation.path.absolutePath;
+  const validatedRoot = validation.path.absolutePath;
 
   // ========================================
   // Step 2: Load Baseline
   // ========================================
-  const loadResult = await loadBaseline(projectRoot);
+  const loadResult = await loadBaseline(validatedRoot);
 
   if (!loadResult.success || !loadResult.graph) {
     return {
@@ -119,7 +142,7 @@ export async function scopeCommand(
   // WHY: If target not found and path format is wrong, show hint
   if (!scopeResult.success) {
     const scopeError = scopeResult as ScopeError;
-    const enhancedError = addPathFormatHint(scopeError, projectRoot, target);
+    const enhancedError = addPathFormatHint(scopeError, validatedRoot, target);
     // WHY spread: Immutability - create new object instead of mutation
     return { ...enhancedError, durationMs: Date.now() - startTime };
   }

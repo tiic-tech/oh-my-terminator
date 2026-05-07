@@ -13,17 +13,21 @@ const cli = cac('codegraph');
 // Handles unknown commands (CAC emits 'command:*' event) and uncaught errors
 setupCliErrorHandler(cli, startTime);
 
-// Global option
+// Global options (source root auto-detection)
 cli.option('--json', 'Output in JSON format');
+cli.option('--no-auto-detect', 'Disable automatic source root detection (requires --source-root)');
 
-// analyze command (6.1-6.3: compression flags)
+// analyze command (6.1-6.3: compression flags + source root)
 cli.command('analyze [cwd]', 'Run full analysis and save baseline')
   .option('--compress', 'Enable compression (on by default)')
   .option('--no-compression', 'Disable compression (save as 1.0 format)')
+  .option('--source-root <path>', 'Explicit source root directory (overrides auto-detection)')
   .example('codegraph analyze')
   .example('codegraph analyze --no-compression')
   .example('codegraph analyze /path/to/project --json')
-  .action(async (cwd?: string, options?: { json?: boolean; compress?: boolean }) => {
+  .example('codegraph analyze --source-root packages/app/src')
+  .example('codegraph analyze --no-auto-detect --source-root src')
+  .action(async (cwd?: string, options?: { json?: boolean; compress?: boolean; sourceRoot?: string; noAutoDetect?: boolean }) => {
     const workDir = cwd || process.cwd();
     // Handle --no-compression flag (cac converts to noCompression: true)
     const compress = 'noCompression' in (options || {}) ? false : options?.compress ?? true;
@@ -81,10 +85,12 @@ cli.command('impact <target> [cwd]', 'Find files impacted by changes to target')
   .option('--max-files <n>', 'Max files to show (default: 20)', { default: 20 })
   .option('--max-depth <n>', 'Max traversal depth (0=direct only)')
   .option('--include-tests', 'Include test files in results')
+  .option('--source-root <path>', 'Explicit source root directory (overrides auto-detection)')
   .example('codegraph impact src/core.ts')
   .example('codegraph impact src/core.ts --max-files 50')
   .example('codegraph impact src/core.ts --include-tests')
-  .action(async (target: string, cwd?: string, options?: { json?: boolean; maxFiles?: number; maxDepth?: number; includeTests?: boolean }) => {
+  .example('codegraph impact src/core.ts --source-root packages/app/src')
+  .action(async (target: string, cwd?: string, options?: { json?: boolean; maxFiles?: number; maxDepth?: number; includeTests?: boolean; sourceRoot?: string; noAutoDetect?: boolean }) => {
     const workDir = cwd || process.cwd();
     try {
       const result = await impactCommand(workDir, target, {
@@ -92,6 +98,8 @@ cli.command('impact <target> [cwd]', 'Find files impacted by changes to target')
         maxFiles: options?.maxFiles ?? 20,
         maxDepth: options?.maxDepth,
         includeTests: options?.includeTests,
+        sourceRoot: options?.sourceRoot,
+        noAutoDetect: options?.noAutoDetect,
       });
       outputImpact(result, options?.json);
     } catch (error) {
@@ -103,15 +111,19 @@ cli.command('impact <target> [cwd]', 'Find files impacted by changes to target')
 cli.command('scope <target> [cwd]', 'Query scope for a file, module, or external package')
   .option('--json', 'Output in JSON format')
   .option('--all', 'Include all imports/exports without filtering')
+  .option('--source-root <path>', 'Explicit source root directory (overrides auto-detection)')
   .example('codegraph scope src/utils.ts')
   .example('codegraph scope MODULE:src/utils.ts#helper')
   .example('codegraph scope EXTERNAL:react --json')
-  .action(async (target: string, cwd?: string, options?: { json?: boolean; all?: boolean }) => {
+  .example('codegraph scope src/utils.ts --source-root packages/app/src')
+  .action(async (target: string, cwd?: string, options?: { json?: boolean; all?: boolean; sourceRoot?: string; noAutoDetect?: boolean }) => {
     const workDir = cwd || process.cwd();
     try {
       const result = await scopeCommand(workDir, target, {
         json: options?.json,
         all: options?.all,
+        sourceRoot: options?.sourceRoot,
+        noAutoDetect: options?.noAutoDetect,
       });
       outputScope(result, options?.json);
     } catch (error) {
