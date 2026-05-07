@@ -8,16 +8,67 @@
  * 1. Validate project (path existence + git repo + commits)
  * 2. Load baseline
  * 3. Call getScope(graph, target)
- * 4. Return structured result
+ * 4. Return structured result with path format hints on error
  *
  * @see fix-e2e-report-all-issues tasks 2.1-2.2
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { loadBaseline } from '../../persistence/index.js';
 import { validateProject } from '../validation.js';
 import { CliErrorCode, type CliError } from '../../types.js';
 import { getScope } from '../../api/scope/index.js';
 import type { ScopeResult, ScopeError } from '../../api/types/index.js';
+import { ErrorCode } from '../../api/types/index.js';
+
+// ============================================================================
+// Path Format Detection
+// ============================================================================
+
+/**
+ * Check if project is monorepo (has packages/ directory)
+ *
+ * WHY: Path format hints vary by project structure.
+ * Monorepo uses packages/<pkg>/src/..., single-project uses src/...
+ */
+function isMonorepo(projectRoot: string): boolean {
+  return fs.existsSync(path.join(projectRoot, 'packages'));
+}
+
+/**
+ * Check if path matches monorepo format
+ *
+ * WHY: If path already matches format, suppress hint (file doesn't exist but format correct).
+ */
+function matchesMonorepoPathFormat(userPath: string): boolean {
+  return /^packages\/[a-z-]+\/src\/.+\.(ts|tsx|js|jsx)$/.test(userPath);
+}
+
+/**
+ * Add path format hint to ScopeError if applicable
+ *
+ * WHY: Users often use wrong path format (e.g., src/utils.ts instead of packages/codegraph/src/utils.ts).
+ */
+function addPathFormatHint(result: ScopeError, projectRoot: string, userPath: string): ScopeError {
+  // Only add hint for TARGET_NOT_FOUND errors
+  if (result.error.code !== ErrorCode.TARGET_NOT_FOUND) {
+    return result;
+  }
+
+  // Check if path format hint is needed
+  if (isMonorepo(projectRoot) && !matchesMonorepoPathFormat(userPath)) {
+    return {
+      ...result,
+      error: {
+        ...result.error,
+        suggestion: 'Hint: Use full path format: packages/<pkg>/src/<file>.ts',
+      },
+    };
+  }
+
+  return result;
+}
 
 // ============================================================================
 // Command Options
@@ -113,15 +164,20 @@ export async function scopeCommand(
   const scopeResult = getScope(graph, target);
 
   // ========================================
-  // Step 4: Return Result
+  // Step 4: Add Path Format Hint on Error
   // ========================================
-  // getScope returns ScopeResult | ScopeError
-  // Both have durationMs already set by API
-  // For consistency, we return the result directly
+  // WHY: If target not found and path format is wrong, show hint
+  if (!scopeResult.success) {
+    const scopeError = scopeResult as ScopeError;
+    const enhancedError = addPathFormatHint(scopeError, projectRoot, target);
+    enhancedError.durationMs = Date.now() - startTime;
+    return enhancedError;
+  }
 
-  // If CliError (baseline validation error), durationMs is already set
-  // If ScopeResult/ScopeError, getScope already set durationMs
-  // Override with our measured duration for CLI accuracy
+  // ========================================
+  // Step 5: Return Result
+  // ========================================
+  // Override duration with CLI-measured value
   scopeResult.durationMs = Date.now() - startTime;
 
   return scopeResult;

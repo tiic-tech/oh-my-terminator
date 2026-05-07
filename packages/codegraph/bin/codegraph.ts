@@ -2,8 +2,16 @@
 import { cac } from 'cac';
 import { analyzeCommand, updateCommand, migrateCommand, impactCommand, scopeCommand, layersCommand } from '../src/cli/commands/index.js';
 import { output, outputMigrate, outputImpact, outputScope, outputLayers, outputError } from './output-handlers.js';
+import { setupCliErrorHandler, handleCliError } from './cli-error-handler.js';
+
+// WHY: Track CLI start time for duration calculation in error output
+const startTime = Date.now();
 
 const cli = cac('codegraph');
+
+// WHY: Setup CLI-level error handlers before command definitions
+// Handles unknown commands (CAC emits 'command:*' event) and uncaught errors
+setupCliErrorHandler(cli, startTime);
 
 // Global option
 cli.option('--json', 'Output in JSON format');
@@ -137,5 +145,11 @@ cli.command('layers [cwd]', 'Show architecture layer inference')
 // Help
 cli.help();
 
-// Parse
-cli.parse();
+// Parse with global error handler
+// WHY: CACError may escape command actions - catch at CLI level for transformation
+try {
+  cli.parse();
+} catch (error: unknown) {
+  // WHY: CACError and other uncaught errors need friendly transformation
+  handleCliError(error, cli, startTime);
+}

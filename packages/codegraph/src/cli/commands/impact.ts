@@ -9,15 +9,67 @@
  * 2. Load baseline (graph must exist)
  * 3. Normalize target (add FILE: prefix if missing)
  * 4. Call getImpact API
- * 5. Return structured result
+ * 5. Add path format hint on error
+ * 6. Return structured result
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
 import { validateProject } from '../validation.js';
 import { loadBaseline } from '../../persistence/index.js';
 import { getImpact } from '../../api/impact/index.js';
 import { CliErrorCode } from '../../types.js';
 import type { CliError } from '../../types.js';
 import type { ImpactResult, ImpactError, ImpactOptions } from '../../api/types/index.js';
+import { ErrorCode } from '../../api/types/index.js';
+
+// ============================================================================
+// Path Format Detection
+// ============================================================================
+
+/**
+ * Check if project is monorepo (has packages/ directory)
+ *
+ * WHY: Path format hints vary by project structure.
+ * Monorepo uses packages/<pkg>/src/..., single-project uses src/...
+ */
+function isMonorepo(projectRoot: string): boolean {
+  return fs.existsSync(path.join(projectRoot, 'packages'));
+}
+
+/**
+ * Check if path matches monorepo format
+ *
+ * WHY: If path already matches format, suppress hint (file doesn't exist but format correct).
+ */
+function matchesMonorepoPathFormat(userPath: string): boolean {
+  return /^packages\/[a-z-]+\/src\/.+\.(ts|tsx|js|jsx)$/.test(userPath);
+}
+
+/**
+ * Add path format hint to ImpactError if applicable
+ *
+ * WHY: Users often use wrong path format (e.g., src/utils.ts instead of packages/codegraph/src/utils.ts).
+ */
+function addPathFormatHint(result: ImpactError, projectRoot: string, userPath: string): ImpactError {
+  // Only add hint for TARGET_NOT_FOUND errors
+  if (result.error.code !== ErrorCode.TARGET_NOT_FOUND) {
+    return result;
+  }
+
+  // Check if path format hint is needed
+  if (isMonorepo(projectRoot) && !matchesMonorepoPathFormat(userPath)) {
+    return {
+      ...result,
+      error: {
+        ...result.error,
+        suggestion: 'Hint: Use full path format: packages/<pkg>/src/<file>.ts',
+      },
+    };
+  }
+
+  return result;
+}
 
 // ============================================================================
 // Command Options
@@ -129,11 +181,20 @@ export async function impactCommand(
   const impactResult = getImpact(graph, [normalizedTarget], impactOptions);
 
   // ========================================
-  // Step 5: Return Result
+  // Step 5: Add Path Format Hint on Error
   // ========================================
-  // getImpact returns ImpactResult | ImpactError
-  // Both have durationMs already set by API
-  // Override with our measured duration for CLI accuracy
+  // WHY: If target not found and path format is wrong, show hint
+  if (!impactResult.success) {
+    const impactError = impactResult as ImpactError;
+    const enhancedError = addPathFormatHint(impactError, projectRoot, target);
+    enhancedError.durationMs = Date.now() - startTime;
+    return enhancedError;
+  }
+
+  // ========================================
+  // Step 6: Return Result
+  // ========================================
+  // Override duration with CLI-measured value
   impactResult.durationMs = Date.now() - startTime;
 
   return impactResult;

@@ -23,7 +23,7 @@ import { formatMigrateText } from '../src/cli/output/migrate-text.js';
 import { formatImpactJson, formatImpactText, formatImpactErrorJson, formatImpactErrorText } from '../src/cli/output/impact-formatter.js';
 import { formatScopeJson, formatScopeText, formatScopeErrorJson, formatScopeErrorText } from '../src/cli/output/scope-formatter.js';
 import { formatLayersJson, formatLayersText, formatLayersErrorJson, formatLayersErrorText } from '../src/cli/output/layers-formatter.js';
-import type { AnalyzeResult, UpdateResult, CliError, EdgeCaseResult } from '../src/types.js';
+import type { AnalyzeResult, UpdateResult, CliError, EdgeCaseResult, MigrateResult } from '../src/types.js';
 import type { ImpactResult, ImpactError, ScopeResult, ScopeError, LayersResult, LayersError } from '../src/api/types/index.js';
 import { CliErrorCode } from '../src/types.js';
 

@@ -398,6 +398,18 @@ export enum CliErrorCode {
   E_INDEX_OUT_OF_BOUNDS = 'E_INDEX_OUT_OF_BOUNDS',
   /** Baseline file corrupted - invalid JSON or missing required fields */
   E_CORRUPTED_BASELINE = 'E_CORRUPTED_BASELINE',
+
+  // --- CLI Layer Error Codes (C15: CLI UX Improvement) ---
+  /** User entered an unknown command (e.g., 'codegraph xyz') */
+  E_CLI_UNKNOWN_COMMAND = 'E_CLI_UNKNOWN_COMMAND',
+  /** User used an invalid flag (e.g., 'codegraph analyze --invalid') */
+  E_CLI_UNKNOWN_FLAG = 'E_CLI_UNKNOWN_FLAG',
+  /** Required argument missing (e.g., 'codegraph scope' without target) */
+  E_CLI_MISSING_ARG = 'E_CLI_MISSING_ARG',
+  /** Target path not found in scope/impact commands */
+  E_CLI_TARGET_NOT_FOUND = 'E_CLI_TARGET_NOT_FOUND',
+  /** Unexpected internal error (fallback for non-CACError) */
+  E_CLI_INTERNAL = 'E_CLI_INTERNAL',
 }
 
 /**
@@ -592,6 +604,10 @@ export interface CliError {
     code: CliErrorCode;
     /** Human-readable error message */
     message: string;
+    /** Optional suggestion for correcting the error (CLI UX improvement) */
+    suggestion?: string;
+    /** Original error details (only in JSON mode for debugging) */
+    debug?: string;
   };
   /** Time elapsed before error occurred */
   durationMs: number;

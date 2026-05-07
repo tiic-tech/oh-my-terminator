@@ -47,9 +47,30 @@ describe('CliErrorCode enum', () => {
     assert.strictEqual(CliErrorCode.E_CORRUPTED_BASELINE, 'E_CORRUPTED_BASELINE');
   });
 
-  it('should have exactly 9 values', () => {
+  // C15: CLI UX improvement error codes
+  it('should contain E_CLI_UNKNOWN_COMMAND value', () => {
+    assert.strictEqual(CliErrorCode.E_CLI_UNKNOWN_COMMAND, 'E_CLI_UNKNOWN_COMMAND');
+  });
+
+  it('should contain E_CLI_UNKNOWN_FLAG value', () => {
+    assert.strictEqual(CliErrorCode.E_CLI_UNKNOWN_FLAG, 'E_CLI_UNKNOWN_FLAG');
+  });
+
+  it('should contain E_CLI_MISSING_ARG value', () => {
+    assert.strictEqual(CliErrorCode.E_CLI_MISSING_ARG, 'E_CLI_MISSING_ARG');
+  });
+
+  it('should contain E_CLI_TARGET_NOT_FOUND value', () => {
+    assert.strictEqual(CliErrorCode.E_CLI_TARGET_NOT_FOUND, 'E_CLI_TARGET_NOT_FOUND');
+  });
+
+  it('should contain E_CLI_INTERNAL value', () => {
+    assert.strictEqual(CliErrorCode.E_CLI_INTERNAL, 'E_CLI_INTERNAL');
+  });
+
+  it('should have exactly 14 values', () => {
     const values = Object.values(CliErrorCode);
-    assert.strictEqual(values.length, 9);
+    assert.strictEqual(values.length, 14);
   });
 });
 
