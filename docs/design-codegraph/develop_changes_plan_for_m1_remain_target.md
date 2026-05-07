@@ -41,14 +41,17 @@
 
 ### 1.2 待完成的Change
 
-| Change ID | Change名称 | 实现状态 | 备注 |
-|-----------|-----------|---------|------|
-| C12 | cg-mvp-documentation | ⚠️ 待完善 | M1唯一剩余任务，README/API文档待更新 |
+| Change ID | Change名称 | 实现状态 | 优先级 | 备注 |
+|-----------|-----------|---------|--------|------|
+| C12 | cg-mvp-documentation | ⚠️ 待完善 | P2 | README/API文档待更新 |
+| C13 | cg-complexity-calculation | 📋 待规划 | P1 | 复杂度计算实现（E2E报告反馈） |
+| C14 | cg-layer-naming-inference | 📋 待规划 | P2 | Layer命名推断（5/6/7→有意义名称） |
 
-> **更新说明 (2026-05-07)**: 
+> **更新说明 (2026-05-07 E2E Round2)**: 
 > - C10 (cg-cli-query-archive) 已归档
 > - C11 (cg-mvp-test-coverage) 已完成验证，覆盖率 92.74% > 80%
-> - 仅剩 C12 文档任务
+> - stderr分离（cg-stderr-model）已归档
+> - **新增**: C13/C14 基于E2E第二轮测试反馈
 
 ### 1.3 代码实现验证
 
@@ -148,10 +151,13 @@ packages/codegraph/src/analyzer/
 | P1-Layer推断改进 Phase 4 | Layer Assignment | 4h | 设计完成 | **已实现** | ✅ cg-layer-inference-pipeline (归档) |
 | P1-Layer推断改进 Phase 5 | Fallback & 预过滤 | 3h | 设计完成 | **已实现** | ✅ cg-layer-inference-pipeline (归档) |
 | P1-TypeScript import type | ImportClause.isTypeOnly | 4h | 设计完成 | **已实现** | ✅ cg-ts-import-type (归档) |
+| **P1-复杂度计算** | Cyclomatic Complexity | 4h | 📋 待设计 | 未实现 | 📋 cg-complexity-calculation (C13) |
+| **P2-Layer命名推断** | Layer 5/6/7语义命名 | 3h | 📋 待设计 | 未实现 | 📋 cg-layer-naming-inference (C14) |
 
-> **更新说明 (2026-05-07)**: 
+> **更新说明 (2026-05-07 E2E Round2)**: 
 > - P1-Phase 1/2/3/4/5 全部已通过 `cg-layer-inference-pipeline` change 完成并归档。
 > - P1-TypeScript import type 已通过 `cg-ts-import-type` change 完成并归档。
+> - **新增**: P1-复杂度计算、P2-Layer命名推断 基于E2E第二轮测试反馈
 
 ### 3.2 P1任务详细分析
 
@@ -211,14 +217,20 @@ packages/codegraph/src/api/layers/inference/
 | cg-depth-presets | [CORE] | P1-Phase 3 | 2h | P1 | ✅ 已完成 | archive/2026-05-06-cg-depth-presets |
 | cg-layer-inference-pipeline | [CORE] | P1-Phase 1/2/4/5 | 14h | P1 | ✅ 已完成 | archive/2026-05-07-cg-layer-inference-pipeline |
 | cg-ts-import-type | [PARSER] | P1-import type | 4h | P1 | ✅ 已完成 | archive/2026-05-06-cg-ts-import-type |
+| cg-stderr-model | [CLI] | P0-stderr分离 | 3h | P0 | ✅ 已完成 | archive/2026-05-07-cg-stderr-model |
 | cg-cli-query-archive | [CLI] | C10归档 | 1h | P2 | ✅ 已完成 | archive/2026-05-07-cg-cli-query-archive |
 | cg-mvp-test-coverage | [TEST] | C11完善 | 4h | P2 | ✅ 已完成 | - |
 | cg-mvp-documentation | [DOC] | C12完善 | 2h | P2 | ⚠️ 待完善 | - |
+| **cg-complexity-calculation** | [ANALYZER] | P1-复杂度计算 | 4h | **P1** | 📋 待规划 | - |
+| **cg-layer-naming-inference** | [CORE] | P2-Layer命名推断 | 3h | **P2** | 📋 待规划 | - |
 
-> **更新说明 (2026-05-07)**:
+> **更新说明 (2026-05-07 E2E Round2)**:
 > - 已完成所有 P0/P1 changes 和 C10/C11
+> - stderr分离通过 `cg-stderr-model` 完成
 > - C11 测试覆盖率达标 (92.74% > 80%)
-> - **剩余总工时**: 约2h (仅C12文档)
+> - E2E评分: 8.65/10 → 9.5/10 (+0.85)
+> - **新增**: C13/C14 基于E2E第二轮测试反馈
+> - **剩余总工时**: 约9h (C12+C13+C14)
 
 ### 4.2 各Change详细设计
 
@@ -399,7 +411,77 @@ packages/codegraph/src/parser/ts-parser/
 - 示例可执行
 - 新用户可快速上手
 
-> **状态**: M1唯一剩余任务
+> **状态**: M1文档任务
+
+---
+
+#### Change 8: cg-complexity-calculation [ANALYZER] 📋 待规划
+
+**名称**: `cg-complexity-calculation`
+
+**目标**: 实现代码复杂度计算，为scope命令的metadata提供有意义的复杂度值
+
+**背景**: E2E第二轮测试发现，scope命令返回的metadata中complexity字段始终显示 `"level": "unknown", "value": 0`，缺少代码质量指标。
+
+**范围**: (待设计)
+- Cyclomatic Complexity计算算法
+- 函数级复杂度统计
+- 文件级复杂度聚合
+- 复杂度等级分类（low/medium/high/critical）
+- scope命令集成
+
+**交付文件**: (规划)
+```
+packages/codegraph/src/analyzer/
+├── complexity-calculator.ts   # 复杂度计算核心
+├── complexity-levels.ts       # 等级分类配置
+└── index.ts                   # 导出
+
+packages/codegraph/src/api/scope/
+└── metadata-builder.ts        # 复杂度字段集成
+```
+
+**验证标准**:
+- scope命令返回有意义的复杂度值（非"unknown"）
+- 复杂度等级合理分类
+- 高复杂度文件可识别
+
+**预计工期**: 4h
+
+**优先级**: P1 (E2E报告反馈)
+
+---
+
+#### Change 9: cg-layer-naming-inference [CORE] 📋 待规划
+
+**名称**: `cg-layer-naming-inference`
+
+**目标**: 为Layer 5/6/7推断有意义名称，替代通用编号命名
+
+**背景**: E2E第二轮测试发现，layers命令返回的高层级Layer使用通用名称（"Layer 5/6/7"），降低了架构理解价值。需要基于目录结构推断语义化名称。
+
+**范围**: (待设计)
+- 常见目录名称映射表（api→API层，persistence→数据层，cli→CLI层等）
+- 基于职责推断Layer名称算法
+- 配置扩展机制（自定义命名规则）
+- layers命令集成
+
+**交付文件**: (规划)
+```
+packages/codegraph/src/api/layers/inference/
+├── layer-naming.ts            # Layer命名推断
+├── naming-rules.ts            # 常见命名规则表
+└── index.ts                   # 导出
+```
+
+**验证标准**:
+- Layer 5/6/7显示有意义名称（如"API层"、"数据层"、"CLI层"）
+- 名称推断准确率 > 80%
+- 支持自定义命名规则
+
+**预计工期**: 3h
+
+**优先级**: P2 (E2E报告反馈)
 
 ---
 
@@ -468,19 +550,22 @@ packages/codegraph/src/parser/ts-parser/
 
 ### 5.2 执行建议表
 
-> **2026-05-07更新**: Phase A/B/C/D已完成，仅剩C12文档
+> **2026-05-07 E2E Round2更新**: Phase A/B/C/D已完成，新增C13/C14任务规划
 
 | 执行阶段 | Change | 工时 | 并行度 | 状态 | 备注 |
 |---------|--------|------|--------|------|------|
 | ✅ Week 1 Day 1 | cg-edge-case-handler | 4h | 串行 | ✅ 已完成 | 归档 2026-05-06 |
 | ✅ Week 1 Day 2-3 | cg-depth-presets + cg-ts-import-type | 6h | 并行 | ✅ 已完成 | 归档 2026-05-06 |
 | ✅ Week 1 Day 4-5 | cg-layer-inference-pipeline | 14h | 串行 | ✅ 已完成 | 归档 2026-05-07 |
+| ✅ Week 2 Day 1 | cg-stderr-model | 3h | 串行 | ✅ 已完成 | 归档 2026-05-07 |
 | ✅ Week 2 Day 1 | cg-cli-query-archive | 1h | 并行 | ✅ 已完成 | 归档 2026-05-07 |
 | ✅ Week 2 Day 2 | cg-mvp-test-coverage | 4h | 串行 | ✅ 已完成 | 92.74%覆盖率 |
-| ⚠️ Week 2 Day 3 | cg-mvp-documentation | 2h | 串行 | ⚠️ 待执行 | **唯一剩余** |
+| ⚠️ Week 2 Day 3 | cg-mvp-documentation | 2h | 串行 | ⚠️ 待执行 | 文档完善 |
+| 📋 Week 2 Day 4 | cg-complexity-calculation | 4h | 串行 | 📋 待规划 | **P1新任务** |
+| 📋 Week 2 Day 5 | cg-layer-naming-inference | 3h | 串行 | 📋 待规划 | **P2新任务** |
 
-**已完成工时**: 29h (4+6+14+1+4)
-**剩余总工时**: 约2h (仅C12文档)
+**已完成工时**: 34h (4+6+14+3+1+4)
+**剩余总工时**: 约9h (C12+C13+C14)
 
 ---
 
@@ -510,15 +595,16 @@ packages/codegraph/src/parser/ts-parser/
 
 **建议**: C12是M1唯一剩余任务，完成后M1可交付。
 
-### 6.3 M1剩余工作总结 (2026-05-07更新)
+### 6.3 M1剩余工作总结 (2026-05-07 E2E Round2更新)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    M1工作全景 (2026-05-07)                     │
+│                    M1工作全景 (2026-05-07 E2E Round2)          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  ✅ 已完成C1-C10: 图结构、扫描、解析、API、CLI                   │
 │  ✅ 已完成P0: edge case handler (4h) - 归档 2026-05-06       │
+│  ✅ 已完成P0: stderr分离 (3h) - 归档 2026-05-07              │
 │  ✅ 已完成P1: depth presets (2h) - 归档 2026-05-06           │
 │  ✅ 已完成P1: import type (4h) - 归档 2026-05-06             │
 │  ✅ 已完成P1: layer inference pipeline (14h) - 归档 2026-05-07│
@@ -526,22 +612,46 @@ packages/codegraph/src/parser/ts-parser/
 │  ✅ 已完成C11: test coverage (92.74%) - 2026-05-07          │
 │                                                             │
 │  ⚠️ 待完成:                                                   │
-│  └─ C12: documentation完善 (2h) ← **唯一剩余任务**             │
+│  ├─ C12: documentation完善 (2h)                              │
+│  ├─ C13: complexity calculation (4h) ← **P1新任务**          │
+│  └─ C14: layer naming inference (3h) ← **P2新任务**          │
 │                                                             │
-│  已完成: 31h                                                 │
-│  剩余总计: 2h                                                │
+│  已完成: 34h                                                 │
+│  剩余总计: 9h                                                │
 │                                                             │
-│  测试状态: 997 tests passing ✅                              │
+│  测试状态: 1020 tests passing ✅                              │
 │  覆盖率: 92.74% > 80% ✅                                     │
+│  E2E评分: 9.5/10 ✅                                          │
 │                                                             │
 │  验收标准:                                                   │
 │  ├─ 测试覆盖率 ≥ 80% ✅                                      │
 │  ├─ E2E测试全通过 ✅                                         │
+│  ├─ stderr分离验证 ✅                                        │
+│  ├─ JSON纯度验证 ✅                                          │
 │  ├─ 文档覆盖所有M1功能 ⚠️                                    │
-│  └─ Layer推断质量提升 ✅                                     │
+│  ├─ 复杂度计算实现 📋                                        │
+│  └─ Layer命名推断 📋                                         │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### 6.4 E2E第二轮测试反馈总结 (2026-05-07)
+
+**评分提升**: 8.65/10 → **9.5/10** (+0.85)
+
+**已解决问题**:
+| 问题 | 状态 |
+|-----|------|
+| stdout警告噪音 | ✅ 已修复 (cg-stderr-model) |
+| jq管道失败 | ✅ 已修复 |
+| silent模式workaround | ✅ 不再需要 |
+
+**新发现问题**:
+| 问题 | 优先级 | 规划Change |
+|-----|--------|-----------|
+| 复杂度计算未实现 | P1 | C13: cg-complexity-calculation |
+| Layer 5/6/7通用命名 | P2 | C14: cg-layer-naming-inference |
+| layers命令需--source-root | P3 | 建议文档说明 |
 
 ---
 
@@ -592,10 +702,11 @@ cg-<功能名>
 
 ---
 
-**文档版本**: v1.3 (2026-05-07更新)
+**文档版本**: v1.4 (2026-05-07 E2E Round2更新)
 **创建日期**: 2026-05-05
-**最后更新**: 2026-05-07 (状态标记修复，所有任务状态准确)
+**最后更新**: 2026-05-07 (新增C13/C14任务规划，基于E2E第二轮测试反馈)
 **关联文档**:
 - [hybrid-layer-inference-design.md](../../packages/codegraph/docs/design-codegraph/hybrid-layer-inference-design.md)
 - [develop_changes_plan.md](./develop_changes_plan.md)
+- [codegraph-e2e-experience-report-round2.md](../e2e-report/codegraph-e2e-experience-report-round2.md)
 **用途**: 创建M1剩余工作OpenSpec change的依据

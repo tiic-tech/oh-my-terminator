@@ -9,7 +9,7 @@ import type { AnalyzeResult, UpdateResult, CliError } from '../../../src/types.j
 import { CliErrorCode } from '../../../src/types.js';
 
 describe('formatAnalyzeJson', () => {
-  it('should produce valid JSON string', () => {
+  it('should produce OutputResult with valid JSON primary', () => {
     const result: AnalyzeResult = {
       success: true,
       stats: {
@@ -23,14 +23,14 @@ describe('formatAnalyzeJson', () => {
     };
 
     const output = formatAnalyzeJson(result);
-    assert.ok(typeof output === 'string');
+    assert.ok(typeof output.primary === 'string');
 
     // Should be parseable as JSON
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(output.primary);
     assert.ok(parsed);
   });
 
-  it('should include all required fields', () => {
+  it('should include all required fields in primary JSON', () => {
     const result: AnalyzeResult = {
       success: true,
       stats: {
@@ -49,7 +49,7 @@ describe('formatAnalyzeJson', () => {
     };
 
     const output = formatAnalyzeJson(result);
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(output.primary);
 
     assert.strictEqual(parsed.success, true);
     assert.strictEqual(parsed.stats.filesScanned, 10);
@@ -61,10 +61,44 @@ describe('formatAnalyzeJson', () => {
     assert.strictEqual(parsed.warnings.length, 1);
     assert.strictEqual(parsed.nextSuggested.length, 1);
   });
+
+  it('should extract warnings to warnings field', () => {
+    const result: AnalyzeResult = {
+      success: true,
+      stats: {
+        filesScanned: 10,
+        modulesExtracted: 25,
+        edgesCreated: { imports: 50, exports: 30, contains: 15 },
+      },
+      durationMs: 1500,
+      warnings: ['Test warning'],
+      nextSuggested: [],
+    };
+
+    const output = formatAnalyzeJson(result);
+    assert.deepStrictEqual(output.warnings, ['Test warning']);
+  });
+
+  it('should omit warnings field when no warnings', () => {
+    const result: AnalyzeResult = {
+      success: true,
+      stats: {
+        filesScanned: 10,
+        modulesExtracted: 25,
+        edgesCreated: { imports: 50, exports: 30, contains: 15 },
+      },
+      durationMs: 1500,
+      warnings: [],
+      nextSuggested: [],
+    };
+
+    const output = formatAnalyzeJson(result);
+    assert.strictEqual(output.warnings, undefined);
+  });
 });
 
 describe('formatUpdateJson', () => {
-  it('should produce valid JSON string', () => {
+  it('should produce OutputResult with valid JSON primary', () => {
     const result: UpdateResult = {
       success: true,
       changes: {
@@ -81,14 +115,14 @@ describe('formatUpdateJson', () => {
     };
 
     const output = formatUpdateJson(result);
-    assert.ok(typeof output === 'string');
+    assert.ok(typeof output.primary === 'string');
 
     // Should be parseable as JSON
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(output.primary);
     assert.ok(parsed);
   });
 
-  it('should include changes and delta', () => {
+  it('should include changes and delta in primary', () => {
     const result: UpdateResult = {
       success: true,
       changes: {
@@ -105,7 +139,7 @@ describe('formatUpdateJson', () => {
     };
 
     const output = formatUpdateJson(result);
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(output.primary);
 
     assert.strictEqual(parsed.success, true);
     assert.strictEqual(parsed.changes.added.length, 1);
@@ -116,10 +150,30 @@ describe('formatUpdateJson', () => {
     assert.strictEqual(parsed.delta.removedNodes, 2);
     assert.strictEqual(parsed.warnings.length, 1);
   });
+
+  it('should extract warnings to warnings field', () => {
+    const result: UpdateResult = {
+      success: true,
+      changes: {
+        added: ['src/new.ts'],
+        removed: [],
+        modified: [],
+      },
+      delta: {
+        newNodes: 5,
+        removedNodes: 0,
+      },
+      durationMs: 250,
+      warnings: ['Test warning'],
+    };
+
+    const output = formatUpdateJson(result);
+    assert.deepStrictEqual(output.warnings, ['Test warning']);
+  });
 });
 
 describe('formatErrorJson', () => {
-  it('should include success: false', () => {
+  it('should produce OutputResult with error JSON in primary', () => {
     const error: CliError = {
       success: false,
       error: {
@@ -130,12 +184,12 @@ describe('formatErrorJson', () => {
     };
 
     const output = formatErrorJson(error);
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(output.primary);
 
     assert.strictEqual(parsed.success, false);
   });
 
-  it('should include error.code and message', () => {
+  it('should include error.code and message in primary', () => {
     const error: CliError = {
       success: false,
       error: {
@@ -146,10 +200,24 @@ describe('formatErrorJson', () => {
     };
 
     const output = formatErrorJson(error);
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(output.primary);
 
     assert.strictEqual(parsed.error.code, CliErrorCode.E_PARSE_FAILED);
     assert.strictEqual(parsed.error.message, 'Failed to parse src/broken.ts');
     assert.strictEqual(parsed.durationMs, 100);
+  });
+
+  it('should extract error message to errors field', () => {
+    const error: CliError = {
+      success: false,
+      error: {
+        code: CliErrorCode.E_PARSE_FAILED,
+        message: 'Failed to parse',
+      },
+      durationMs: 100,
+    };
+
+    const output = formatErrorJson(error);
+    assert.deepStrictEqual(output.errors, ['Failed to parse']);
   });
 });

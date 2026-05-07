@@ -12,15 +12,20 @@
  * 5. Impact command registered - impact --help works
  * 6. Layers command registered - layers --help works
  * 7. Migrate command registered - migrate --help works
+ * 8. JSON mode stdout purity - stdout contains only valid JSON
  *
  * @see tasks.md 6.9 - Write smoke test for CLI entry point
  * @see cg-cli-query-archive - Verify CLI query commands registration
+ * @see cg-stderr-model - Verify stdout/stderr separation
  */
 
 import { spawn } from 'child_process';
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 import { resolve } from 'path';
+import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { execSync } from 'node:child_process';
 
 const CLI_PATH = resolve(import.meta.dirname, '../../bin/codegraph.ts');
 const PACKAGE_DIR = resolve(import.meta.dirname, '../../');
@@ -56,6 +61,23 @@ async function runCLI(args: string[]): Promise<{ stdout: string; stderr: string;
       resolvePromise({ stdout, stderr, exitCode: code ?? 0 });
     });
   });
+}
+
+/**
+ * Create a temporary git repository for testing
+ */
+async function createTestGitRepo(): Promise<string> {
+  const tempDir = await mkdtemp(resolve(tmpdir(), 'codegraph-smoke-test-'));
+
+  // Initialize git repo
+  execSync('git init', { cwd: tempDir, encoding: 'utf-8' });
+  execSync('git config user.email "test@test.com"', { cwd: tempDir, encoding: 'utf-8' });
+  execSync('git config user.name "Test User"', { cwd: tempDir, encoding: 'utf-8' });
+
+  // Create src directory
+  await mkdir(resolve(tempDir, 'src'));
+
+  return tempDir;
 }
 
 describe('CLI smoke tests', () => {
@@ -136,5 +158,86 @@ describe('CLI smoke tests', () => {
     assert.ok(result.stdout.includes('layers'), 'Output should contain layers command');
     assert.ok(result.stdout.includes('--json'), 'Help should show --json option');
     assert.ok(result.stdout.includes('Usage'), 'Help should show usage section');
+  });
+
+  // ============================================================================
+  // cg-stderr-model: JSON stdout purity tests
+  // ============================================================================
+
+  describe('JSON mode stdout purity (cg-stderr-model)', () => {
+    it('JSON output to stdout is valid JSON', async () => {
+      const testRepo = await createTestGitRepo();
+
+      // Create a simple TypeScript file
+      await writeFile(resolve(testRepo, 'src/test.ts'), 'export const test = 1;');
+      execSync('git add .', { cwd: testRepo, encoding: 'utf-8' });
+      execSync('git commit -m "Initial commit"', { cwd: testRepo, encoding: 'utf-8' });
+
+      try {
+        const result = await runCLI(['analyze', testRepo, '--json']);
+
+        // stdout should be valid JSON
+        assert.ok(result.stdout.length > 0, 'stdout should have content');
+
+        // Parse stdout as JSON - should succeed
+        const parsed = JSON.parse(result.stdout);
+        assert.ok(parsed, 'stdout JSON should be parseable');
+        assert.strictEqual(parsed.success, true, 'JSON should indicate success');
+
+        // stdout should not contain warning/error text mixed with JSON
+        // (warnings go to stderr)
+        assert.ok(!result.stdout.includes('Warnings:'), 'stdout should NOT contain warnings section');
+      } finally {
+        await rm(testRepo, { recursive: true, force: true });
+      }
+    });
+
+    it('warnings go to stderr in JSON mode', async () => {
+      const testRepo = await createTestGitRepo();
+
+      // Create files that might generate warnings
+      await writeFile(resolve(testRepo, 'src/test.ts'), 'export const test = 1;');
+      execSync('git add .', { cwd: testRepo, encoding: 'utf-8' });
+      execSync('git commit -m "Initial commit"', { cwd: testRepo, encoding: 'utf-8' });
+
+      try {
+        const result = await runCLI(['analyze', testRepo, '--json']);
+
+        // If warnings exist, they should be in stderr, not stdout
+        // stdout should only contain the JSON result
+        const stdoutParsed = JSON.parse(result.stdout);
+        assert.ok(stdoutParsed, 'stdout should be valid JSON');
+
+        // stderr may contain warnings (or be empty if no warnings)
+        // This test verifies the separation, not presence of warnings
+      } finally {
+        await rm(testRepo, { recursive: true, force: true });
+      }
+    });
+
+    it('JSON output can be piped to jq', async () => {
+      const testRepo = await createTestGitRepo();
+
+      await writeFile(resolve(testRepo, 'src/test.ts'), 'export const test = 1;');
+      execSync('git add .', { cwd: testRepo, encoding: 'utf-8' });
+      execSync('git commit -m "Initial commit"', { cwd: testRepo, encoding: 'utf-8' });
+
+      try {
+        // Run analyze --json and pipe to jq
+        const jqResult = execSync(
+          `pnpm tsx ${CLI_PATH} analyze ${testRepo} --json | jq '.success'`,
+          {
+            cwd: PACKAGE_DIR,
+            encoding: 'utf-8',
+            shell: true,
+          }
+        );
+
+        // jq should output 'true' (the success field value)
+        assert.ok(jqResult.includes('true'), 'jq should parse JSON and extract success=true');
+      } finally {
+        await rm(testRepo, { recursive: true, force: true });
+      }
+    });
   });
 });

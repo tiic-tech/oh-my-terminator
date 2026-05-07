@@ -5,33 +5,51 @@
  * - JSON: Programmatic consumption by other tools
  * - Text: Human-readable output for developers
  *
+ * CHANGE: Formatters return OutputResult instead of writing to stream.
+ * WHY: Separation of concerns - formatter produces, command routes.
+ *
  * @see fix-e2e-report-all-issues tasks 2.3-2.4
  */
 
 import type { ScopeResult, ScopeError } from '../../api/types/index.js';
+import type { OutputResult } from './types.js';
+import { formatDuration, optionalArray } from './format-utils.js';
 
 // ============================================================================
 // JSON Formatters
 // ============================================================================
 
 /**
- * Format ScopeResult as compact JSON
+ * Format ScopeResult as OutputResult with JSON content
  *
  * @param result - Scope query result from CLI scope command
- * @returns JSON string with minimal whitespace
+ * @returns OutputResult with JSON primary content and warnings extracted
  */
-export function formatScopeJson(result: ScopeResult): string {
-  return JSON.stringify(result);
+export function formatScopeJson(result: ScopeResult): OutputResult {
+  return {
+    primary: JSON.stringify(result),
+    warnings: optionalArray(result.warnings),
+    metadata: {
+      durationMs: result.durationMs,
+      command: 'scope',
+    },
+  };
 }
 
 /**
- * Format ScopeError as compact JSON
+ * Format ScopeError as OutputResult with JSON error content
  *
  * @param error - Scope error result from CLI scope command
- * @returns JSON string with minimal whitespace
+ * @returns OutputResult with JSON error in primary and error message in errors field
  */
-export function formatScopeErrorJson(error: ScopeError): string {
-  return JSON.stringify(error);
+export function formatScopeErrorJson(error: ScopeError): OutputResult {
+  return {
+    primary: JSON.stringify(error),
+    errors: [error.error.message],
+    metadata: {
+      durationMs: error.durationMs,
+    },
+  };
 }
 
 // ============================================================================
@@ -39,12 +57,12 @@ export function formatScopeErrorJson(error: ScopeError): string {
 // ============================================================================
 
 /**
- * Format ScopeResult as human-readable text
+ * Format ScopeResult as OutputResult with human-readable text
  *
  * @param result - Scope query result from CLI scope command
- * @returns Multiline formatted string
+ * @returns OutputResult with text primary content and warnings extracted
  */
-export function formatScopeText(result: ScopeResult): string {
+export function formatScopeText(result: ScopeResult): OutputResult {
   const lines: string[] = [];
 
   // Header
@@ -124,14 +142,8 @@ export function formatScopeText(result: ScopeResult): string {
   lines.push('');
   lines.push(`Duration: ${formatDuration(result.durationMs)}`);
 
-  // Warnings (if any)
-  if (result.warnings && result.warnings.length > 0) {
-    lines.push('');
-    lines.push('Warnings:');
-    for (const warning of result.warnings) {
-      lines.push(`- ${warning}`);
-    }
-  }
+  // WHY: Warnings go to stderr, not stdout - Unix convention
+  // Warnings are NOT included in primary content, extracted to warnings field
 
   // Next suggested (if any)
   if (result.nextSuggested && result.nextSuggested.length > 0) {
@@ -142,16 +154,23 @@ export function formatScopeText(result: ScopeResult): string {
     }
   }
 
-  return lines.join('\n');
+  return {
+    primary: lines.join('\n'),
+    warnings: optionalArray(result.warnings),
+    metadata: {
+      durationMs: result.durationMs,
+      command: 'scope',
+    },
+  };
 }
 
 /**
- * Format ScopeError as human-readable error text
+ * Format ScopeError as OutputResult with human-readable error text
  *
  * @param error - Scope error result from CLI scope command
- * @returns Error message string
+ * @returns OutputResult with error text in primary and error message in errors field
  */
-export function formatScopeErrorText(error: ScopeError): string {
+export function formatScopeErrorText(error: ScopeError): OutputResult {
   const lines: string[] = [];
 
   lines.push(`Error: ${error.error.message}`);
@@ -163,22 +182,11 @@ export function formatScopeErrorText(error: ScopeError): string {
 
   lines.push(`Duration: ${formatDuration(error.durationMs)}`);
 
-  return lines.join('\n');
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Format duration in milliseconds to human-readable string
- *
- * @param ms - Duration in milliseconds
- * @returns Formatted string (e.g., "2.3s", "450ms")
- */
-function formatDuration(ms: number): string {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(1)}s`;
-  }
-  return `${ms}ms`;
+  return {
+    primary: lines.join('\n'),
+    errors: [error.error.message],
+    metadata: {
+      durationMs: error.durationMs,
+    },
+  };
 }

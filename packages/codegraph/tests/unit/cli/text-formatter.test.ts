@@ -1,15 +1,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  formatAnalyzeText,
-  formatUpdateText,
-  formatErrorText,
-} from '../../../src/cli/output/text-formatter.js';
+import { formatAnalyzeText } from '../../../src/cli/output/analyze-text.js';
+import { formatUpdateText } from '../../../src/cli/output/update-text.js';
+import { formatErrorText } from '../../../src/cli/output/error-text.js';
 import type { AnalyzeResult, UpdateResult, CliError } from '../../../src/types.js';
 import { CliErrorCode } from '../../../src/types.js';
 
 describe('formatAnalyzeText', () => {
-  it('should include summary with stats', () => {
+  it('should include summary with stats in primary', () => {
     const result: AnalyzeResult = {
       success: true,
       stats: {
@@ -24,16 +22,16 @@ describe('formatAnalyzeText', () => {
 
     const output = formatAnalyzeText(result);
 
-    assert.ok(output.includes('Analysis complete'));
-    assert.ok(output.includes('Files scanned: 10'));
-    assert.ok(output.includes('Modules extracted: 25'));
-    assert.ok(output.includes('50 imports'));
-    assert.ok(output.includes('30 exports'));
-    assert.ok(output.includes('15 contains'));
-    assert.ok(output.includes('Duration:'));
+    assert.ok(output.primary.includes('Analysis complete'));
+    assert.ok(output.primary.includes('Files scanned: 10'));
+    assert.ok(output.primary.includes('Modules extracted: 25'));
+    assert.ok(output.primary.includes('50 imports'));
+    assert.ok(output.primary.includes('30 exports'));
+    assert.ok(output.primary.includes('15 contains'));
+    assert.ok(output.primary.includes('Duration:'));
   });
 
-  it('should list warnings if present', () => {
+  it('should NOT include warnings in primary (they go to warnings field)', () => {
     const result: AnalyzeResult = {
       success: true,
       stats: {
@@ -48,12 +46,15 @@ describe('formatAnalyzeText', () => {
 
     const output = formatAnalyzeText(result);
 
-    assert.ok(output.includes('Warnings:'));
-    assert.ok(output.includes('- Skipped 2 files due to parse errors'));
-    assert.ok(output.includes('- Another warning'));
+    // Warnings are NOT in primary (stdout), they go to warnings field (stderr)
+    assert.ok(!output.primary.includes('Warnings:'));
+    assert.ok(!output.primary.includes('Skipped 2 files'));
+
+    // Warnings are in the warnings field
+    assert.deepStrictEqual(output.warnings, ['Skipped 2 files due to parse errors', 'Another warning']);
   });
 
-  it('should list next suggested if present', () => {
+  it('should list next suggested in primary', () => {
     const result: AnalyzeResult = {
       success: true,
       stats: {
@@ -73,12 +74,12 @@ describe('formatAnalyzeText', () => {
 
     const output = formatAnalyzeText(result);
 
-    assert.ok(output.includes('Next suggested:'));
-    assert.ok(output.includes('- Run "cg update" after making changes'));
-    assert.ok(output.includes('- Review the baseline file'));
+    assert.ok(output.primary.includes('Next suggested:'));
+    assert.ok(output.primary.includes('- Run "cg update" after making changes'));
+    assert.ok(output.primary.includes('- Review the baseline file'));
   });
 
-  it('should include baseline path when present', () => {
+  it('should include baseline path in primary when present', () => {
     const result: AnalyzeResult = {
       success: true,
       stats: {
@@ -98,7 +99,7 @@ describe('formatAnalyzeText', () => {
 
     const output = formatAnalyzeText(result);
 
-    assert.ok(output.includes('Baseline saved: .codegraph/baseline.json'));
+    assert.ok(output.primary.includes('Baseline saved: .codegraph/baseline.json'));
   });
 
   it('should format duration in seconds for >= 1000ms', () => {
@@ -116,7 +117,7 @@ describe('formatAnalyzeText', () => {
 
     const output = formatAnalyzeText(result);
 
-    assert.ok(output.includes('2.5s'));
+    assert.ok(output.primary.includes('2.5s'));
   });
 
   it('should format duration in milliseconds for < 1000ms', () => {
@@ -134,12 +135,29 @@ describe('formatAnalyzeText', () => {
 
     const output = formatAnalyzeText(result);
 
-    assert.ok(output.includes('450ms'));
+    assert.ok(output.primary.includes('450ms'));
+  });
+
+  it('should omit warnings field when no warnings', () => {
+    const result: AnalyzeResult = {
+      success: true,
+      stats: {
+        filesScanned: 10,
+        modulesExtracted: 25,
+        edgesCreated: { imports: 50, exports: 30, contains: 15 },
+      },
+      durationMs: 1500,
+      warnings: [],
+      nextSuggested: [],
+    };
+
+    const output = formatAnalyzeText(result);
+    assert.strictEqual(output.warnings, undefined);
   });
 });
 
 describe('formatUpdateText', () => {
-  it('should show file counts', () => {
+  it('should show file counts in primary', () => {
     const result: UpdateResult = {
       success: true,
       changes: {
@@ -157,14 +175,14 @@ describe('formatUpdateText', () => {
 
     const output = formatUpdateText(result);
 
-    assert.ok(output.includes('Update complete'));
-    assert.ok(output.includes('Changes detected:'));
-    assert.ok(output.includes('Added: 2 files'));
-    assert.ok(output.includes('Modified: 3 files'));
-    assert.ok(output.includes('Removed: 1 files'));
+    assert.ok(output.primary.includes('Update complete'));
+    assert.ok(output.primary.includes('Changes detected:'));
+    assert.ok(output.primary.includes('Added: 2 files'));
+    assert.ok(output.primary.includes('Modified: 3 files'));
+    assert.ok(output.primary.includes('Removed: 1 files'));
   });
 
-  it('should show node delta', () => {
+  it('should show node delta in primary', () => {
     const result: UpdateResult = {
       success: true,
       changes: {
@@ -182,11 +200,11 @@ describe('formatUpdateText', () => {
 
     const output = formatUpdateText(result);
 
-    assert.ok(output.includes('New nodes: 10'));
-    assert.ok(output.includes('Removed nodes: 5'));
+    assert.ok(output.primary.includes('New nodes: 10'));
+    assert.ok(output.primary.includes('Removed nodes: 5'));
   });
 
-  it('should list warnings if present', () => {
+  it('should NOT include warnings in primary (they go to warnings field)', () => {
     const result: UpdateResult = {
       success: true,
       changes: {
@@ -204,13 +222,17 @@ describe('formatUpdateText', () => {
 
     const output = formatUpdateText(result);
 
-    assert.ok(output.includes('Warnings:'));
-    assert.ok(output.includes('- File src/new.ts parsed with partial results'));
+    // Warnings are NOT in primary (stdout)
+    assert.ok(!output.primary.includes('Warnings:'));
+    assert.ok(!output.primary.includes('File src/new.ts'));
+
+    // Warnings are in warnings field
+    assert.deepStrictEqual(output.warnings, ['File src/new.ts parsed with partial results']);
   });
 });
 
 describe('formatErrorText', () => {
-  it('should show error code and message', () => {
+  it('should show error code and message in primary', () => {
     const error: CliError = {
       success: false,
       error: {
@@ -222,11 +244,11 @@ describe('formatErrorText', () => {
 
     const output = formatErrorText(error);
 
-    assert.ok(output.includes('Error: Not in a git repository'));
-    assert.ok(output.includes('Code: E_NO_GIT_REPO'));
+    assert.ok(output.primary.includes('Error: Not in a git repository'));
+    assert.ok(output.primary.includes('Code: E_NO_GIT_REPO'));
   });
 
-  it('should show duration', () => {
+  it('should show duration in primary', () => {
     const error: CliError = {
       success: false,
       error: {
@@ -238,7 +260,7 @@ describe('formatErrorText', () => {
 
     const output = formatErrorText(error);
 
-    assert.ok(output.includes('Duration: 500ms'));
+    assert.ok(output.primary.includes('Duration: 500ms'));
   });
 
   it('should format duration in seconds for >= 1000ms', () => {
@@ -253,6 +275,20 @@ describe('formatErrorText', () => {
 
     const output = formatErrorText(error);
 
-    assert.ok(output.includes('Duration: 1.5s'));
+    assert.ok(output.primary.includes('Duration: 1.5s'));
+  });
+
+  it('should extract error message to errors field', () => {
+    const error: CliError = {
+      success: false,
+      error: {
+        code: CliErrorCode.E_PARSE_FAILED,
+        message: 'Failed to parse',
+      },
+      durationMs: 100,
+    };
+
+    const output = formatErrorText(error);
+    assert.deepStrictEqual(output.errors, ['Failed to parse']);
   });
 });
