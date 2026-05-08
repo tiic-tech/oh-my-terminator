@@ -1,0 +1,38 @@
+{
+  "name": "@oh-my-terminator/codegraph",
+  "version": "0.2.0",
+  "description": "Core graph data structure for CodeGraph - repository relationship modeling for AI-driven development",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "codegraph": "./dist/bin/codegraph.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --import tsx --test tests/unit/*.test.ts tests/unit/**/*.test.ts",
+    "test:smoke": "node --import tsx --test tests/smoke/*.test.ts",
+    "test:coverage": "node --import tsx --test tests/unit/*.test.ts tests/unit/**/*.test.ts --experimental-test-coverage"
+  },
+  "keywords": [
+    "codegraph",
+    "dependency-analysis",
+    "repository-modeling",
+    "ai-development"
+  ],
+  "author": "Oh-my-terminator",
+  "license": "MIT",
+  "dependencies": {
+    "cac": "^6.7.14",
+    "isomorphic-git": "^1.27.1",
+    "typescript": "^5.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "c8": "^11.0.0",
+    "tsx": "^4.19.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

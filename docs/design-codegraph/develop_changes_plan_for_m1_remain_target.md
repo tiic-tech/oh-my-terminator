@@ -1,0 +1,1881 @@
+# M1剩余工作OpenSpec Change规划
+
+> **文档定位**: 基于 `hybrid-layer-inference-design.md` P0/P1任务清单，规划M1剩余工作所需的OpenSpec change拆分。
+
+---
+
+## 目录
+
+1. [现状分析](#1-现状分析)
+2. [P0任务清单](#2-p0任务清单)
+3. [P1任务清单](#3-p1任务清单)
+4. [新OpenSpec Change建议](#4-新openspec-change建议)
+5. [Change创建顺序建议](#5-change创建顺序建议)
+6. [与C11/C12的关系](#6-与c11c12的关系)
+
+---
+
+## 1. 现状分析
+
+### 1.1 已完成OpenSpec Changes（归档）
+
+| Change ID | Change名称 | 归档位置 | 状态 |
+|-----------|-----------|---------|------|
+| C1 | cg-core-graph-structure | archive/2026-05-03-cg-core-graph-structure | ✅ 已完成 |
+| C2 | cg-file-system-scanner | archive/2026-05-03-cg-file-system-scanner | ✅ 已完成 |
+| C3 | cg-ts-parser-imports | archive/2026-05-03-cg-ts-parser-imports | ✅ 已完成 |
+| C4 | cg-ts-parser-modules | archive/2026-05-03-cg-ts-parser-modules | ✅ 已完成 |
+| C5 | cg-full-analysis-flow | archive/2026-05-03-cg-full-analysis-flow | ✅ 已完成 |
+| C6 | cg-baseline-persistence | archive/2026-05-03-cg-baseline-persistence | ✅ 已完成 |
+| C7 | cg-api-scope | archive/2026-05-03-cg-api-scope | ✅ 已完成 |
+| C8 | cg-api-impact-layers | archive/2026-05-05-cg-api-impact-layers | ✅ 已完成 |
+| C9 | cg-cli-analyze-update | archive/2026-05-05-cg-cli-analyze-update | ✅ 已完成 |
+| - | rebuild-baseline-with-compression | archive/2026-05-04-rebuild-baseline-with-compression | ✅ 已完成 |
+| - | fix-e2e-report-all-issues | archive/2026-05-05-fix-e2e-report-all-issues | ✅ 已完成 |
+| P0 | cg-edge-case-handler | archive/2026-05-06-cg-edge-case-handler | ✅ 已完成 (2026-05-06归档) |
+| P1 | cg-depth-presets | archive/2026-05-06-cg-depth-presets | ✅ 已完成 (2026-05-06归档) |
+| P1 | cg-ts-import-type | archive/2026-05-06-cg-ts-import-type | ✅ 已完成 (2026-05-06归档) |
+| P1 | cg-layer-inference-pipeline | archive/2026-05-07-cg-layer-inference-pipeline | ✅ 已完成 (2026-05-07归档) |
+| C10 | cg-cli-query-archive | archive/2026-05-07-cg-cli-query-archive | ✅ 已完成 (2026-05-07归档) |
+| C11 | cg-mvp-test-coverage | - | ✅ 已完成 (2026-05-07验证，92.74%覆盖率) |
+| C13 | cg-complexity-calculation | archive/2026-05-07-cg-complexity-calculation | ✅ 已完成 (2026-05-07归档) |
+| C14 | cg-layer-naming-inference | archive/2026-05-07-cg-layer-naming-inference | ✅ 已完成 (2026-05-07归档) |
+| C15 | cg-cli-ux-improvement | archive/2026-05-07-cg-cli-ux-improvement | ✅ 已完成 (2026-05-07归档) |
+| C16 | cg-source-root-auto-detect | archive/2026-05-08-cg-source-root-auto-detect | ✅ 已完成 (2026-05-08归档) |
+
+### 1.2 待完成的Change
+
+| Change ID | Change名称 | 实现状态 | Phase | 优先级 | 备注 |
+|-----------|-----------|---------|-------|--------|------|
+| C13 | cg-complexity-calculation | ✅ 已完成 | - | P1 | 归档 2026-05-07 |
+| C14 | cg-layer-naming-inference | ✅ 已完成 | - | P2 | 归档 2026-05-07 |
+| C15 | cg-cli-ux-improvement | ✅ 已完成 | - | P1 | 归档 2026-05-07 |
+| C16 | cg-source-root-auto-detect | ✅ 已完成 | - | P1 | 归档 2026-05-08 |
+| **Phase 1** | | | | | **修复现有Bug 3h** |
+| P1-1 | cg-git-upward-search | 📋 待实现 | Phase 1 | **P0 BLOCKING** | Git向上搜索 |
+| P1-2 | cg-layers-cli-integration | 📋 待实现 | Phase 1 | **P0 BLOCKING** | CLI集成resolveSourceRoot |
+| P1-3 | cg-empty-result-fallback | 📋 待实现 | Phase 1 | **P0 BLOCKING** | 空结果fallback情报 |
+| **Phase 2** | | | | | **深度重构 7h** |
+| P2-1 | cg-dependency-matrix | 📋 待实现 | Phase 2 | **P1 Core** | 依赖矩阵构建 |
+| P2-2 | cg-modularity-clustering | 📋 待实现 | Phase 2 | **P1 Core** | 聚类算法 |
+| P2-3 | cg-layer-role-inference | 📋 待实现 | Phase 2 | **P1 Core** | 角色推断 |
+| **Phase 3** | | | | | **Enhancements 15h** |
+| P3-1 | c17-cycle-detection | 📋 待实现 | Phase 3 | P1 | 循环依赖警告 |
+| P3-2 | cg-directory-scope | 📋 待实现 | Phase 3 | P2 | 目录级scope |
+| P3-3 | cg-path-resolution | 📋 待实现 | Phase 3 | P2 | 智能路径 |
+| P3-4 | cg-type-complexity | 📋 待实现 | Phase 3 | P2 | 类型复杂度 |
+
+> **更新说明 (2026-05-08 深度思考整合)**: 
+> - **设计哲学转变**: 从"假设驱动"到"证据驱动"
+> - **三层fallback**: 标准结构→语义聚类→拓扑情报，总有输出
+> - **Phase 1目标**: 3h完成，让标准结构正常工作
+> - **Phase 2目标**: 7h完成，让非标准结构也能输出层级
+> - **总工时**: 25h（分三个Phase渐进交付）
+> - **核心洞察**: 问题本质是"脆弱假设链条"而非"集成遗漏"
+> - 详细设计见 Section F.4-F.10
+
+### 1.3 代码实现验证
+
+```bash
+# CLI命令文件已存在（C10实现验证）
+ls packages/codegraph/src/cli/commands/
+# 输出: analyze.ts, impact.ts, layers.ts, scope.ts, update.ts, migrate.ts, compression-stats.ts
+
+# 注意: brief.ts 不存在（C10规划但未实现）
+
+# 测试状态（C11已完成）
+cd packages/codegraph && npm test
+# 输出: 997 tests passing, 覆盖率 92.74% > 80%
+
+# 文档状态（C12待完善）
+ls packages/codegraph/README.md
+# 输出: 21KB comprehensive README
+
+# P0任务已实现验证 (2026-05-06归档)
+grep -r "handleEmptyProject\|handleSingleFileProject\|excludeTestFiles" packages/codegraph/src/
+# 输出: 有匹配 (cg-edge-case-handler已实现)
+
+# P1-DEPTH_PRESETS已实现验证 (2026-05-06归档)
+grep "DEPTH_PRESETS" packages/codegraph/src/api/layers/inference/
+# 输出: 有匹配 (cg-depth-presets已实现，动态阈值替换硬编码)
+
+# P1-import type已实现验证 (2026-05-06归档)
+grep "isTypeOnly" packages/codegraph/src/parser/ts-parser/
+# 输出: 有匹配 (cg-ts-import-type已实现)
+```
+
+---
+
+## 2. P0任务清单
+
+### 2.1 P0任务状态表
+
+| 任务ID | 任务名称 | 设计文档声称 | 实际代码状态 | 真实状态 | 需新Change |
+|--------|---------|-------------|-------------|----------|-----------|
+| P0-stderr分离 | stderr输出分离 | "已实现" | 仅json-formatter.ts注释 | 仅文档设计 | ❌ 可合并到C11 |
+| P0-空项目处理 | handleEmptyProject() | "已实现" | **已实现** | ✅ 已完成 | ✅ cg-edge-case-handler (归档) |
+| P0-单文件处理 | handleSingleFileProject() | "已实现" | **已实现** | ✅ 已完成 | ✅ cg-edge-case-handler (归档) |
+| P0-测试文件排除 | excludeTestFiles()预过滤 | "已实现" | **已实现** | ✅ 已完成 | ✅ cg-edge-case-handler (归档) |
+
+> **更新说明 (2026-05-06)**: P0-空项目/单文件/测试文件排除任务已通过 `cg-edge-case-handler` change 完成并归档。
+
+### 2.2 P0任务详细分析
+
+#### P0-stderr分离
+
+**现状**: `json-formatter.ts` 仅注释 "caller handles stderr"，无实际分离逻辑。
+
+**解决方案**: 在CLI命令层统一处理：
+- stdout: 结构化JSON输出（`--json` flag）
+- stderr: 错误信息、警告、进度日志
+
+**建议**: 合并到 `cg-mvp-test-coverage` (C11) 的CLI测试验证中，无需独立change。
+
+#### P0-空项目/单文件处理 ✅ 已完成
+
+> **2026-05-06更新**: 通过 `cg-edge-case-handler` change 已实现完整edge case处理模块。
+
+**归档位置**: `openspec/changes/archive/2026-05-06-cg-edge-case-handler/`
+
+**交付文件**:
+```
+packages/codegraph/src/analyzer/
+├── edge-case-detector.ts    # 特殊场景检测
+├── empty-project-handler.ts # 空项目处理
+├── single-file-handler.ts   # 单文件处理
+└── test-file-excluder.ts    # 测试文件预过滤
+```
+
+#### ~~P0-测试文件排除~~ ✅ 已完成
+
+> **2026-05-06更新**: 通过 `cg-edge-case-handler` change 已实现测试文件预过滤。
+
+**归档位置**: `openspec/changes/archive/2026-05-06-cg-edge-case-handler/`
+
+**交付文件**:
+```
+packages/codegraph/src/analyzer/
+└── test-file-excluder.ts    # 测试文件预过滤
+```
+
+---
+
+## 3. P1任务清单
+
+### 3.1 P1任务状态表
+
+| 任务ID | 任务名称 | 预估工时 | 设计状态 | 代码状态 | 需新Change |
+|--------|---------|---------|---------|---------|-----------|
+| P1-Layer推断改进 Phase 1 | Source Root Discovery | 3h | 设计完成 | **已实现** | ✅ cg-layer-inference-pipeline (归档) |
+| P1-Layer推断改进 Phase 2 | Dependency Score | 4h | 设计完成 | **已实现** | ✅ cg-layer-inference-pipeline (归档) |
+| P1-Layer推断改进 Phase 3 | DEPTH_PRESETS配置表 | 2h | 设计完成 | **已实现** | ✅ cg-depth-presets (归档) |
+| P1-Layer推断改进 Phase 4 | Layer Assignment | 4h | 设计完成 | **已实现** | ✅ cg-layer-inference-pipeline (归档) |
+| P1-Layer推断改进 Phase 5 | Fallback & 预过滤 | 3h | 设计完成 | **已实现** | ✅ cg-layer-inference-pipeline (归档) |
+| P1-TypeScript import type | ImportClause.isTypeOnly | 4h | 设计完成 | **已实现** | ✅ cg-ts-import-type (归档) |
+| **P1-复杂度计算** | Cyclomatic Complexity | 4h | 📋 待设计 | 未实现 | 📋 cg-complexity-calculation (C13) |
+| **P2-Layer命名推断** | Layer 5/6/7语义命名 | 3h | 📋 待设计 | 未实现 | 📋 cg-layer-naming-inference (C14) |
+
+> **更新说明 (2026-05-07 E2E Round2)**: 
+> - P1-Phase 1/2/3/4/5 全部已通过 `cg-layer-inference-pipeline` change 完成并归档。
+> - P1-TypeScript import type 已通过 `cg-ts-import-type` change 完成并归档。
+> - **新增**: P1-复杂度计算、P2-Layer命名推断 基于E2E第二轮测试反馈
+
+### 3.2 P1任务详细分析
+
+#### P1-Layer推断改进 Phase 3 ✅ 已完成
+
+> **2026-05-06更新**: 通过 `cg-depth-presets` change 已实现动态阈值配置表。
+
+**归档位置**: `openspec/changes/archive/2026-05-06-cg-depth-presets/`
+
+**交付文件**:
+```
+packages/codegraph/src/api/layers/inference/
+├── depth-presets.ts         # DEPTH_PRESETS配置表
+├── project-scale-detector.ts # 项目规模检测
+└── core.ts                  # 动态阈值选择逻辑
+```
+
+#### P1-TypeScript import type ✅ 已完成
+
+> **2026-05-06更新**: 通过 `cg-ts-import-type` change 已实现import type检测。
+
+**归档位置**: `openspec/changes/archive/2026-05-06-cg-ts-import-type/`
+
+**交付文件**:
+```
+packages/codegraph/src/parser/ts-parser/
+├── types.ts              # ImportKind类型定义
+├── import-extractor.ts   # isTypeOnly检测扩展
+```
+
+#### P1-Layer推断改进 (Phase 1/2/4/5) ✅ 已完成
+
+> **2026-05-07归档**: 已通过 `cg-layer-inference-pipeline` change 完成并归档。
+
+**归档位置**: `openspec/changes/archive/2026-05-07-cg-layer-inference-pipeline/`
+
+**交付文件**:
+```
+packages/codegraph/src/api/layers/inference/
+├── source-root.ts        # Phase 1 信号检测
+├── dependency-score.ts   # Phase 2 循环检测
+├── layer-assignment.ts   # Phase 4 动态阈值
+├── fallback.ts           # Phase 5 预过滤器
+├── core.ts               # 整合Pipeline
+└── index.ts              # 导出
+```
+
+---
+
+## 4. 新OpenSpec Change建议
+
+### 4.1 Change拆分总表
+
+| Change名称 | 类型 | 覆盖任务 | 预估工时 | 优先级 | 状态 | 归档位置 |
+|-----------|------|---------|---------|--------|------|---------|
+| cg-edge-case-handler | [CORE] | P0-空项目/单文件/测试排除 | 4h | P0 | ✅ 已完成 | archive/2026-05-06-cg-edge-case-handler |
+| cg-depth-presets | [CORE] | P1-Phase 3 | 2h | P1 | ✅ 已完成 | archive/2026-05-06-cg-depth-presets |
+| cg-layer-inference-pipeline | [CORE] | P1-Phase 1/2/4/5 | 14h | P1 | ✅ 已完成 | archive/2026-05-07-cg-layer-inference-pipeline |
+| cg-ts-import-type | [PARSER] | P1-import type | 4h | P1 | ✅ 已完成 | archive/2026-05-06-cg-ts-import-type |
+| cg-stderr-model | [CLI] | P0-stderr分离 | 3h | P0 | ✅ 已完成 | archive/2026-05-07-cg-stderr-model |
+| cg-cli-query-archive | [CLI] | C10归档 | 1h | P2 | ✅ 已完成 | archive/2026-05-07-cg-cli-query-archive |
+| cg-mvp-test-coverage | [TEST] | C11完善 | 4h | P2 | ✅ 已完成 | - |
+| cg-mvp-documentation | [DOC] | C12完善 | 2h | P2 | ⚠️ 待完善 | - |
+| **cg-complexity-calculation** | [ANALYZER] | P1-复杂度计算 | 4h | **P1** | 📋 待规划 | - |
+| **cg-layer-naming-inference** | [CORE] | P2-Layer命名推断 | 3h | **P2** | 📋 待规划 | - |
+
+> **更新说明 (2026-05-07 E2E Round2)**:
+> - 已完成所有 P0/P1 changes 和 C10/C11
+> - stderr分离通过 `cg-stderr-model` 完成
+> - C11 测试覆盖率达标 (92.74% > 80%)
+> - E2E评分: 8.65/10 → 9.5/10 (+0.85)
+> - **新增**: C13/C14 基于E2E第二轮测试反馈
+> - **剩余总工时**: 约9h (C12+C13+C14)
+
+### 4.2 各Change详细设计
+
+#### Change 1: cg-edge-case-handler [CORE] ✅ 已完成
+
+> **2026-05-06归档**: 已通过验证并归档到 `archive/2026-05-06-cg-edge-case-handler/`
+
+**名称**: `cg-edge-case-handler`
+
+**目标**: 处理空项目、单文件项目、测试文件预过滤等边缘场景
+
+**范围**: (已实现)
+- `detectSpecialCases()` 函数：检测空项目/单文件/正常项目
+- `handleEmptyProject()` 函数：空项目友好提示
+- `handleSingleFileProject()` 函数：单文件简化分析
+- `excludeTestFiles()` 函数：预过滤测试文件
+- CLI命令集成：analyze/update命令边缘场景处理
+
+**交付文件**: (已交付)
+```
+packages/codegraph/src/analyzer/
+├── edge-case-detector.ts    # 特殊场景检测
+├── empty-project-handler.ts # 空项目处理
+├── single-file-handler.ts   # 单文件处理
+└── test-file-excluder.ts    # 测试文件预过滤
+└── index.ts
+├── cli/commands/
+│   └── analyze.ts               # 集成edge case处理
+│   └── update.ts                # 集成edge case处理
+```
+
+---
+
+#### Change 2: cg-depth-presets [CORE] ✅ 已完成
+
+> **2026-05-06归档**: 已通过验证并归档到 `archive/2026-05-06-cg-depth-presets/`
+
+**名称**: `cg-depth-presets`
+
+**目标**: 替换硬编码 `LAYER_THRESHOLD=2`，实现自适应深度配置表
+
+**范围**: (已实现)
+- `DEPTH_PRESETS` 配置表定义
+- 项目规模检测函数（文件数统计）
+- 动态阈值选择逻辑
+- 配置扩展机制（`.codegraph/config.json`）
+
+**交付文件**: (已交付)
+```
+packages/codegraph/src/api/layers/inference/
+├── core.ts                  # 动态阈值选择逻辑
+├── depth-presets.ts         # DEPTH_PRESETS配置表
+└── project-scale-detector.ts # 项目规模检测
+```
+
+---
+
+#### Change 3: cg-layer-inference-pipeline [CORE] ✅ 已完成
+
+> **2026-05-07归档**: 已通过验证并归档到 `archive/2026-05-07-cg-layer-inference-pipeline/`
+
+**名称**: `cg-layer-inference-pipeline`
+
+**目标**: 完整实现Hybrid Inference Pipeline (Phase 1/2/4/5)
+
+**范围**: (已实现)
+- Phase 1: Source Root Discovery
+  - 信号检测系统（PACKAGE_JSON=+10, TS_CONFIG=+8, TYPICAL_DIR=+15）
+  - 排除列表（node_modules, dist, test, tests等）
+- Phase 2: Dependency Score Calculation
+  - 循环检测与惩罚机制
+  - 外部依赖排除
+  - 动态导入惩罚
+- Phase 4: Layer Assignment
+  - 动态阈值（基于DEPTH_PRESETS）
+  - 模糊匹配算法
+  - 置信度追踪
+- Phase 5: Fallback & Suggestions
+  - Agent Prompt生成
+  - 预过滤器集成
+  - 默认降级逻辑
+
+**交付文件**: (已交付)
+```
+packages/codegraph/src/api/layers/inference/
+├── source-root.ts           # Phase 1
+├── dependency-score.ts      # Phase 2
+├── layer-assignment.ts      # Phase 4
+├── fallback.ts              # Phase 5
+├── core.ts                  # 整合Pipeline
+└── index.ts                 # 导出
+```
+
+---
+
+#### Change 4: cg-ts-import-type [PARSER] ✅ 已完成
+
+> **2026-05-06归档**: 已通过验证并归档到 `archive/2026-05-06-cg-ts-import-type/`
+
+**名称**: `cg-ts-import-type`
+
+**目标**: 利用TypeScript Compiler API检测 `import type` 语句
+
+**范围**: (已实现)
+- `ImportClause.isTypeOnly` 检测
+- IMPORTS边metadata扩展（`importKind: 'type-only'`）
+- 类型导入与值导入分离统计
+- CLI输出展示类型导入信息
+
+**交付文件**: (已交付)
+```
+packages/codegraph/src/parser/ts-parser/
+├── types.ts              # ImportKind类型定义
+├── import-extractor.ts   # 扩展isTypeOnly检测
+```
+
+**测试覆盖**: 5 E2E tests, 29 total tests added
+
+---
+
+#### Change 5: cg-cli-query-archive [CLI] ⚠️ 待实现
+
+**交付文件**:
+```
+packages/codegraph/src/parser/ts-parser/
+---
+
+#### Change 5: cg-cli-query-archive [CLI] ✅ 已完成
+
+> **2026-05-07归档**: 已通过验证并归档到 `archive/2026-05-07-cg-cli-query-archive/`
+
+**名称**: `cg-cli-query-archive`
+
+**目标**: 补充C10归档，确认CLI query commands实现状态
+
+**范围**: (已实现)
+- 验证C10实现完整性（scope/impact/layers/migrate命令）
+- 创建归档文档
+- E2E验证CLI query commands
+
+**备注**: brief命令在develop_changes_plan.md中规划，当前确认scope/impact/layers/migrate命令已实现。
+
+---
+
+#### Change 6: cg-mvp-test-coverage [TEST] ✅ 已完成
+
+> **2026-05-07验证**: 测试覆盖率达标 (92.74% > 80%)
+
+**名称**: `cg-mvp-test-coverage`
+
+**目标**: 完善测试覆盖，达到80%覆盖率
+
+**验证结果**:
+- Statements: 92.74% ✅
+- Branches: 87.03% ✅
+- Functions: 94.06% ✅
+- Lines: 92.74% ✅
+- 测试数量: 997 tests passing (301 suites)
+
+---
+
+#### Change 7: cg-mvp-documentation [DOC] ⚠️ 待完善
+
+**名称**: `cg-mvp-documentation`
+
+**目标**: 完善M1文档，补充P0/P1功能文档
+
+**范围**: (待完成)
+- README.md更新（P0/P1功能说明）
+- API使用示例更新
+- CLI使用指南更新
+- 架构简图更新
+
+**预计工期**: 2h
+
+**验证标准**:
+- 文档覆盖所有M1功能
+- 示例可执行
+- 新用户可快速上手
+
+> **状态**: M1文档任务
+
+---
+
+#### Change 8: cg-complexity-calculation [ANALYZER] 📋 待规划
+
+**名称**: `cg-complexity-calculation`
+
+**目标**: 实现代码复杂度计算，为scope命令的metadata提供有意义的复杂度值
+
+**背景**: E2E第二轮测试发现，scope命令返回的metadata中complexity字段始终显示 `"level": "unknown", "value": 0`，缺少代码质量指标。
+
+**范围**: (待设计)
+- Cyclomatic Complexity计算算法
+- 函数级复杂度统计
+- 文件级复杂度聚合
+- 复杂度等级分类（low/medium/high/critical）
+- scope命令集成
+
+**交付文件**: (规划)
+```
+packages/codegraph/src/analyzer/
+├── complexity-calculator.ts   # 复杂度计算核心
+├── complexity-levels.ts       # 等级分类配置
+└── index.ts                   # 导出
+
+packages/codegraph/src/api/scope/
+└── metadata-builder.ts        # 复杂度字段集成
+```
+
+**验证标准**:
+- scope命令返回有意义的复杂度值（非"unknown"）
+- 复杂度等级合理分类
+- 高复杂度文件可识别
+
+**预计工期**: 4h
+
+**优先级**: P1 (E2E报告反馈)
+
+---
+
+#### Change 9: cg-layer-naming-inference [CORE] 📋 待规划
+
+**名称**: `cg-layer-naming-inference`
+
+**目标**: 为Layer 5/6/7推断有意义名称，替代通用编号命名
+
+**背景**: E2E第二轮测试发现，layers命令返回的高层级Layer使用通用名称（"Layer 5/6/7"），降低了架构理解价值。需要基于目录结构推断语义化名称。
+
+**范围**: (待设计)
+- 常见目录名称映射表（api→API层，persistence→数据层，cli→CLI层等）
+- 基于职责推断Layer名称算法
+- 配置扩展机制（自定义命名规则）
+- layers命令集成
+
+**交付文件**: (规划)
+```
+packages/codegraph/src/api/layers/inference/
+├── layer-naming.ts            # Layer命名推断
+├── naming-rules.ts            # 常见命名规则表
+└── index.ts                   # 导出
+```
+
+**验证标准**:
+- Layer 5/6/7显示有意义名称（如"API层"、"数据层"、"CLI层"）
+- 名称推断准确率 > 80%
+- 支持自定义命名规则
+
+**预计工期**: 3h
+
+**优先级**: P2 (E2E报告反馈)
+
+---
+
+## 5. Change创建顺序建议
+
+> **2026-05-06更新**: Phase A和Phase B已完成，当前应执行Phase C
+
+### 5.1 拓扑顺序（按依赖关系）
+
+```
+✅ Phase A: P0边缘处理（已完成 2026-05-06）
+┌─────────────────────────────────────────────────────────────┐
+│  1. cg-edge-case-handler [CORE] ✅                            │
+│     ├─ handleEmptyProject()                                  │
+│     ├─ handleSingleFileProject()                             │
+│     └─ excludeTestFiles()                                    │
+│     归档: archive/2026-05-06-cg-edge-case-handler            │
+└─────────────────────────────────────────────────────────────┘
+
+✅ Phase B: P1基础层（已完成 2026-05-06）
+┌─────────────────────────────────────────────────────────────┐
+│  2a. cg-depth-presets [CORE] ✅      2b. cg-ts-import-type ✅│
+│      ├─ 替换硬编码                   ├─ Parser扩展           │
+│      ├─ 配置表                       ├─ isTypeOnly检测       │
+│      归档: 2026-05-06-cg-depth-presets  归档: 2026-05-06-cg-ts-import-type │
+└─────────────────────────────────────────────────────────────┘
+
+⚠️ Phase C: P1核心层（待实现）
+┌─────────────────────────────────────────────────────────────┐
+│  3. cg-layer-inference-pipeline [CORE] ⚠️                    │
+│     ├─ Phase 1: Source Root Discovery                        │
+│     ├─ Phase 2: Dependency Score                             │
+│     ├─ Phase 4: Layer Assignment                             │
+│     ├─ Phase 5: Fallback                                     │
+│     预估: 14h                                                 │
+│     依赖: cg-depth-presets ✅                                 │
+│                                                             │
+✅ Phase C: P1核心层（已完成 2026-05-07）
+┌─────────────────────────────────────────────────────────────┐
+│  3. cg-layer-inference-pipeline [CORE] ✅                    │
+│     ├─ Phase 1: Source Root Discovery                        │
+│     ├─ Phase 2: Dependency Score                             │
+│     ├─ Phase 4: Layer Assignment                             │
+│     ├─ Phase 5: Fallback                                     │
+│     归档: archive/2026-05-07-cg-layer-inference-pipeline     │
+└─────────────────────────────────────────────────────────────┘
+
+✅ Phase D: C10归档（已完成 2026-05-07）
+┌─────────────────────────────────────────────────────────────┐
+│  4. cg-cli-query-archive [CLI] ✅                            │
+│     ├─ 验证C10实现                                           │
+│     ├─ 补充归档文档                                           │
+│     归档: archive/2026-05-07-cg-cli-query-archive            │
+└─────────────────────────────────────────────────────────────┘
+
+⚠️ Phase E: 测试与文档（C11已完成，C12待执行）
+┌─────────────────────────────────────────────────────────────┐
+│  5. cg-mvp-test-coverage [TEST] ✅                           │
+│     覆盖率: 92.74% > 80%                                      │
+│                                                             │
+│  6. cg-mvp-documentation [DOC] ⚠️ ← 下一步                    │
+│     预估: 2h                                                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 5.2 执行建议表
+
+> **2026-05-07 E2E Round2更新**: Phase A/B/C/D已完成，新增C13/C14任务规划
+
+| 执行阶段 | Change | 工时 | 并行度 | 状态 | 备注 |
+|---------|--------|------|--------|------|------|
+| ✅ Week 1 Day 1 | cg-edge-case-handler | 4h | 串行 | ✅ 已完成 | 归档 2026-05-06 |
+| ✅ Week 1 Day 2-3 | cg-depth-presets + cg-ts-import-type | 6h | 并行 | ✅ 已完成 | 归档 2026-05-06 |
+| ✅ Week 1 Day 4-5 | cg-layer-inference-pipeline | 14h | 串行 | ✅ 已完成 | 归档 2026-05-07 |
+| ✅ Week 2 Day 1 | cg-stderr-model | 3h | 串行 | ✅ 已完成 | 归档 2026-05-07 |
+| ✅ Week 2 Day 1 | cg-cli-query-archive | 1h | 并行 | ✅ 已完成 | 归档 2026-05-07 |
+| ✅ Week 2 Day 2 | cg-mvp-test-coverage | 4h | 串行 | ✅ 已完成 | 92.74%覆盖率 |
+| ⚠️ Week 2 Day 3 | cg-mvp-documentation | 2h | 串行 | ⚠️ 待执行 | 文档完善 |
+| 📋 Week 2 Day 4 | cg-complexity-calculation | 4h | 串行 | 📋 待规划 | **P1新任务** |
+| 📋 Week 2 Day 5 | cg-layer-naming-inference | 3h | 串行 | 📋 待规划 | **P2新任务** |
+
+**已完成工时**: 34h (4+6+14+3+1+4)
+**剩余总工时**: 约9h (C12+C13+C14)
+
+---
+
+## 6. 与C11/C12的关系
+
+### 6.1 C11 (cg-mvp-test-coverage) ✅ 已完成
+
+> **2026-05-07验证**: 测试覆盖率达标 (92.74% > 80%)
+
+**验证结果**:
+| 指标 | 覆盖率 | 目标 | 状态 |
+|------|--------|------|------|
+| Statements | 92.74% | 80% | ✅ |
+| Branches | 87.03% | 80% | ✅ |
+| Functions | 94.06% | 80% | ✅ |
+| Lines | 92.74% | 80% | ✅ |
+
+**测试数量**: 997 tests passing (301 suites)
+
+### 6.2 C12 (cg-mvp-documentation) ⚠️ 待完善
+
+**范围**: (待完成)
+- README.md更新（P0/P1功能说明）
+- API使用示例更新
+- CLI使用指南更新
+- 架构简图更新
+
+**建议**: C12是M1唯一剩余任务，完成后M1可交付。
+
+### 6.3 M1剩余工作总结 (2026-05-07 E2E Round2更新)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    M1工作全景 (2026-05-07 E2E Round2)          │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ✅ 已完成C1-C10: 图结构、扫描、解析、API、CLI                   │
+│  ✅ 已完成P0: edge case handler (4h) - 归档 2026-05-06       │
+│  ✅ 已完成P0: stderr分离 (3h) - 归档 2026-05-07              │
+│  ✅ 已完成P1: depth presets (2h) - 归档 2026-05-06           │
+│  ✅ 已完成P1: import type (4h) - 归档 2026-05-06             │
+│  ✅ 已完成P1: layer inference pipeline (14h) - 归档 2026-05-07│
+│  ✅ 已完成C10归档: cli-query-archive (1h) - 归档 2026-05-07  │
+│  ✅ 已完成C11: test coverage (92.74%) - 2026-05-07          │
+│                                                             │
+│  ⚠️ 待完成:                                                   │
+│  ├─ C12: documentation完善 (2h)                              │
+│  ├─ C13: complexity calculation (4h) ← **P1新任务**          │
+│  └─ C14: layer naming inference (3h) ← **P2新任务**          │
+│                                                             │
+│  已完成: 34h                                                 │
+│  剩余总计: 9h                                                │
+│                                                             │
+│  测试状态: 1020 tests passing ✅                              │
+│  覆盖率: 92.74% > 80% ✅                                     │
+│  E2E评分: 9.5/10 ✅                                          │
+│                                                             │
+│  验收标准:                                                   │
+│  ├─ 测试覆盖率 ≥ 80% ✅                                      │
+│  ├─ E2E测试全通过 ✅                                         │
+│  ├─ stderr分离验证 ✅                                        │
+│  ├─ JSON纯度验证 ✅                                          │
+│  ├─ 文档覆盖所有M1功能 ⚠️                                    │
+│  ├─ 复杂度计算实现 📋                                        │
+│  └─ Layer命名推断 📋                                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 6.4 E2E第二轮测试反馈总结 (2026-05-07)
+
+**评分提升**: 8.65/10 → **9.5/10** (+0.85)
+
+**已解决问题**:
+| 问题 | 状态 |
+|-----|------|
+| stdout警告噪音 | ✅ 已修复 (cg-stderr-model) |
+| jq管道失败 | ✅ 已修复 |
+| silent模式workaround | ✅ 不再需要 |
+
+**新发现问题**:
+| 问题 | 优先级 | 规划Change |
+|-----|--------|-----------|
+| 复杂度计算未实现 | P1 | C13: cg-complexity-calculation |
+| Layer 5/6/7通用命名 | P2 | C14: cg-layer-naming-inference |
+| layers命令需--source-root | P3 | 建议文档说明 |
+
+---
+
+## 附录 A: OpenSpec Change命名规范
+
+遵循 `develop_changes_plan.md` 命名规范：
+
+```
+cg-<功能名>
+
+类型标记:
+- [CORE]   核心基础设施
+- [PARSER] 解析器相关
+- [API]    情报API相关
+- [CLI]    命令行接口
+- [TEST]   测试覆盖
+- [DOC]    文档补充
+- [INFRA]  工程/构建相关
+```
+
+---
+
+## 附录 B: 关键代码证据 (2026-05-07更新)
+
+### B.1 硬编码证据 ✅ 已修复
+
+> **2026-05-06更新**: `cg-depth-presets` change已替换硬编码为动态阈值
+
+### B.2 import type已实现 ✅
+
+> **2026-05-06更新**: `cg-ts-import-type` change已实现
+
+### B.3 edge case函数已实现 ✅
+
+> **2026-05-06更新**: `cg-edge-case-handler` change已实现
+
+### B.4 layer inference pipeline已实现 ✅
+
+> **2026-05-07更新**: `cg-layer-inference-pipeline` change已实现
+
+### B.5 CLI命令实现证据
+
+> **2026-05-07更新**: `cg-cli-query-archive` 已验证CLI命令完整性
+
+### B.6 测试覆盖率达标 ✅
+
+> **2026-05-07验证**: 997 tests passing, 92.74% > 80%目标
+
+---
+
+**文档版本**: v1.5 (2026-05-07 E2E Round3更新)
+**创建日期**: 2026-05-05
+**最后更新**: 2026-05-07 (E2E Round3发现，新增C15/C16任务规划)
+**关联文档**:
+- [hybrid-layer-inference-design.md](../../packages/codegraph/docs/design-codegraph/hybrid-layer-inference-design.md)
+- [develop_changes_plan.md](./develop_changes_plan.md)
+- [codegraph-e2e-experience-report-round2.md](../e2e-report/codegraph-e2e-experience-report-round2.md)
+- [codegraph-e2e-experience-report-round3.md](../e2e-report/codegraph-e2e-experience-report-round3.md)
+**用途**: 创建M1剩余工作OpenSpec change的依据
+
+---
+
+## 附录 C: E2E Round3测试反馈 (2026-05-07)
+
+### C.1 测试评分变化
+
+| Round | 评分 | 主要发现 | 状态 |
+|-------|------|----------|------|
+| Round1 | 8.65/10 | stdout噪音、jq失败 | ✅ 已解决 |
+| Round2 | 9.5/10 | JSON纯度达标、stderr分离 | ✅ 已验证 |
+| **Round3** | **7.5/10** | CLI UX问题、source-root检测失败 | 🔴 新问题 |
+
+### C.2 Round3发现的问题
+
+#### 🔴 P1问题（阻塞发布）
+
+| 问题 | 现象 | 根因分析 | 影响 |
+|------|------|----------|------|
+| **source-root默认值** | `layers`命令失败，需手动指定`--source-root packages/codegraph/src` | CLI默认值`'src'`阻止auto-detect触发 | Monorepo用户无法使用 |
+| **无效命令无提示** | `codegraph invalid-command` → 空输出 | CLI未捕获CACError | UX差，用户困惑 |
+| **错误显示堆栈** | `codegraph analyze --invalid-flag` → 原始Node.js堆栈 | CACError未包装 | 非专业用户无法理解 |
+
+#### 🟡 P2问题（影响体验）
+
+| 问题 | 现象 | 根因分析 | 影响 |
+|------|------|----------|------|
+| **路径格式不直观** | scope/impact需要完整路径`packages/codegraph/src/...` | 无路径提示帮助 | 用户不知道正确格式 |
+| **缺少参数堆栈** | 缺少必需参数 → 原始堆栈 | 同P1错误处理问题 | 同上 |
+
+### C.3 Round3通过项
+
+| 测试项 | 状态 | 备注 |
+|--------|------|------|
+| JSON/stderr分离 | ✅ PASS | stdout纯JSON，stderr含警告，jq兼容 |
+| C14语义命名 | ✅ PASS | Layer 5/6/7显示"API Layer"、"CLI Layer" |
+| Verbose输出 | ✅ PASS | Pattern匹配信息正确显示 |
+| analyze命令 | ✅ PASS | 1.5s执行，50%压缩 |
+| update命令 | ✅ PASS | 178ms增量更新 |
+| Performance | ✅ PASS | 所有命令<2s |
+
+---
+
+## 附录 D: Source-Root检测深度分析
+
+### D.1 用户讨论愿景回顾
+
+> **原始讨论**: 无论repo结构如何（规范repo `src/`、monorepo `packages/*/src`、不规范命名），codegraph都应该能检测或提供fallback情报给agent。
+
+### D.2 当前代码三层Bug分析
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Source-Root检测流程                        │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  CLI层 (layers.ts line 72)                                  │
+│  ├─ 默认值: sourceRoot: options?.sourceRoot ?? 'src'        │
+│  │  ❌ Bug: 硬编码'src'传入API                               │
+│  └─ 结果: auto-detect条件永远false                          │
+│                                                             │
+│  API层 (layers/index.ts line 156)                           │
+│  ├─ 条件: if (!options?.sourceRoot && options?.projectRoot) │
+│  │  ❌ Bug: 'src'已传入，条件不触发                          │
+│  └─ 结果: 直接使用默认值'src'                                │
+│                                                             │
+│  Candidate层 (getCandidateDirectories line 108)             │
+│  ├─ 逻辑: 从FILE nodes提取first-level subdirectories        │
+│  │  ❌ Bug: monorepo只得到['packages']                      │
+│  │  ❌ Bug: 无法检测packages/*/src深层结构                   │
+│  └─ 结果: 候选列表不包含真实source-root                      │
+│                                                             │
+│  detectSourceRoot (source-root.ts)                          │
+│  ├─ 设计: 加权信号评分 (src+15, package.json+10, tsconfig+8)│
+│  ├─ ✅ 评分算法正确                                          │
+│  └─ ❌ 问题: 输入candidates不正确，评分无用                  │
+│                                                             │
+│  情报输出                                                    │
+│  ├─ ❌ Bug: candidates/confidence不返回CLI                  │
+│  └─ ❌ Bug: agent无法获得决策情报                            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### D.3 与愿景差距对比
+
+| 愿景场景 | 当前实现 | Gap分析 |
+|----------|----------|---------|
+| **规范repo** `src/` | ✅ 理论可检测 | CLI Bug阻止触发，需修复默认值传递 |
+| **monorepo** `packages/*/src` | ❌ 完全失败 | Candidate生成不支持深层检测 |
+| **不规范repo** | ❌ 无情报 | confidence未暴露给用户/agent |
+| **给agent情报** | ❌ 情报链断裂 | 检测结果未返回上层 |
+
+### D.4 正确检测策略设计
+
+```typescript
+// 1. CLI层：不传默认值，让API决定
+// layers.ts
+sourceRoot: options?.sourceRoot  // 不设默认！
+
+// 2. API层：正确逻辑
+// layers/index.ts
+let sourceRoot = options?.sourceRoot;  // 用户显式传入
+if (!sourceRoot) {
+  // Auto-detect: 递归搜索候选
+  const candidates = discoverSourceRootCandidates(graph, projectRoot, {
+    maxDepth: 3,  // 支持 packages/*/src
+    signals: SIGNAL_WEIGHTS
+  });
+  const result = detectSourceRoot(candidates);
+  sourceRoot = result.sourceRoot || 'src';  // 最终fallback
+  
+  // 返回情报给上层（重要！）
+  layersOptions.sourceRootMeta = {
+    detected: result.sourceRoot !== 'src',
+    confidence: result.confidence,
+    candidates: result.candidates.slice(0, 5),  // Top 5候选
+  };
+}
+
+// 3. 深度搜索candidates
+// 新函数
+function discoverSourceRootCandidates(graph, root, options) {
+  // 从FILE nodes遍历，提取深层候选
+  // packages/codegraph/src/analyzer/index.ts
+  // → candidates: ['packages/codegraph/src', 'packages/codegraph']
+  
+  // 同时检测monorepo结构
+  // if (fs.existsSync('packages')) → 遍历packages/*/src
+}
+```
+
+### D.5 情报输出设计
+
+```typescript
+// LayersResult扩展
+interface LayersResult {
+  // 现有字段...
+  sourceRootMeta?: {
+    detected: boolean;      // 是否自动检测
+    confidence: number;     // 0-1置信度
+    candidates: CandidateInfo[];  // Top 5候选
+    fallbackUsed: boolean;  // 是否使用fallback
+  };
+}
+
+// CLI输出示例
+$ codegraph layers --verbose
+Architecture Layers
+
+Source Root: packages/codegraph/src (auto-detected, confidence: 0.9)
+  Candidates: packages/codegraph/src (33), packages/codegraph (18), ...
+
+Layer 1: Foundation...
+```
+
+---
+
+## 附录 E: 新Change规划 (C15/C16)
+
+### E.1 Change拆分总表（更新）
+
+| Change ID | Change名称 | 类型 | 覆盖问题 | 预估工时 | 优先级 | 状态 |
+|-----------|-----------|------|----------|---------|--------|------|
+| C12 | cg-mvp-documentation | [DOC] | M1文档完善 | 2h | P2 | ⚠️ 待执行 |
+| **C15** | **cg-cli-ux-improvement** | [CLI] | P1 CLI错误处理 + P2路径帮助 | 2-3h | **P1** | 📋 待规划 |
+| **C16** | **cg-source-root-auto-detect** | [CORE] | P1 source-root检测 + 情报输出 | 2-3h | **P1** | 📋 待规划 |
+
+**剩余总工时**: 约7-8h (C12+C15+C16)
+
+### E.2 C15: cg-cli-ux-improvement 详细规划
+
+**名称**: `cg-cli-ux-improvement`
+
+**目标**: 修复CLI错误处理，提供友好用户体验
+
+**覆盖问题**:
+- P1-2: 无效命令无提示
+- P1-3: 错误显示原始堆栈
+- P2-1: 路径格式不直观
+- P2-2: 缺少参数堆栈
+
+**实现方案**:
+
+```typescript
+// 1. CLI入口错误包装
+// bin/codegraph.ts
+cli.on('error', (error) => {
+  if (error instanceof CACError) {
+    // 转换为友好消息
+    const friendlyError = transformCACError(error);
+    outputError(friendlyError, options?.json);
+    return;
+  }
+  // 其他错误
+  outputError(error, options?.json);
+});
+
+// 2. CACError转换函数
+function transformCACError(error: CACError): CliError {
+  if (error.message.includes('Unknown option')) {
+    return {
+      code: 'E_CLI_INVALID_FLAG',
+      message: `Invalid flag '${extractFlag(error)}'. Available flags: --json, --source-root, --verbose`,
+    };
+  }
+  if (error.message.includes('Unknown command')) {
+    return {
+      code: 'E_CLI_INVALID_COMMAND',
+      message: `Unknown command '${extractCommand(error)}'. Available commands: analyze, update, layers, scope, impact`,
+    };
+  }
+  // ...
+}
+
+// 3. 路径格式帮助
+// commands/scope.ts / impact.ts
+if (!targetExists) {
+  return {
+    code: 'E_TARGET_NOT_FOUND',
+    message: `Target not found: ${target}. Try full path format: packages/<pkg>/src/<file>.ts`,
+    suggestion: 'Use --list-targets to see available targets',
+  };
+}
+```
+
+**交付文件**:
+```
+packages/codegraph/bin/
+├── codegraph.ts          # 错误包装入口
+├── error-transformer.ts  # CACError转换函数
+└── output-handlers.ts    # 错误输出处理
+
+packages/codegraph/src/cli/commands/
+├── scope.ts              # 路径格式帮助
+└── impact.ts             # 路径格式帮助
+```
+
+**验证标准**:
+- 无效命令显示可用命令列表
+- 无效flag显示可用flag列表
+- 路径错误提示正确格式
+- 无原始堆栈显示
+
+**预计工期**: 2-3h
+
+---
+
+### E.3 C16: cg-source-root-auto-detect 详细规划
+
+**名称**: `cg-source-root-auto-detect`
+
+**目标**: 重构source-root检测逻辑，支持多种repo结构 + 情报输出
+
+**覆盖问题**:
+- P1-1: source-root默认值阻止检测
+- 深层候选生成（monorepo支持）
+- 情报输出链（agent决策支持）
+
+**实现方案**:
+
+```typescript
+// 1. CLI层修复
+// commands/layers.ts
+const layersOptions: LayersOptions = {
+  sourceRoot: options?.sourceRoot,  // 不设默认！
+  // ...
+};
+
+// 2. API层重构
+// layers/index.ts
+export function getArchitectureLayers(graph, options) {
+  let sourceRoot = options?.sourceRoot;
+  let sourceRootMeta: SourceRootMeta | undefined;
+  
+  if (!sourceRoot) {
+    // 新增：深度候选发现
+    const candidates = discoverSourceRootCandidates(graph, projectRoot, {
+      maxDepth: 3,
+      monorepoPatterns: ['packages/*/src', 'apps/*/src'],
+    });
+    
+    const result = detectSourceRoot(candidates);
+    sourceRoot = result.sourceRoot || 'src';
+    
+    // 情报输出（关键！）
+    sourceRootMeta = {
+      detected: result.sourceRoot !== 'src',
+      confidence: result.confidence,
+      topCandidates: result.candidates.slice(0, 5),
+      fallbackUsed: result.confidence < 0.3,
+    };
+  }
+  
+  // 返回情报
+  return {
+    ...layersResult,
+    sourceRootMeta,
+  };
+}
+
+// 3. 深度候选发现函数
+// layers/inference/source-root-discovery.ts (NEW)
+export function discoverSourceRootCandidates(
+  graph: CodeGraph,
+  projectRoot: string,
+  options: DiscoveryOptions
+): string[] {
+  const candidates: Set<string> = new Set();
+  
+  // 3.1 从FILE nodes提取候选
+  for (const [, node] of graph.nodes) {
+    if (node.type === NodeType.FILE && node.path) {
+      // 深度提取: packages/codegraph/src/analyzer/...
+      // → ['packages/codegraph/src', 'packages/codegraph', 'src']
+      extractCandidatesFromPath(node.path, projectRoot, options.maxDepth)
+        .forEach(c => candidates.add(c));
+    }
+  }
+  
+  // 3.2 Monorepo结构检测
+  if (fs.existsSync(path.join(projectRoot, 'packages'))) {
+    const packages = fs.readdirSync(path.join(projectRoot, 'packages'));
+    packages.forEach(pkg => {
+      const pkgSrc = path.join(projectRoot, 'packages', pkg, 'src');
+      if (fs.existsSync(pkgSrc)) {
+        candidates.add(pkgSrc);
+      }
+    });
+  }
+  
+  // 3.3 标准结构检测
+  ['src', 'lib', 'app'].forEach(name => {
+    const dir = path.join(projectRoot, name);
+    if (fs.existsSync(dir)) {
+      candidates.add(dir);
+    }
+  });
+  
+  return Array.from(candidates);
+}
+
+// 4. 情报输出类型
+// types/layers-types.ts
+export interface SourceRootMeta {
+  /** 是否自动检测成功 */
+  detected: boolean;
+  /** 置信度 0-1 */
+  confidence: number;
+  /** Top 5候选及其得分 */
+  topCandidates: Array<{ path: string; score: number }>;
+  /** 是否使用fallback */
+  fallbackUsed: boolean;
+}
+```
+
+**交付文件**:
+```
+packages/codegraph/src/api/layers/
+├── index.ts                    # API层重构
+├── inference/
+│   ├── source-root.ts          # 现有评分逻辑（保持）
+│   ├── source-root-discovery.ts # NEW: 深度候选发现
+│   └── index.ts                # 导出
+
+packages/codegraph/src/api/types/
+├── layers-types.ts             # SourceRootMeta类型
+
+packages/codegraph/src/cli/commands/
+├── layers.ts                   # CLI层修复（不设默认值）
+
+packages/codegraph/src/cli/output/
+├── layers-formatter.ts         # 情报输出展示
+```
+
+**验证场景**:
+
+| 场景 | 输入 | 预期输出 |
+|------|------|----------|
+| 规范repo `src/` | 无sourceRoot参数 | `src/` (confidence: 0.9) |
+| Monorepo `packages/codegraph/src` | 无sourceRoot参数 | `packages/codegraph/src` (confidence: 0.85) |
+| 不规范repo `lib/` | 无sourceRoot参数 | `lib/` (confidence: 0.7) |
+| 深层monorepo `packages/*/src` | 无sourceRoot参数 | 自动选择第一个package |
+| 无匹配 | 无sourceRoot参数 | `src/` fallback (confidence: 0, fallbackUsed: true) |
+
+**JSON情报输出示例**:
+```json
+{
+  "success": true,
+  "sourceRootMeta": {
+    "detected": true,
+    "confidence": 0.85,
+    "topCandidates": [
+      { "path": "packages/codegraph/src", "score": 33 },
+      { "path": "packages/codegraph", "score": 18 }
+    ],
+    "fallbackUsed": false
+  },
+  "layers": [...]
+}
+```
+
+**预计工期**: 2-3h
+
+---
+
+### E.4 Change创建顺序建议（更新）
+
+```
+⚠️ Phase F: E2E Round3问题修复（新规划）
+┌─────────────────────────────────────────────────────────────┐
+│  7. cg-cli-ux-improvement [CLI] 📋 ← P1                      │
+│     ├─ CLI错误包装                                            │
+│     ├─ CACError友好转换                                       │
+│     ├─ 路径格式帮助                                           │
+│     预估: 2-3h                                                │
+│                                                             │
+│  8. cg-source-root-auto-detect [CORE] 📋 ← P1                │
+│     ├─ CLI默认值修复                                          │
+│     ├─ 深度候选发现                                           │
+│     ├─ 情报输出                                               │
+│     预估: 2-3h                                                │
+│                                                             │
+│  9. cg-mvp-documentation [DOC] ⚠️ ← P2                       │
+│     预估: 2h                                                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### E.5 执行建议表（更新）
+
+| 执行阶段 | Change | 工时 | 并行度 | 状态 | 备注 |
+|---------|--------|------|--------|------|------|
+| ✅ 已完成 | C1-C14 | 34h | - | ✅ | 全部归档 |
+| ⚠️ Phase F-1 | **cg-cli-ux-improvement** | 2-3h | 串行 | 📋 **推荐先执行** | P1阻塞问题 |
+| ⚠️ Phase F-2 | **cg-source-root-auto-detect** | 2-3h | 串行 | 📋 **推荐次执行** | P1阻塞问题 |
+| ⚠️ Phase F-3 | cg-mvp-documentation | 2h | 串行 | ⚠️ 最后执行 | M1文档 |
+
+**剩余总工时**: 约6-8h
+
+---
+
+### E.6 M1完整验收标准（更新）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    M1验收标准 (完整版)                         │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ✅ 已达成:                                                   │
+│  ├─ 测试覆盖率 ≥ 80% (92.74%)                                │
+│  ├─ E2E测试全通过 (1140 tests)                               │
+│  ├─ stderr分离验证 (stdout纯JSON)                            │
+│  ├─ JSON纯度验证 (jq兼容)                                     │
+│  ├─ 复杂度计算实现 (C13归档)                                  │
+│  └─ Layer命名推断实现 (C14归档)                               │
+│                                                             │
+│  ⚠️ 待达成:                                                   │
+│  ├─ CLI错误友好提示 (C15)                                     │
+│  ├─ Source-root自动检测 (C16)                                 │
+│  ├─ 情报输出给agent (C16)                                     │
+│  └─ 文档覆盖所有M1功能 (C12)                                  │
+│                                                             │
+│  📊 E2E评分追踪:                                              │
+│  ├─ Round1: 8.65/10                                          │
+│  ├─ Round2: 9.5/10 ✅                                        │
+│  ├─ Round3: 7.5/10 🔴 (新问题发现)                           │
+│  ├─ Round4: 7.8/10 🔴 (P0阻塞问题发现)                       │
+│  └─ 目标: Round5 ≥ 9.0/10 (修复P0问题后)                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## F. E2E Round4 发现与新Change规划
+
+> **测试执行日期**: 2026-05-08  
+> **测试视角**: 代码开发Agent第一视角  
+> **测试目标**: 全面评估codegraph是否满足"少量token提供高质量开发情报"目标  
+> **版本**: Post-C15/C16 (CLI UX + Source-Root Auto-Detect)
+
+### F.1 E2E Round4 Executive Summary
+
+| 维度 | 评分 | 说明 |
+|------|------|------|
+| **情报准确性** | 10/10 | exports/imports/依赖链100%匹配实际代码 |
+| **Agent可解析性** | 9/10 | JSON结构清晰，易于程序化处理 |
+| **Token效率** | 10/10 | ~275 tokens vs ~13000 bytes源代码（**47倍节省**） |
+| **决策支持** | 7/10 | 基础情报充足，深度情报缺失 |
+| **能力边界** | 7/10 | FILE/MODULE支持完善，DIRECTORY缺失 |
+| **Auto-Detect** | 4/10 | **关键Bug**：Git检测失败、空layers返回 |
+| **总体评分** | **7.8/10** | 基础功能优秀，auto-detect有阻塞性问题 |
+
+**结论**: CodeGraph核心功能（scope/impact）已达到生产可用标准，但layers命令auto-detect存在阻塞性Bug。
+
+### F.2 Round4 发现的问题清单
+
+#### P0 阻塞问题 (BLOCKING RELEASE)
+
+| 问题 | 描述 | 复现 | 根因 |
+|------|------|------|------|
+| **Git检测失败** | 从子目录运行`layers`返回`E_NO_GIT_REPO` | `cd packages/codegraph && layers` | `isGitRepo(cwd)`不向上搜索`.git` |
+| **空layers误导** | 返回`{"layers":[], "healthScore":100}` | 项目根目录运行未指定source-root | 空groups返回success而非error |
+
+#### P1 重要问题 (AGENT UX)
+
+| 问题 | 描述 | 影响 |
+|------|------|------|
+| **循环依赖缺失** | scope/impact不包含循环依赖检测警告 | Agent无法提前识别危险依赖 |
+
+#### P2 增强问题 (FUTURE ITERATION)
+
+| 问题 | 描述 | 影响 |
+|------|------|------|
+| **DIRECTORY级不支持** | `scope packages/codegraph/src/api`返回错误 | 无法获取目录聚合情报 |
+| **相对路径不支持** | `scope analyzer/index.ts`返回错误 | UX不佳 |
+| **types复杂度unknown** | 纯类型文件返回`complexity: {level: "unknown", value: 0}` | 复杂度评估不完整 |
+
+### F.3 新Change定义
+
+#### Change: cg-git-upward-search (P0 BLOCKING)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-git-upward-search` |
+| **Priority** | P0 BLOCKING |
+| **Core Objective** | CLI命令支持从任意子目录运行，向上搜索Git仓库根目录 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `git/head-commit.ts`: 新增`findGitRepoRoot()`向上搜索`.git`目录
+2. `cli/validation.ts`: 修改`validateGitRepo()`先向上搜索再验证
+3. `cli/validation.ts`: `validateProject()`返回Git根目录路径
+4. 更新所有CLI命令使用返回的`gitRoot`
+
+**Acceptance Criteria**:
+- [ ] 从`packages/codegraph`运行`layers`命令成功
+- [ ] 从`.claude`运行`layers`命令成功
+- [ ] 从项目根目录运行行为不变
+- [ ] 非Git目录返回正确错误码
+- [ ] 单元测试覆盖向上搜索逻辑
+
+**Critical Files**:
+- `/packages/codegraph/src/cli/validation.ts`
+- `/packages/codegraph/src/git/head-commit.ts`
+- `/packages/codegraph/src/cli/commands/layers.ts`
+
+---
+
+#### Change: cg-layers-empty-error (P0 BLOCKING)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-layers-empty-error` |
+| **Priority** | P0 BLOCKING |
+| **Core Objective** | 无有效groups时返回明确错误而非误导性成功结果 |
+| **Estimated Work** | 1.5h |
+
+**Implementation Scope**:
+1. `api/types/index.ts`: 新增`ErrorCode.NO_VALID_GROUPS = 'E007'`
+2. `api/layers/index.ts`: 检测空groups返回LayersError
+3. `api/layers/inference/fallback.ts`: 新增低groupCount建议
+4. 更新CLI错误消息格式化
+
+**Acceptance Criteria**:
+- [ ] 无有效groups返回`success: false`
+- [ ] 错误包含actionable suggestion
+- [ ] 正常groups场景行为不变
+- [ ] 单元测试覆盖空groups检测
+
+**Critical Files**:
+- `/packages/codegraph/src/api/types/index.ts`
+- `/packages/codegraph/src/api/layers/index.ts`
+- `/packages/codegraph/src/cli/commands/layers.ts`
+
+---
+
+#### Change: c17-cycle-detection (P1 IMPORTANT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `c17-scope-impact-circular-dependency-detection` |
+| **Priority** | P1 Important |
+| **Core Objective** | scope/impact输出包含循环依赖检测警告 |
+| **Estimated Work** | 7h |
+
+**Implementation Scope**:
+
+| Category | File | Changes |
+|----------|------|---------|
+| NEW | `src/api/shared/cycle-detection-file.ts` | FILE-level cycle detection |
+| MODIFY | `src/api/impact/format.ts` | Enhanced warnings |
+| MODIFY | `src/api/impact/index.ts` | Integration |
+| MODIFY | `src/api/scope/index.ts` | Integration |
+| MODIFY | `src/api/types/common.ts` | FileCycleInfo type |
+
+**Algorithm**: DFS with recursion stack, severity: minor(2)/moderate(3)/critical(4+)
+
+**Critical Files**:
+- `/packages/codegraph/src/api/layers/inference/cycle-detection.ts` (reference)
+- `/packages/codegraph/src/api/impact/format.ts`
+- `/packages/codegraph/src/api/scope/index.ts`
+
+---
+
+#### Change: cg-directory-scope (P2 ENHANCEMENT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-directory-scope-support` |
+| **Priority** | P2 Enhancement |
+| **Core Objective** | 支持`scope DIRECTORY:path`查询目录聚合情报 |
+| **Estimated Work** | 4h |
+
+**Implementation Scope**:
+1. `api/scope/normalize.ts`: 添加DIRECTORY分支
+2. `api/scope/directory-aggregator.ts`: 聚合算法
+3. `api/types/scope-types.ts`: DirectoryScopeResult类型
+
+---
+
+#### Change: cg-path-resolution (P2 ENHANCEMENT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-path-smart-resolution` |
+| **Priority** | P2 Enhancement |
+| **Core Objective** | 支持相对路径和模糊路径匹配 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `api/scope/path-resolver.ts`: Glob搜索和路径解析
+2. `cli/utils/path-format.ts`: 改进错误提示显示候选路径
+
+---
+
+#### Change: cg-type-complexity (P2 ENHANCEMENT)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-type-complexity-calculation` |
+| **Priority** | P2 Enhancement |
+| **Core Objective** | 为interface/type声明提供复杂度评分 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `parser/module-extractor/type-complexity.ts`: 类型复杂度计算器
+2. `parser/module-extractor/node-builder.ts`: buildMetadata集成
+
+### F.4 深度诊断：设计哲学问题
+
+> **关键洞察**：当前问题不只是"集成遗漏"，而是**设计哲学问题**
+
+#### 问题本质：脆弱的假设链条
+
+当前layers检测流程是一个**脆弱的假设链条**：
+
+```
+假设1: 存在.git → 找到projectRoot (向上搜索)
+假设2: 存在src/lib/app目录名 → 找到sourceRoot (向下匹配)
+假设3: 目录名有意义 → 正确分组 → layer inference
+
+任何假设断裂 → 整个流程失败 → 返回空结果（对用户零价值）
+```
+
+**关键代码证据** (`grouping.ts:84-86`)：
+```typescript
+// Skip external dependencies
+if (groupName === '__external__') {
+  continue;  // ← 所有文件被跳过，groups为空！
+}
+```
+
+当sourceRoot指向错误位置（如project根而不是src），所有文件都被判定为`__external__`并跳过。
+
+#### 真正的"智能检测"应该是什么？
+
+| 维度 | 当前设计 | 期望设计 |
+|------|---------|---------|
+| **检测策略** | 基于目录名信号（脆弱） | 基于代码语义信号（imports关系） |
+| **置信度管理** | 高置信度或失败 | 高→中→低置信度分层，总有输出 |
+| **失败处理** | 返回空结果（零价值） | fallback策略，输出"发现的层级" |
+| **适应性** | 只适用于标准结构 | 适应任何结构，包括混乱结构 |
+
+**用户真正想要的"智能"**：
+```
+最佳：标准结构 → 精确7层架构（confidence 0.9）
+中等：混乱结构 → 基于imports聚类的"发现层级"（confidence 0.6）
+最差：极端混乱 → 依赖热点拓扑（confidence 0.3）但仍有价值！
+
+永不返回：空结果（confidence 0，零价值）
+```
+
+---
+
+### F.5 重新设计的Change体系
+
+基于深度诊断，重新组织Change定义，分为两大Phase：
+
+#### Phase 1: 修复现有Bug（让标准结构工作）
+
+**目标**：最小改动，让现有流程在标准结构下正常工作
+
+---
+
+#### Change: cg-git-upward-search (P0-1)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-git-upward-search` |
+| **Phase** | Phase 1 - 修复现有Bug |
+| **Priority** | P0 BLOCKING |
+| **Core Objective** | CLI向上搜索`.git`目录，找到真正的Git根 |
+| **Estimated Work** | 1h |
+
+**Implementation Scope**:
+1. `git/head-commit.ts`: 新增`findGitRepoRoot(startPath)`向上搜索函数
+2. `cli/validation.ts`: `validateGitRepo()`调用向上搜索
+
+**核心算法**:
+```typescript
+async function findGitRepoRoot(startPath: string): Promise<string | null> {
+  let currentPath = resolve(startPath);
+  while (currentPath !== parse(currentPath).root) {
+    if (existsSync(join(currentPath, '.git'))) {
+      return currentPath;
+    }
+    currentPath = dirname(currentPath);
+  }
+  return null;
+}
+```
+
+**Acceptance Criteria**:
+- [ ] 从任意子目录运行CLI命令 → 找到正确Git根
+
+**Critical Files**:
+- `/packages/codegraph/src/git/head-commit.ts`
+- `/packages/codegraph/src/cli/validation.ts`
+
+---
+
+#### Change: cg-layers-cli-integration (P0-2)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-layers-cli-integration` |
+| **Phase** | Phase 1 - 修复现有Bug |
+| **Priority** | P0 BLOCKING |
+| **Core Objective** | layers.ts/update.ts集成resolveSourceRoot（向上搜索） |
+| **Estimated Work** | 0.5h |
+
+**Implementation Scope**:
+1. `cli/commands/layers.ts`: 添加Step 0调用`resolveSourceRoot`
+2. `cli/commands/update.ts`: 同样添加Step 0
+
+**代码修改示例**:
+```typescript
+// layers.ts 新增
+import { resolveSourceRoot } from '../utils/resolve-source-root.js';
+
+// Step 0: Resolve source root (向上搜索)
+const sourceRootResult = await resolveSourceRoot({ cwd });
+if (!sourceRootResult.success) {
+  return sourceRootResult;
+}
+const projectRoot = sourceRootResult.path;
+
+// Step 1: Validate Project (使用向上搜索结果)
+const validation = await validateProject(projectRoot);
+```
+
+**Acceptance Criteria**:
+- [ ] `layers`命令从子目录运行 → 成功（标准结构项目）
+- [ ] `update`命令从子目录运行 → 成功
+
+**Critical Files**:
+- `/packages/codegraph/src/cli/commands/layers.ts`
+- `/packages/codegraph/src/cli/commands/update.ts`
+
+---
+
+#### Change: cg-empty-result-fallback (P0-3)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-empty-result-fallback` |
+| **Phase** | Phase 1 - 修复现有Bug |
+| **Priority** | P0 BLOCKING |
+| **Core Objective** | 空结果时返回有价值情报而非空白（Layer 3 fallback） |
+| **Estimated Work** | 1h |
+
+**Implementation Scope**:
+1. `api/layers/index.ts`: 检测空groups → 返回fallback情报
+2. 新增fallback情报结构
+
+**核心设计**:
+```typescript
+// 当groups为空时，不返回空白，而是返回有价值情报
+function generateFallbackTopology(graph: CodeGraph): LayersResult {
+  return {
+    layers: [],
+    topology: {
+      fileCount: graph.nodes.size,
+      dependencyHotspots: findMostImportedFiles(graph),  // "被依赖最多的文件"
+      orphanFiles: findOrphanFiles(graph),               // "孤立文件"
+    },
+    confidence: 0.3,
+    warning: 'Could not infer layers. Showing dependency hotspots instead.',
+    suggestion: 'Use --source-root to specify source directory.'
+  };
+}
+```
+
+**Acceptance Criteria**:
+- [ ] 空groups → 返回topology情报（confidence 0.3）
+- [ ] 用户收到有价值信息而非空白
+
+**Critical Files**:
+- `/packages/codegraph/src/api/layers/index.ts`
+
+---
+
+#### Phase 2: 深度重构（智能语义检测）
+
+**目标**：让非标准结构也能输出有价值层级
+
+---
+
+#### Change: cg-dependency-matrix (P1-1)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-dependency-matrix` |
+| **Phase** | Phase 2 - 深度重构 |
+| **Priority** | P1 Core Innovation |
+| **Core Objective** | 构建FILE节点间imports依赖矩阵 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `api/layers/inference/dependency-matrix.ts`: 新模块
+2. 构建邻接矩阵：`matrix[i][j] = importCount(FILE_i → FILE_j)`
+3. 支持权重：static import=1, dynamic import=0.5, re-export=2
+
+**核心算法**:
+```typescript
+function buildDependencyMatrix(graph: CodeGraph): DependencyMatrix {
+  const files = graph.getNodesByType(NodeType.FILE);
+  const matrix: number[][] = [];
+  
+  for (const [fromId, fromNode] of files) {
+    const row: number[] = [];
+    const outEdges = graph.outEdges.get(fromId) || [];
+    
+    for (const [toId, toNode] of files) {
+      const count = outEdges
+        .filter(e => e.to === toId && e.type === EdgeType.IMPORTS)
+        .length;
+      row.push(count);
+    }
+    matrix.push(row);
+  }
+  
+  return { matrix, fileIds: files.map(f => f.id) };
+}
+```
+
+**Acceptance Criteria**:
+- [ ] 正确构建imports邻接矩阵
+- [ ] 支持权重差异化
+
+---
+
+#### Change: cg-modularity-clustering (P1-2)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-modularity-clustering` |
+| **Phase** | Phase 2 - 深度重构 |
+| **Priority** | P1 Core Innovation |
+| **Core Objective** | 基于依赖矩阵聚类，发现"自然分层" |
+| **Estimated Work** | 3h |
+
+**Implementation Scope**:
+1. `api/layers/inference/clustering.ts`: 聚类算法
+2. 应用模块度优化（Louvain算法或简化版）
+3. 输出聚类结果：`Cluster[]`
+
+**核心算法**（简化版）:
+```typescript
+function clusterByDependencyPattern(matrix: DependencyMatrix): Cluster[] {
+  // 发现模式：
+  // - 某组文件被很多其他文件import → "Foundation层候选"
+  // - 某组文件import很多外部依赖 → "API层候选"
+  // - 某组文件几乎没有被import → "Entry层候选"
+  
+  const importCounts = calculateImportCounts(matrix);
+  const clusters: Cluster[] = [];
+  
+  // 按import模式分类
+  for (const [fileId, counts] of importCounts) {
+    if (counts.importedBy > thresholdHigh) {
+      clusters.push({ role: 'foundation', files: [fileId] });
+    } else if (counts.importsExternal > thresholdHigh) {
+      clusters.push({ role: 'api', files: [fileId] });
+    }
+    // ...
+  }
+  
+  return mergeSimilarClusters(clusters);
+}
+```
+
+**Acceptance Criteria**:
+- [ ] 非标准结构 → 输出"发现层级"（confidence 0.5-0.7）
+- [ ] 聚类结果有语义role标注
+
+---
+
+#### Change: cg-layer-role-inference (P1-3)
+
+| Attribute | Content |
+|-----------|---------|
+| **ID** | `cg-layer-role-inference` |
+| **Phase** | Phase 2 - 深度重构 |
+| **Priority** | P1 Core Innovation |
+| **Core Objective** | 基于依赖模式推断聚类角色 |
+| **Estimated Work** | 2h |
+
+**Implementation Scope**:
+1. `api/layers/inference/role-inference.ts`: 角色推断逻辑
+2. 定义角色模式：Foundation/API/Entry/Core/Shared
+
+**角色模式定义**:
+```typescript
+const ROLE_PATTERNS = {
+  foundation: { importedByHigh: true, importsLow: true },  // 被大量依赖，依赖少
+  api: { importsExternalHigh: true },                      // 依赖外部多
+  entry: { importedByLow: true, importsHigh: true },       // 被依赖少，依赖多
+  core: { importedByMedium: true, importsMedium: true },   // 中等双向
+  shared: { importedByHigh: true, importsFromMultiple: true }, // 被多处依赖
+};
+```
+
+**Acceptance Criteria**:
+- [ ] 每个聚类有推断role
+- [ ] 角色推断有置信度标注
+
+---
+
+#### P2 Enhancement: 继承原有定义
+
+以下Change保持原有定义，但**依赖关系更新**：
+
+| Change | 原定义 | 新依赖 |
+|--------|--------|--------|
+| c17-cycle-detection | 循环依赖检测（7h） | Phase 1完成后 |
+| cg-directory-scope | 目录级scope（4h） | Phase 1完成后 |
+| cg-path-resolution | 智能路径（2h） | Phase 1完成后 |
+| cg-type-complexity | 类型复杂度（2h） | 独立 |
+
+---
+
+### F.6 依赖关系图（重新设计）
+
+```mermaid
+graph TD
+    subgraph Phase1[Phase 1: 修复现有Bug 2.5h]
+        A[cg-git-upward-search 1h]
+        B[cg-layers-cli-integration 0.5h]
+        C[cg-empty-result-fallback 1h]
+        A --> B
+        B --> C
+    end
+    
+    subgraph Verification[验证节点]
+        D[Round5 E2E 0.5h]
+        C --> D
+        D --> E{Round5 Pass?}
+        E -->|Yes| F[Release v0.3.0]
+        E -->|No| G[Debug & Fix]
+        G --> D
+    end
+    
+    subgraph Phase2[Phase 2: 深度重构 7h]
+        H[cg-dependency-matrix 2h]
+        I[cg-modularity-clustering 3h]
+        J[cg-layer-role-inference 2h]
+        H --> I
+        I --> J
+    end
+    
+    F --> H
+    
+    subgraph Phase3[Phase 3: P1/P2 Enhancements]
+        K[c17-cycle-detection 7h]
+        L[cg-directory-scope 4h]
+        M[cg-path-resolution 2h]
+        N[cg-type-complexity 2h]
+        J --> K
+        F --> L
+        M --> L
+        F --> M
+        F --> N
+    end
+```
+
+---
+
+### F.7 工时汇总（重新规划）
+
+| Phase | Change | Work | Dependencies |
+|-------|--------|------|--------------|
+| **Phase 1** | cg-git-upward-search | 1h | None |
+| **Phase 1** | cg-layers-cli-integration | 0.5h | cg-git-upward-search |
+| **Phase 1** | cg-empty-result-fallback | 1h | cg-layers-cli-integration |
+| **Phase 1** | Round5 E2E | 0.5h | Phase 1 complete |
+| **Phase 1 Total** | | **3h** | |
+| **Phase 2** | cg-dependency-matrix | 2h | Phase 1 |
+| **Phase 2** | cg-modularity-clustering | 3h | cg-dependency-matrix |
+| **Phase 2** | cg-layer-role-inference | 2h | cg-modularity-clustering |
+| **Phase 2 Total** | | **7h** | |
+| **Phase 3** | c17-cycle-detection | 7h | Phase 2 |
+| **Phase 3** | cg-directory-scope | 4h | Phase 1 |
+| **Phase 3** | cg-path-resolution | 2h | Phase 1 |
+| **Phase 3** | cg-type-complexity | 2h | None |
+| **Phase 3 Total** | | **15h** | |
+| **Grand Total** | | **25h** | |
+
+---
+
+### F.8 执行策略
+
+#### 策略选择：两条路径
+
+| Path | Scope | Work | Release Timing |
+|------|-------|------|---------------|
+| **快速修复路径** | Phase 1 only | 3h | v0.3.0（标准结构可用） |
+| **完整重构路径** | Phase 1 + Phase 2 | 10h | v0.4.0（智能语义检测） |
+
+#### 推荐执行顺序
+
+**Immediate（本周）**:
+```
+1. cg-git-upward-search (1h) → 向上搜索.git
+2. cg-layers-cli-integration (0.5h) → layers.ts集成
+3. cg-empty-result-fallback (1h) → fallback情报输出
+4. Round5 E2E (0.5h) → 验证标准结构场景
+5. Release v0.3.0 → 如果Round5通过
+```
+
+**Next Iteration（下周）**:
+```
+6. cg-dependency-matrix (2h) → 依赖矩阵构建
+7. cg-modularity-clustering (3h) → 聚类算法
+8. cg-layer-role-inference (2h) → 角色推断
+9. Round6 E2E → 验证非标准结构场景
+10. Release v0.4.0 → 智能语义检测
+```
+
+**Future（后续迭代）**:
+```
+11. c17-cycle-detection (7h) → 循环依赖警告
+12. cg-type-complexity (2h) → 类型复杂度
+13. cg-path-resolution (2h) → 智能路径
+14. cg-directory-scope (4h) → 目录级scope
+```
+
+---
+
+### F.9 验收标准（分层定义）
+
+#### Phase 1 验收（标准结构）
+
+| 场景 | 输入 | 预期输出 | Confidence |
+|------|------|----------|------------|
+| 项目根运行 | `layers` | 7层架构 | 0.8+ |
+| 子目录运行 | `cd packages/codegraph && layers` | 7层架构 | 0.8+ |
+| 非标准结构 | `layers` | topology情报 | 0.3 |
+
+#### Phase 2 验收（非标准结构）
+
+| 场景 | 输入 | 预期输出 | Confidence |
+|------|------|----------|------------|
+| 混乱目录结构 | `layers` | 发现层级 + role | 0.5-0.7 |
+| 无src目录 | `layers` | 聚类结果 + warning | 0.5-0.7 |
+| 单一目录 | `layers` | fallback topology | 0.3 |
+
+#### 最终目标（v0.4.0）
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    M1验收标准 (完整版 v3)                     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ✅ Phase 1 目标:                                            │
+│  ├─ Git向上搜索（从任意子目录运行）                            │
+│  ├─ CLI集成（layers/update使用resolveSourceRoot）            │
+│  ├─ Fallback情报（空结果→topology输出）                        │
+│  └─ Round5 ≥ 9.0/10（标准结构场景）                           │
+│                                                             │
+│  ✅ Phase 2 目标:                                            │
+│  ├─ 语义聚类（基于imports关系发现层级）                        │
+│  ├─ 角色推断（Foundation/API/Entry/Core）                     │
+│  ├─ 置信度标注（高→中→低分层）                                 │
+│  └─ Round6 ≥ 8.5/10（非标准结构场景）                         │
+│                                                             │
+│  📊 智能检测哲学:                                             │
+│  ├─ 标准结构 → 精确层级 (confidence 0.9)                      │
+│  ├─ 混乱结构 → 发现层级 (confidence 0.6)                      │
+│  ├─ 极端混乱 → topology情报 (confidence 0.3)                  │
+│  └─ 永不返回空结果 (confidence 0, 零价值)                     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### F.10 设计哲学总结
+
+| 从 | 到 |
+|----|----|
+| **假设驱动** | **证据驱动** |
+| "必须有src目录" | "不管目录叫什么，代码关系定义层级" |
+| 假设断裂→失败 | 证据不足→降级输出，总有价值 |
+| 单一置信度阈值 | 三层fallback，渐进置信度 |
+
+**核心原则**：
+> **"总有输出，总有价值"** — 即使置信度低，也提供情报而非空白
+
+---
+
+### F.11 参考资料
+
+| Document | Path |
+|----------|------|
+| E2E Round4 Report | `docs/e2e-report/codegraph-e2e-experience-report-round4.md` |
+| Layers E2E Report | `docs/e2e/e2e-report-cg-layers.md` |
+| Test Results | `docs/e2e/test-results.json` |
+| P0/P1/P2 Analysis | Background agent task outputs |
+
+---
+
+**文档版本**: v3.0 (深度思考整合，重新设计Change体系)  
+**创建日期**: 2026-05-08  
+**最后更新**: 2026-05-08 Phase分层规划完成
